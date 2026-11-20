@@ -359,9 +359,9 @@ function statusRing(entity: EntityInfo, live: LiveInfo | undefined): HTMLElement
         if (t) r.append(h('span', { class: `ring-arrow ${t.up ? 'up' : 'down'}`, 'aria-hidden': 'true' }, t.up ? '▲' : '▼'));
         return r;
       }
-    case 'down': return ring('bad', 1, h('div', { class: 'ring-in' }, icon('warn', 22)));
+    case 'down': return h('div', { class: 'ring bare bad', 'aria-label': 'Storing' }, h('div', { class: 'ring-in bang' }, '!'));
     case 'closed': return ring('', null, h('div', { class: 'ring-in' }, icon('moon', 20)));
-    case 'refurbishment': return ring('', null, h('div', { class: 'ring-in' }, icon('wrench', 20)));
+    case 'refurbishment': return h('div', { class: 'ring bare off', 'aria-label': 'Onderhoud' }, h('div', { class: 'ring-in' }, icon('wrench', 34)));
     default: return ring('', null, txt('–'));
   }
 }

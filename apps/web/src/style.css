@@ -343,3 +343,10 @@ main { padding: 2px 0 12px; }
 
 .icon-btn.refresh.spin svg { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Storing en onderhoud zonder ring: alleen het teken */
+.ring.bare.bad { color: var(--bad); }
+.ring.bare.off { color: var(--muted); }
+.ring-in.bang { font: 800 46px/1 var(--rounded); }
+.big .ring-in.bang { font-size: 68px; }
+.big .ring.bare .ico { width: 52px; height: 52px; }
