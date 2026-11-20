@@ -1,0 +1,79 @@
+// Gedeelde types tussen Worker en app. Geen runtime-afhankelijkheden.
+
+export type EntityType = 'attraction' | 'show';
+export type LiveStatus = 'open' | 'closed' | 'down' | 'refurbishment' | 'unknown';
+export type SortMode = 'distance' | 'wait' | 'name';
+
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+export interface ParkInfo {
+  id: string; // eigen, stabiel ID (bijv. "dlp-disneyland"), niet het ThemeParks.wiki-ID
+  name: string;
+  timezone: string;
+  center: LatLng;
+  available: boolean; // false als het park (nog) niet in ThemeParks.wiki gevonden is
+}
+
+export interface EntityInfo {
+  id: string;
+  type: EntityType;
+  name: string;
+  location: LatLng | null;
+}
+
+export interface EntitiesResponse {
+  parkId: string;
+  generatedAt: string;
+  entities: EntityInfo[];
+}
+
+export interface Showtime {
+  start: string; // ISO 8601 met tijdzone-offset
+  end: string | null;
+}
+
+export interface LiveInfo {
+  id: string;
+  status: LiveStatus;
+  waitMinutes: number | null;
+  showtimes: Showtime[];
+  updatedAt: string | null; // tijdstip waarop de bron dit item voor het laatst bijwerkte
+}
+
+export interface LiveResponse {
+  parkId: string;
+  generatedAt: string; // wanneer onze Worker de bron heeft opgehaald
+  sourceUpdatedAt: string | null; // meest recente update in de bron
+  live: LiveInfo[];
+}
+
+export interface FavoriteDto {
+  parkId: string;
+  entityId: string;
+  type: EntityType;
+}
+
+export interface PreferencesDto {
+  sort: SortMode;
+  arrivalMarginMin: number; // hoeveel minuten voor aanvang je bij een show wilt zijn
+  walkingSpeedKmh: number;
+}
+
+export const DEFAULT_PREFERENCES: PreferencesDto = {
+  sort: 'wait',
+  arrivalMarginMin: 15,
+  walkingSpeedKmh: 4.5,
+};
+
+/** Wat de app lokaal bewaart om zich bij de Worker te identificeren. */
+export interface Credentials {
+  deviceId: string;
+  token: string;
+}
+
+export interface RedeemResponse extends Credentials {
+  favoriteCount: number;
+}

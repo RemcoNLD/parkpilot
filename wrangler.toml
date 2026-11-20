@@ -1,0 +1,19 @@
+name = "parkpilot"
+main = "worker/src/index.ts"
+compatibility_date = "2025-09-01"
+
+# De Worker draait alleen voor /api/*; al het andere komt rechtstreeks uit de statische app.
+[assets]
+directory = "./apps/web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "parkpilot"
+database_id = "VERVANG-MET-JE-DATABASE-ID"   # uit: npx wrangler d1 create parkpilot
+migrations_dir = "worker/migrations"
+
+[observability]
+enabled = true
