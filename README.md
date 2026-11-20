@@ -111,3 +111,6 @@ Een korte code is makkelijk te raden (10 pogingen per uur per IP); het lijstje b
 - Linker tegel in de kop: open / storing / onderhoud; tik voor de storingspagina met duur per attractie.
 - De storingstegel knippert als er sinds je laatste bezoek aan de storingspagina iets nieuws is (per park onthouden op je toestel).
 - Offline: service worker (apps/web/public/sw.js) bewaart de app zelf; laatst opgehaalde gegevens staan in localStorage met de leeftijd erbij (rood als ze niet vers zijn).
+- Grafiek: storingen als lichtrode zone met gestippelde rode lijn; onder de grafiek het aantal keer en de totale duur.
+- Verversen: knop ↻ in beide koppen forceert een verse opvraag bij de bron (cache wordt overgeslagen, hooguit 1x per 10 s per park). Mijn programma ververst automatisch elke 30 s, het Overzicht elke minuut.
+- Kosten: alleen de cron schrijft wijzigingen naar D1 (de live-route is alleen lezen); app ververst zuinig (programma 1 min, overzicht 2 min, openingstijden per kwartier, favorieten per 5 min).

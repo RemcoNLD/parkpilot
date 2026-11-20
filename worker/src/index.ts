@@ -15,7 +15,7 @@ import { PARKS, findPark } from './parks';
 import { generateRecoveryCode, hashRecoveryCode, normalizeRecoveryCode } from './recovery';
 import { UpstreamError, getEntities, getLive, getSchedule, resolveParkIds } from './themeparks';
 import { buildShowDay } from './shows';
-import { getTrackingMode, loadStates, runStatements, setTrackingMode, track, trackAll, trackingActive } from './tracker';
+import { getTrackingMode, loadStates, setTrackingMode, track, trackAll, trackingActive } from './tracker';
 import { addDays, errorJson, json, localDateStr, nowSec, startOfLocalDaySec } from './util';
 import { APP_VERSION } from '../../packages/shared/src/version';
 
@@ -62,13 +62,13 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
         : errorJson(502, 'park_not_found_upstream');
     }
     if (c === 'live') {
-      const raw = await getLive(park);
+      const force = url.searchParams.get('fresh') === '1';
+      const raw = await getLive(park, force);
       if (!raw) return errorJson(502, 'park_not_found_upstream');
       const states = await loadStates(env, park.id).catch(() => new Map());
-      const { live, statements } = track(env, park.id, raw, states);
-      const mode = statements.length ? await getTrackingMode(env) : 'off';
-      if (statements.length && (await trackingActive(park, mode))) ctx.waitUntil(runStatements(env, statements).catch((e) => console.error(e)));
-      return json(live, 200, { 'cache-control': 'public, max-age=20' });
+      // Alleen lezen: het wegschrijven van wijzigingen doet de cron (elke 5 min). Dat bespaart schrijfacties in D1.
+      const { live } = track(env, park.id, raw, states);
+      return json(live, 200, { 'cache-control': force ? 'no-store' : 'public, max-age=20' });
     }
     if (c === 'shows') {
       const date = url.searchParams.get('date') ?? '';

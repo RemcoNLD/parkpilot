@@ -30,10 +30,10 @@ interface Upstream<T> {
 }
 
 /** Haalt JSON op via de Cloudflare-cache, zodat we de gratis API niet onnodig belasten. */
-async function upstream<T>(path: string, ttl: number): Promise<Upstream<T>> {
+async function upstream<T>(path: string, ttl: number, fresh = false): Promise<Upstream<T>> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { accept: 'application/json', 'user-agent': 'ParkPilot/0.1 (persoonlijk project)' },
-    cf: { cacheTtl: ttl, cacheEverything: true },
+    headers: { accept: 'application/json', 'user-agent': 'ParkPilot/0.1 (persoonlijk project)', ...(fresh ? { 'cache-control': 'no-cache' } : {}) },
+    cf: fresh ? { cacheTtl: 0 } : { cacheTtl: ttl, cacheEverything: true },
   });
   if (!res.ok) throw new UpstreamError(res.status, path);
   const age = Number(res.headers.get('age') ?? 0);
@@ -135,10 +135,15 @@ const STATUS: Record<string, LiveStatus> = {
   REFURBISHMENT: 'refurbishment',
 };
 
-export async function getLive(cfg: ParkConfig): Promise<LiveResponse | null> {
+const lastFresh = new Map<string, number>();
+const MIN_FRESH_GAP_MS = 10_000; // geforceerd verversen hooguit eens per 10 seconden per park, om de gratis API te sparen
+
+export async function getLive(cfg: ParkConfig, force = false): Promise<LiveResponse | null> {
   const id = await upstreamId(cfg);
   if (!id) return null;
-  const { data, ageSeconds } = await upstream<{ liveData?: RawLive[] }>(`/entity/${id}/live`, TTL_LIVE);
+  const fresh = force && Date.now() - (lastFresh.get(cfg.id) ?? 0) >= MIN_FRESH_GAP_MS;
+  if (fresh) lastFresh.set(cfg.id, Date.now());
+  const { data, ageSeconds } = await upstream<{ liveData?: RawLive[] }>(`/entity/${id}/live`, TTL_LIVE, fresh);
 
   const live: LiveInfo[] = [];
   let newest: number | null = null;

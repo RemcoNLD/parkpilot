@@ -338,3 +338,8 @@ main { padding: 2px 0 12px; }
 
 .snums { margin-top: 6px; }
 .stat .snum b { font-size: 36px; }
+
+.chart-note.outage { color: var(--high); font-weight: 600; }
+
+.icon-btn.refresh.spin svg { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

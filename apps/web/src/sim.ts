@@ -49,11 +49,16 @@ export function simulateHistory(entityId: string, now = Date.now()): HistoryResp
   const bucket = Math.floor(now / 300_000);
   const start = bucket - 36; // 3 uur terug
   const rows: HistoryResponse['rows'] = [];
-  let prev: number | null = null;
+  // Voor een deel van de attracties een of twee verzonnen storingen, om de weergave te testen.
+  const flaky = hash(entityId + 'd') % 3 === 0;
+  const isDown = (b: number): boolean => flaky && ((b >= start + 8 && b <= start + 13) || (b >= start + 24 && b <= start + 26));
+  let prev = '';
   for (let b = start; b <= bucket; b++) {
-    const w = waitAt(entityId, b);
-    if (w !== prev) rows.push({ at: new Date(b * 300_000 + (hash(entityId + b) % 240) * 1000).toISOString(), wait: w, status: 'open' });
-    prev = w;
+    const down = isDown(b);
+    const w = down ? null : waitAt(entityId, b);
+    const key = down ? 'down' : String(w);
+    if (key !== prev) rows.push({ at: new Date(b * 300_000 + (hash(entityId + b) % 240) * 1000).toISOString(), wait: w, status: down ? 'down' : 'open' });
+    prev = key;
   }
   return { entityId, from: new Date(start * 300_000).toISOString(), rows };
 }

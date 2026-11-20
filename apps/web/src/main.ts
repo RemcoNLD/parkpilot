@@ -91,6 +91,7 @@ const state = {
   hist: new Map<string, { at: number; data: HistoryResponse | 'loading' | 'error' }>(),
   view: 'plan' as View, // bij opstarten: Mijn programma, tenzij dat leeg is (zie loadPark)
   viewDecided: false,
+  refreshing: false,
   density: (store.get('pp.density') === 'comfortable' ? 'comfortable' : 'compact') as Density,
   pos: loadPos(),
   loc: 'idle' as LocStatus,
@@ -430,6 +431,10 @@ function renderRow(entity: EntityInfo): HTMLElement {
     const later = upcomingStarts(live).slice(1, 4);
     if (later.length) extra.push(`daarna ${later.map((t) => clock(t, tz())).join(', ')}`);
   }
+  if (live && entity.type === 'attraction' && parkStatus().open !== false) {
+    const label = { down: 'storing', refurbishment: 'onderhoud', closed: 'tijdelijk dicht' }[live.status as 'down' | 'refurbishment' | 'closed'];
+    if (label) extra.unshift(label);
+  }
   if (live?.singleRider && entity.type === 'attraction') extra.push('single rider');
   const d = distanceOf(entity, state.pos);
   if (d !== null) extra.push(`${formatDistance(d)}, ${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`);
@@ -629,6 +634,7 @@ function planHeader(): HTMLElement {
   return h('header', { class: 'phead' },
     h('button', { class: 'pback', onclick: () => setView('full') }, '‹ Overzicht'),
     h('div', { class: 'ploc' }, h('b', {}, currentPark()?.shortName ?? ''), near ? ` · bij ${near}` : ''),
+    refreshButton(),
     h('button', { class: 'icon-btn', 'aria-label': 'Instellingen', onclick: openSettings }, icon('gear', 20)));
 }
 
@@ -728,6 +734,7 @@ function render(): void {
       h('div', { class: 'hero-top' },
         h('div', { class: 'brand' }, 'ParkPilot', h('span', { class: 'ver' }, `v${APP_VERSION}`)),
         h('div', { class: 'top-actions' },
+          refreshButton(),
           h('button', { class: 'icon-btn aa', 'aria-label': state.density === 'compact' ? 'Grotere tekst' : 'Compacte tekst', onclick: () => setDensity(state.density === 'compact' ? 'comfortable' : 'compact') }, 'Aa'),
           h('button', { class: 'icon-btn', 'aria-label': dark ? 'Schakel naar licht thema' : 'Schakel naar donker thema', onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', 22)),
           h('button', { class: 'icon-btn', 'aria-label': 'Instellingen', onclick: openSettings }, icon('gear', 22)))),
@@ -830,7 +837,7 @@ function levelColor(row: { open: boolean; y: number }): string {
 /** Dagverloop: elke trede is gekleurd naar de wachttijd (groen is kort, rood is lang). */
 function sparkline(data: HistoryResponse, now: number): Node {
   const W = 300, H = 88, PAD = 6;
-  const rows = data.rows.map((r) => ({ t: Math.max(Date.parse(data.from), Date.parse(r.at)), open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
+  const rows = data.rows.map((r) => ({ t: Math.max(Date.parse(data.from), Date.parse(r.at)), down: r.status === 'down', open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
   if (rows.length < 2) return h('div', { class: 'chart-note' }, 'Het verloop van vandaag wordt opgebouwd zodra ParkPilot wijzigingen ziet. Kom later terug.');
   const from = rows[0].t;
   const max = Math.max(60, ...rows.map((p) => p.y));
@@ -840,11 +847,29 @@ function sparkline(data: HistoryResponse, now: number): Node {
   for (const g of [20, 45]) {
     if (g < max) shapes.push(svg('path', { d: `M${PAD} ${y(g).toFixed(1)}H${W - PAD}`, stroke: 'var(--line)', 'stroke-width': 1, 'stroke-dasharray': '3 4', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   }
+  // Storingen: lichtrode zone over de hele hoogte en een gestippelde rode lijn onderin voor de duur.
+  const outages: { from: number; to: number }[] = [];
+  rows.forEach((r, i) => {
+    if (!r.down) return;
+    const to = i + 1 < rows.length ? rows[i + 1].t : now;
+    const last = outages[outages.length - 1];
+    if (last && last.to === r.t) last.to = to; else outages.push({ from: r.t, to });
+  });
+  for (const o of outages) {
+    const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
+    shapes.push(svg('rect', { x: x0.toFixed(1), y: 0, width: (x1 - x0).toFixed(1), height: H, fill: 'var(--high)', 'fill-opacity': 0.17 }));
+  }
   rows.forEach((r, i) => {
     const t1 = i + 1 < rows.length ? rows[i + 1].t : now;
     if (i > 0) shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(rows[i - 1].y).toFixed(1)}V${y(r.y).toFixed(1)}`, stroke: 'var(--muted)', 'stroke-opacity': 0.5, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
     shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(r.y).toFixed(1)}H${x(t1).toFixed(1)}`, stroke: levelColor(r), 'stroke-width': 3.5, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   });
+  for (const o of outages) {
+    const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
+    shapes.push(svg('path', { d: `M${x0.toFixed(1)} ${y(0).toFixed(1)}H${x1.toFixed(1)}`, stroke: 'var(--high)', 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-dasharray': '1 6', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+  }
+  const downMin = Math.round(outages.reduce((sum, o) => sum + (o.to - o.from), 0) / 60000);
+  const fmtMin = (min: number): string => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} u${min % 60 ? ` ${min % 60} min` : ''}`);
   const open = rows.filter((r) => r.open).map((r) => r.y);
   const ticks = [0, 20, 45, max].filter((v, i, arr) => v <= max && arr.indexOf(v) === i && (v !== 45 || max - 45 >= 8) && (v !== 20 || max >= 28));
   return h('div', {},
@@ -852,6 +877,7 @@ function sparkline(data: HistoryResponse, now: number): Node {
       svg('svg', { class: 'chart', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Verloop van de wachttijd vandaag' }, ...shapes),
       h('div', { class: 'yaxis', 'aria-hidden': 'true' }, ...ticks.map((v) => h('span', { style: `top:${((y(v) / H) * 100).toFixed(1)}%` }, String(v))))),
     h('div', { class: 'chart-axis' }, h('span', {}, clock(from, tz())), h('span', {}, 'nu')),
+    outages.length ? h('div', { class: 'chart-note outage' }, `Storing: ${outages.length === 1 ? '1 keer' : `${outages.length} keer`}, samen ${fmtMin(downMin)}. Lichtrode zone en gestippelde lijn.`) : null,
     h('div', { class: 'chart-note' }, open.length
       ? `Vandaag laagst ${Math.min(...open)}, hoogst ${Math.max(...open)}. Schaal in minuten wachttijd. Alleen wijzigingen die ParkPilot zag.`
       : 'Vandaag nog geen wachttijd gezien. Alleen wijzigingen die ParkPilot zag.'));
@@ -1020,13 +1046,37 @@ async function loadPark(): Promise<void> {
   render();
 }
 
-async function refreshLive(): Promise<void> {
+/** Handmatig verversen: slaat de cache over en vraagt de bron meteen opnieuw. Alleen de bron zelf bepaalt hoe vers de data is. */
+async function forceRefresh(): Promise<void> {
+  if (state.refreshing) return;
+  state.refreshing = true;
+  render();
+  const started = Date.now();
+  await refreshLive(true);
+  await new Promise((r) => setTimeout(r, Math.max(0, 600 - (Date.now() - started)))); // even zichtbaar draaien
+  state.refreshing = false;
+  render();
+}
+
+const refreshButton = (): HTMLElement => h('button', { class: `icon-btn refresh${state.refreshing ? ' spin' : ''}`, 'aria-label': 'Nu verversen', onclick: () => void forceRefresh() }, icon('refresh', 22));
+
+let lastSchedule = Date.now(), lastFavs = Date.now();
+
+async function refreshLive(force = false): Promise<void> {
   if (!state.parkId || state.entities.length === 0) return;
   try {
     // Favorieten worden mee ververst, zodat wijzigingen vanaf een ander apparaat met dezelfde koppelcode verschijnen.
+    // Zuinig: wachttijden bij elke ronde, openingstijden hooguit elk kwartier en de favorieten (voor andere toestellen) elke 5 minuten.
+    const now = Date.now();
+    const needSchedule = force || now - lastSchedule > 15 * 60_000;
+    const needFavs = force || now - lastFavs > 5 * 60_000;
     const [live, schedule, favs] = await Promise.all([
-      fetchLive(state.parkId), fetchSchedule(state.parkId).catch(() => null), fetchFavorites(state.parkId).catch(() => null),
+      fetchLive(state.parkId, force),
+      needSchedule ? fetchSchedule(state.parkId).catch(() => null) : Promise.resolve(null),
+      needFavs ? fetchFavorites(state.parkId).catch(() => null) : Promise.resolve(null),
     ]);
+    if (schedule) lastSchedule = now;
+    if (favs) lastFavs = now;
     state.live = new Map(live.live.map((l) => [l.id, l]));
     state.generatedAt = live.generatedAt;
     state.sourceUpdatedAt = live.sourceUpdatedAt;
@@ -1230,7 +1280,13 @@ async function boot(): Promise<void> {
 }
 
 watchSystemTheme(render);
-setInterval(() => { if (document.visibilityState === 'visible') void refreshLive(); }, 60_000);
+let tick = 0;
+// Zuinig verversen, alleen als de app zichtbaar is en er verbinding is: Mijn programma elke minuut, het Overzicht elke 2 minuten.
+setInterval(() => {
+  tick++;
+  if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+  if (tick % (state.view === 'plan' ? 2 : 4) === 0) void refreshLive();
+}, 30_000);
 setInterval(() => { if (document.visibilityState === 'visible') render(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshLive(); });
 window.addEventListener('online', () => void refreshLive());

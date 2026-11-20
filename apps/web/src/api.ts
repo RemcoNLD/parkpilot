@@ -65,7 +65,8 @@ export async function ensureProfile(): Promise<void> {
 export const fetchParks = () => request<ParkInfo[]>('/api/parks', {}, false);
 export const fetchEntities = (parkId: string) =>
   request<EntitiesResponse>(`/api/parks/${parkId}/entities`, {}, false);
-export const fetchLive = (parkId: string) => request<LiveResponse>(`/api/parks/${parkId}/live`, {}, false);
+export const fetchLive = (parkId: string, fresh = false) =>
+  request<LiveResponse>(`/api/parks/${parkId}/live${fresh ? '?fresh=1' : ''}`, fresh ? { cache: 'no-store' } : {}, false);
 export const fetchFavorites = (parkId: string) =>
   request<FavoriteDto[]>(`/api/favorites?parkId=${encodeURIComponent(parkId)}`);
 export const putFavorite = (parkId: string, entityId: string, type: EntityType) =>
