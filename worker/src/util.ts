@@ -38,3 +38,35 @@ export function startOfLocalDaySec(timeZone: string, now = Date.now()): number {
   const get = (t: string): number => Number(parts.find((p) => p.type === t)?.value ?? 0);
   return Math.floor(now / 1000) - (get('hour') * 3600 + get('minute') * 60 + get('second'));
 }
+
+/** Datum (JJJJ-MM-DD) van een moment in de tijdzone van het park. */
+export function localDateStr(timeZone: string, ms: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(ms));
+}
+
+/** Kloktijd (UU:MM) van een moment in de tijdzone van het park. */
+export function localTimeStr(timeZone: string, ms: number): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+}
+
+function tzOffsetMs(timeZone: string, at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(at);
+  const g = (t: string): number => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asUtc = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second'));
+  return asUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/** Zet een lokale datum + kloktijd in de tijdzone van het park om naar een tijdstip (ms). */
+export function zonedEpochMs(dateStr: string, hhmm: string, timeZone: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = hhmm.split(':').map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh, mm);
+  return guess - tzOffsetMs(timeZone, new Date(guess));
+}
+
+export function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}

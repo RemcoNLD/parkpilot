@@ -90,10 +90,31 @@ export interface ScheduleEntry {
   closes: string;
 }
 
+export interface ScheduleDay {
+  date: string; // JJJJ-MM-DD in de tijdzone van het park
+  entries: ScheduleEntry[];
+}
+
 export interface ScheduleResponse {
   parkId: string;
   generatedAt: string;
   today: ScheduleEntry[];
+  days: ScheduleDay[]; // vandaag en de komende dagen
+}
+
+export interface ShowSlot {
+  start: string;
+  /** "bron" = door ThemeParks.wiki gemeld, "verwacht" = afgeleid uit eerder geziene dagen en kan afwijken. */
+  source: 'bron' | 'verwacht';
+}
+
+export interface ShowDayResponse {
+  parkId: string;
+  date: string;
+  generatedAt: string;
+  opening: ScheduleEntry[];
+  expectedBasis: string | null; // uitleg waarop de verwachte tijden gebaseerd zijn
+  shows: { entityId: string; slots: ShowSlot[] }[];
 }
 
 export interface HistoryRow {

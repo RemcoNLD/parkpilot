@@ -8,9 +8,10 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
-    if (value === false || value === null || value === undefined) continue;
+    if (value === null || value === undefined) continue;
+    if (value === false) { if (key.startsWith('aria-')) el.setAttribute(key, 'false'); continue; }
     if (key.startsWith('on') && typeof value === 'function') el.addEventListener(key.slice(2), value as EventListener);
-    else if (value === true) el.setAttribute(key, '');
+    else if (value === true) el.setAttribute(key, key.startsWith('aria-') ? 'true' : '');
     else el.setAttribute(key, String(value));
   }
   for (const child of children) {

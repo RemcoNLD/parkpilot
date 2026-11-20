@@ -3,7 +3,7 @@
 Mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
 Stack: Vite + TypeScript, één Cloudflare Worker (API + statische app), Cloudflare D1, live data van ThemeParks.wiki.
 
-Status: **v0.3.0** (fase 1) (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
+Status: **v0.4.0** (fase 1) (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
 service worker/installatie-offline, showplanning en pushmeldingen.
 
 ## Online zetten zonder terminal
@@ -90,3 +90,11 @@ Een korte code is makkelijk te raden (10 pogingen per uur per IP); het lijstje b
   (groen tot 10 min, oranje tot 30, rood daarboven).
 - "Gewijzigd X min geleden", de pijl (rood = langer, groen = korter) en het dagverloop komen uit
   de eigen meting (zie Wachttijdhistorie).
+
+
+## Wat er in v0.4.0 is veranderd
+- Start standaard op Disney Adventure World. Kies je zelf een ander park, dan onthoudt de app dat (alleen een handmatige keuze wordt bewaard).
+- Omschrijvingen staan alleen nog in het detailvenster (rijker, met minimale lengte waar die bevestigd is). De lijst blijft schoon.
+- Park dicht: wachttijden worden niet meer als live getoond; de kop zegt wanneer het park weer opent.
+- Shows: dagkeuze (Nu, Morgen, volgende dagen) met een programma op tijd gesorteerd. Tijden uit de bron zijn definitief. Voor dagen waarvoor de bron nog niets meldt toont de app een **verwachting** (streepjesrand) op basis van eerder geziene tijden. Daarvoor bewaart de server uurlijks de showtijden die ThemeParks.wiki meldt (migratie 0003, `show_seen`). De eerste dagen na installatie is er dus nog weinig te verwachten.
+- Fixes: actieve knoppen (tabs, parken, chips, hartjes) werden niet gemarkeerd; er verscheen soms de tekst "null"; breedte op desktop beperkt; tekst in de ring bij shows zonder tijden.

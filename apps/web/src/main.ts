@@ -7,13 +7,15 @@ import {
   type LiveInfo,
   type ParkInfo,
   type PreferencesDto,
+  type ScheduleDay,
   type ScheduleEntry,
+  type ShowDayResponse,
   type SortMode,
 } from '../../../packages/shared/src/index';
 import { APP_VERSION } from '../../../packages/shared/src/version';
 import {
   ApiError, createRecoveryCode, deleteFavorite, ensureProfile, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday,
-  fetchLive, fetchParks, fetchPreferences, fetchSchedule, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
+  fetchLive, fetchParks, fetchPreferences, fetchSchedule, fetchShowDay, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
 } from './api';
 import { parkArt } from './art';
 import { h, svg } from './dom';
@@ -29,6 +31,8 @@ import { applyTheme, effectiveTheme, getPref, setPref, watchSystemTheme, type Th
 type Tab = 'attractions' | 'shows' | 'favorites';
 type LocStatus = 'idle' | 'asking' | 'ok' | 'denied' | 'error';
 const POS_KEY = 'pp.pos';
+const DEFAULT_PARK = 'dlp-studios'; // Disney Adventure World, tenzij de gebruiker zelf een ander park koos
+
 
 function loadPos(): LatLng | null {
   try {
@@ -39,10 +43,13 @@ function loadPos(): LatLng | null {
 
 const state = {
   parks: [] as ParkInfo[],
-  parkId: localStorage.getItem('pp.park') ?? '',
+  parkId: localStorage.getItem('pp.park') ?? DEFAULT_PARK,
   entities: [] as EntityInfo[],
   live: new Map<string, LiveInfo>(),
   schedule: [] as ScheduleEntry[],
+  scheduleDays: [] as ScheduleDay[],
+  showDay: null as string | null, // null = nu / vandaag, anders een datum JJJJ-MM-DD
+  dayData: new Map<string, ShowDayResponse | 'loading' | 'error'>(),
   generatedAt: null as string | null,
   sourceUpdatedAt: null as string | null,
   favorites: new Set<string>(),
@@ -92,19 +99,40 @@ async function refreshPositionQuietly(): Promise<void> {
 
 // ---- Afgeleide gegevens ----------------------------------------------------------------------
 
+const todayStr = (): string => new Intl.DateTimeFormat('en-CA', { timeZone: tz() }).format(new Date());
+const addDaysStr = (d: string, n: number): string => {
+  const [y, mo, da] = d.split('-').map(Number);
+  return new Date(Date.UTC(y, mo - 1, da + n)).toISOString().slice(0, 10);
+};
+
 function parkStatus(now = Date.now()): { open: boolean | null; text: string } {
   const entries = state.schedule.filter((s) => s.type === 'OPERATING');
-  if (!state.schedule.length) return { open: null, text: 'Openingstijden onbekend' };
+  if (!state.schedule.length && !state.scheduleDays.length) return { open: null, text: 'Openingstijden onbekend' };
   const list = entries.length ? entries : state.schedule;
   const cur = list.find((s) => Date.parse(s.opens) <= now && now < Date.parse(s.closes));
   if (cur) return { open: true, text: `Open tot ${clock(cur.closes, tz())}` };
   const next = list.find((s) => Date.parse(s.opens) > now);
   if (next) return { open: false, text: `Gesloten, opent om ${clock(next.opens, tz())}` };
-  return { open: false, text: 'Vandaag gesloten' };
+  const today = todayStr();
+  const closedAt = list.length ? clock(list[list.length - 1].closes, tz()) : null;
+  const upcoming = state.scheduleDays.find((d) => d.date > today && d.entries.length);
+  const first = upcoming?.entries.filter((s) => s.type === 'OPERATING')[0] ?? upcoming?.entries[0];
+  const when = upcoming && first
+    ? `opent ${upcoming.date === addDaysStr(today, 1) ? 'morgen' : dayLabel(upcoming.date).toLowerCase()} om ${clock(first.opens, tz())}`
+    : null;
+  const head = closedAt ? `Gesloten sinds ${closedAt}` : 'Vandaag gesloten';
+  return { open: false, text: when ? `${head}, ${when}` : head };
+}
+
+function dayLabel(date: string): string {
+  if (date === todayStr()) return 'Vandaag';
+  if (date === addDaysStr(todayStr(), 1)) return 'Morgen';
+  return new Intl.DateTimeFormat('nl-NL', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 }
 
 function parkStats(): { openCount: number; avg: number | null; short: { name: string; min: number } | null } {
   let openCount = 0, sum = 0, n = 0;
+  if (parkStatus().open === false) return { openCount: 0, avg: null, short: null };
   let short: { name: string; min: number } | null = null;
   for (const e of state.entities) {
     if (e.type !== 'attraction') continue;
@@ -204,10 +232,12 @@ function statusRing(entity: EntityInfo, live: LiveInfo | undefined): HTMLElement
     const next = nextStartMs(live);
     return next !== null
       ? ring('time', 1, h('div', { class: 'ring-in clock' }, clock(next, tz())))
-      : ring('', null, txt('geen meer'));
+      : ring('', null, txt('–'));
   }
+  const parkClosed = parkStatus().open === false;
   switch (live.status) {
     case 'open':
+      if (parkClosed) return ring('stale', null, h('div', { class: 'ring-in' }, icon('moon', 20)));
       if (live.waitMinutes === null) return ring('', 1, txt('open'));
       {
         const r = ring(waitLevel(live.waitMinutes), Math.min(live.waitMinutes, 90) / 90, h('div', { class: 'ring-in' }, String(live.waitMinutes), h('small', {}, 'min')));
@@ -233,8 +263,6 @@ function kindLine(entity: EntityInfo, extra: string[] = []): HTMLElement | null 
 
 function renderRow(entity: EntityInfo): HTMLElement {
   const live = state.live.get(entity.id);
-  const isFav = state.favorites.has(entity.id);
-  const blurb = blurbFor(entity.name);
   const extra: string[] = [];
   if (entity.type === 'show') {
     const later = upcomingStarts(live).slice(1, 4);
@@ -243,14 +271,13 @@ function renderRow(entity: EntityInfo): HTMLElement {
   if (live?.singleRider && entity.type === 'attraction') extra.push('single rider');
   const d = distanceOf(entity, state.pos);
   if (d !== null) extra.push(`${formatDistance(d)}, ${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`);
-  const meta = entity.type === 'attraction' ? metaLine(live) : null;
+  const meta = entity.type === 'attraction' && parkStatus().open !== false ? metaLine(live) : null;
   return h('div', { class: 'row' },
     h('button', { class: 'row-open', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
       statusRing(entity, live),
       h('div', { class: 'row-main' },
         h('div', { class: 'row-name' }, entity.name),
         kindLine(entity, extra),
-        blurb?.text ? h('div', { class: 'row-desc' }, blurb.text) : null,
         meta)),
     heartButton(entity));
 }
@@ -268,7 +295,6 @@ function heartButton(entity: EntityInfo): HTMLElement {
 function renderShowCard(entity: EntityInfo): HTMLElement {
   const live = state.live.get(entity.id);
   const next = nextStartMs(live);
-  const blurb = blurbFor(entity.name);
   const later = upcomingStarts(live).slice(1, 4);
   let whenNode: HTMLElement;
   let note: string | null = null;
@@ -285,7 +311,6 @@ function renderShowCard(entity: EntityInfo): HTMLElement {
       h('div', { class: 'showcard-main' },
         h('div', { class: 'row-name' }, entity.name),
         kindLine(entity, later.length ? [`daarna ${later.map((t) => clock(t, tz())).join(', ')}`] : []),
-        blurb?.text ? h('div', { class: 'row-desc' }, blurb.text) : null,
         note ? h('div', { class: 'row-meta' }, note) : null,
         dep ? h('div', { class: 'depart' }, icon('pin', 14), `${dep.text} (${dep.walk} min lopen)`) : null)),
     heartButton(entity));
@@ -295,12 +320,67 @@ function byNextStart(a: EntityInfo, b: EntityInfo): number {
   return (nextStartMs(state.live.get(a.id)) ?? Infinity) - (nextStartMs(state.live.get(b.id)) ?? Infinity) || a.name.localeCompare(b.name, 'nl');
 }
 
+function dayBar(): HTMLElement {
+  const today = todayStr();
+  const fromSchedule = state.scheduleDays.map((d) => d.date).filter((d) => d > today);
+  const dates = fromSchedule.length ? fromSchedule.slice(0, 5) : [1, 2, 3].map((n) => addDaysStr(today, n));
+  return h('div', { class: 'daybar', role: 'group', 'aria-label': 'Dag' },
+    h('button', { class: 'day', 'aria-pressed': state.showDay === null, onclick: () => selectDay(null) }, 'Nu'),
+    ...dates.map((d) => h('button', { class: 'day', 'aria-pressed': state.showDay === d, onclick: () => selectDay(d) }, dayLabel(d))));
+}
+
+function selectDay(date: string | null): void {
+  state.showDay = date;
+  render();
+  if (date) void loadShowDay(date);
+}
+
+async function loadShowDay(date: string): Promise<void> {
+  const key = `${state.parkId}:${date}`;
+  const cur = state.dayData.get(key);
+  if (cur && cur !== 'error') return;
+  state.dayData.set(key, 'loading');
+  try { state.dayData.set(key, await fetchShowDay(state.parkId, date)); }
+  catch { state.dayData.set(key, 'error'); }
+  render();
+}
+
+function programmeNodes(date: string): Node[] {
+  const data = state.dayData.get(`${state.parkId}:${date}`);
+  if (!data || data === 'loading') return [h('div', { class: 'empty' }, 'Programma laden…')];
+  if (data === 'error') return [h('div', { class: 'empty' }, 'Het programma is nu niet beschikbaar.', h('div', {}, h('button', { class: 'btn', onclick: () => { state.dayData.delete(`${state.parkId}:${date}`); void loadShowDay(date); render(); } }, 'Opnieuw proberen')))];
+  const byId = new Map(state.entities.map((e) => [e.id, e]));
+  const slots = data.shows.flatMap((s) => s.slots.map((slot) => ({ entity: byId.get(s.entityId), slot }))).filter((x): x is { entity: EntityInfo; slot: (typeof data.shows)[number]['slots'][number] } => !!x.entity)
+    .sort((a, b) => Date.parse(a.slot.start) - Date.parse(b.slot.start) || a.entity.name.localeCompare(b.entity.name, 'nl'));
+  const out: Node[] = [];
+  const open = data.opening.filter((o) => o.type === 'OPERATING')[0] ?? data.opening[0];
+  const guessed = slots.some((x) => x.slot.source === 'verwacht');
+  out.push(h('div', { class: 'prog-note' },
+    `${dayLabel(date)}${open ? `, park open ${clock(open.opens, tz())} tot ${clock(open.closes, tz())}` : ''}.`,
+    guessed ? ` Tijden met een streepjesrand zijn een verwachting op basis van ${data.expectedBasis ?? 'eerdere dagen'}. ThemeParks.wiki meldt voor deze dag nog geen definitieve tijden, dus ze kunnen afwijken.` : ''));
+  if (!slots.length) {
+    out.push(h('div', { class: 'empty' }, 'Voor deze dag zijn nog geen showtijden bekend. ParkPilot onthoudt de tijden die het ziet en kan er daarna een verwachting van maken.'));
+    return out;
+  }
+  for (const { entity, slot } of slots) {
+    const t = Date.parse(slot.start);
+    out.push(h('div', { class: `slot${state.favorites.has(entity.id) ? ' fav' : ''}${slot.source === 'verwacht' ? ' guess' : ''}` },
+      h('button', { class: 'slot-open', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
+        h('div', { class: 'slot-time' }, clock(t, tz())),
+        h('div', { class: 'row-main' }, h('div', { class: 'row-name' }, entity.name), kindLine(entity, slot.source === 'verwacht' ? ['verwacht'] : []))),
+      heartButton(entity)));
+  }
+  return out;
+}
+
 function listNodes(): Node[] {
   const ctx = { sort: state.prefs.sort, live: state.live, pos: state.pos };
   const openOk = (e: EntityInfo): boolean => !state.onlyOpen || e.type !== 'attraction' || state.live.get(e.id)?.status === 'open';
   const out: Node[] = [];
   if (state.tab === 'attractions') {
     for (const e of sortEntities(state.entities.filter((x) => x.type === 'attraction' && openOk(x)), ctx)) out.push(renderRow(e));
+  } else if (state.tab === 'shows' && state.showDay) {
+    out.push(...programmeNodes(state.showDay));
   } else if (state.tab === 'shows') {
     const shows = state.entities.filter((x) => x.type === 'show');
     for (const e of shows.filter((x) => state.favorites.has(x.id)).sort(byNextStart)) out.push(renderShowCard(e));
@@ -361,6 +441,8 @@ function render(): void {
   const sortLabels: [SortMode, string][] = [['wait', state.tab === 'shows' ? 'Starttijd' : 'Wachttijd'], ['distance', 'Afstand'], ['name', 'Naam']];
   const dark = effectiveTheme() === 'dark';
   const scrollTop = window.scrollY;
+  const closedNote = status.open === false && state.tab !== 'shows' && state.entities.length
+    ? h('div', { class: 'closed-note' }, 'Het park is nu dicht. Er zijn geen actuele wachttijden.') : null;
   root.replaceChildren(
     h('header', { class: 'hero' },
       h('div', { class: 'hero-top' },
@@ -387,13 +469,14 @@ function render(): void {
         h('button', { 'aria-pressed': state.tab === 'attractions', onclick: () => setTab('attractions') }, 'Attracties'),
         h('button', { 'aria-pressed': state.tab === 'shows', onclick: () => setTab('shows') }, 'Shows'),
         h('button', { 'aria-pressed': state.tab === 'favorites', onclick: () => setTab('favorites') }, `Volgend${state.favorites.size ? ` (${state.favorites.size})` : ''}`)),
-      h('div', { class: 'chips', role: 'group', 'aria-label': 'Sorteren en filteren' },
+      state.tab === 'shows' && state.showDay ? null : h('div', { class: 'chips', role: 'group', 'aria-label': 'Sorteren en filteren' },
         ...sortLabels.map(([mode, text]) => h('button', { class: 'chip', 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, text)),
         state.tab !== 'shows'
           ? h('button', { class: 'chip divider', 'aria-pressed': state.onlyOpen, onclick: () => { state.onlyOpen = !state.onlyOpen; render(); } }, 'Alleen open')
           : null),
       h('div', { class: `fresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}`, 'aria-live': 'polite' }, freshText)),
-    locationNotice(),
+    ...[locationNotice(), state.tab === 'shows' && state.entities.length ? dayBar() : null].filter((n): n is HTMLElement => n !== null),
+    closedNote,
     h('main', {}, body),
     h('footer', { class: 'foot' },
       `ParkPilot v${APP_VERSION}${state.serverVersion && state.serverVersion !== APP_VERSION ? ` · server v${state.serverVersion}` : ''} · wachttijden via ThemeParks.wiki · niet gelieerd aan Disney`));
@@ -410,7 +493,8 @@ function setTab(tab: Tab): void { state.tab = tab; render(); }
 function switchPark(id: string): void {
   if (id === state.parkId) return;
   state.parkId = id;
-  localStorage.setItem('pp.park', id);
+  state.showDay = null;
+  try { localStorage.setItem('pp.park', id); } catch { /* geen opslag */ }
   void loadPark();
 }
 
@@ -529,7 +613,11 @@ function openDetail(entity: EntityInfo): void {
     h('div', { class: 'drawer-head' },
       h('div', {}, h('h2', {}, entity.name), kind ? h('div', { class: 'kind' }, icon(iconForKind(kind), 15), kind) : null),
       h('button', { class: 'icon-btn', 'aria-label': 'Sluiten', onclick: close }, '✕')),
-    blurb?.text ? h('p', { class: 'blurb' }, blurb.text) : null,
+    blurb ? h('div', { class: 'about' },
+      h('p', {}, blurb.text),
+      blurb.height ? h('div', { class: 'tip' }, h('b', {}, 'Minimale lengte: '), blurb.height) : null,
+      blurb.tip ? h('div', { class: 'tip' }, h('b', {}, 'Tip: '), blurb.tip) : null,
+      h('div', { class: 'tip' }, 'Omschrijving en lengte zijn door ParkPilot samengesteld. Controleer de borden bij de ingang.')) : null,
     ...bigNodes,
     facts.childNodes.length ? facts : null,
     caveat,
@@ -585,7 +673,7 @@ function loadCache(parkId: string): boolean {
 async function loadPark(): Promise<void> {
   if (!state.parkId) return;
   const parkId = state.parkId;
-  state.loading = true; state.entities = []; state.live = new Map(); state.schedule = [];
+  state.loading = true; state.entities = []; state.live = new Map(); state.schedule = []; state.scheduleDays = [];
   state.generatedAt = null; state.sourceUpdatedAt = null; state.error = null; state.fromCache = false;
   render();
   try {
@@ -600,6 +688,7 @@ async function loadPark(): Promise<void> {
     state.generatedAt = live.generatedAt;
     state.sourceUpdatedAt = live.sourceUpdatedAt;
     state.schedule = schedule?.today ?? [];
+    state.scheduleDays = schedule?.days ?? [];
     state.favorites = new Set(favs.map((f) => f.entityId));
     state.prefs = prefs;
     saveCache();
@@ -624,7 +713,7 @@ async function refreshLive(): Promise<void> {
     state.live = new Map(live.live.map((l) => [l.id, l]));
     state.generatedAt = live.generatedAt;
     state.sourceUpdatedAt = live.sourceUpdatedAt;
-    if (schedule) state.schedule = schedule.today;
+    if (schedule) { state.schedule = schedule.today; state.scheduleDays = schedule.days ?? []; }
     if (favs) state.favorites = new Set(favs.map((f) => f.entityId));
     state.error = null; state.fromCache = false;
     saveCache();
@@ -767,7 +856,9 @@ async function boot(): Promise<void> {
   }
   const usable = state.parks.filter((p) => p.available);
   if (usable.length) state.parks = usable;
-  if (!state.parks.some((p) => p.id === state.parkId)) state.parkId = state.parks[0]?.id ?? '';
+  if (!state.parks.some((p) => p.id === state.parkId)) {
+    state.parkId = state.parks.some((p) => p.id === DEFAULT_PARK) ? DEFAULT_PARK : state.parks[0]?.id ?? '';
+  }
   if (!state.parkId) { state.loading = false; state.error = 'Kan de server niet bereiken.'; render(); return; }
   await loadPark();
 }

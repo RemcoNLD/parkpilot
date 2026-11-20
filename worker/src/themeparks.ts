@@ -4,10 +4,13 @@ import type {
   LiveInfo,
   LiveResponse,
   LiveStatus,
+  ScheduleDay,
+  ScheduleEntry,
   ScheduleResponse,
   Showtime,
 } from '../../packages/shared/src/index';
 import { PARKS, type ParkConfig } from './parks';
+import { localDateStr } from './util';
 
 const BASE = 'https://api.themeparks.wiki/v1';
 
@@ -178,13 +181,22 @@ export async function getSchedule(cfg: ParkConfig): Promise<ScheduleResponse | n
   const id = await upstreamId(cfg);
   if (!id) return null;
   const { data, ageSeconds } = await upstream<RawSchedule>(`/entity/${id}/schedule`, 1800);
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: cfg.timezone }).format(new Date());
+  const todayStr = localDateStr(cfg.timezone, Date.now());
+  const byDate = new Map<string, ScheduleEntry[]>();
+  for (const s of data.schedule ?? []) {
+    if (!s.date || !s.openingTime || !s.closingTime || s.date < todayStr) continue;
+    const list = byDate.get(s.date) ?? [];
+    list.push({ type: s.type ?? 'OPERATING', opens: s.openingTime, closes: s.closingTime });
+    byDate.set(s.date, list);
+  }
+  const days: ScheduleDay[] = [...byDate.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(0, 8)
+    .map(([date, entries]) => ({ date, entries: entries.sort((a, b) => Date.parse(a.opens) - Date.parse(b.opens)) }));
   return {
     parkId: cfg.id,
     generatedAt: new Date(Date.now() - ageSeconds * 1000).toISOString(),
-    today: (data.schedule ?? [])
-      .filter((s) => s.date === today && s.openingTime && s.closingTime)
-      .map((s) => ({ type: s.type ?? 'OPERATING', opens: s.openingTime as string, closes: s.closingTime as string }))
-      .sort((a, b) => Date.parse(a.opens) - Date.parse(b.opens)),
+    today: byDate.get(todayStr)?.sort((a, b) => Date.parse(a.opens) - Date.parse(b.opens)) ?? [],
+    days,
   };
 }

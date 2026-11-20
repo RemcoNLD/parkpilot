@@ -1,6 +1,7 @@
 import type { LiveInfo, LiveResponse } from '../../packages/shared/src/index';
 import type { Env } from './auth';
 import { PARKS } from './parks';
+import { hasShowHistory, recordShowtimes } from './shows';
 import { getLive } from './themeparks';
 import { nowSec } from './util';
 
@@ -84,6 +85,8 @@ export async function trackAll(env: Env): Promise<void> {
       if (!data) continue;
       const { statements } = track(env, park.id, data, await loadStates(env, park.id));
       await runStatements(env, statements);
+      // Showtijden per uur bewaren (of meteen als er nog niets is), om D1-schrijfacties te sparen.
+      if (new Date().getUTCMinutes() < 5 || !(await hasShowHistory(env, park.id))) await recordShowtimes(env, park);
     } catch (err) {
       console.error(`tracken van ${park.id} mislukt`, err);
     }

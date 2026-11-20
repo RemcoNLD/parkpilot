@@ -12,8 +12,9 @@ import { allowAttempt, authenticate, clientKey, createDevice, type Env } from '.
 import { PARKS, findPark } from './parks';
 import { generateRecoveryCode, hashRecoveryCode, normalizeRecoveryCode } from './recovery';
 import { UpstreamError, getEntities, getLive, getSchedule, resolveParkIds } from './themeparks';
+import { buildShowDay } from './shows';
 import { loadStates, runStatements, track, trackAll } from './tracker';
-import { errorJson, json, nowSec, startOfLocalDaySec } from './util';
+import { addDays, errorJson, json, localDateStr, nowSec, startOfLocalDaySec } from './util';
 import { APP_VERSION } from '../../packages/shared/src/version';
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -65,6 +66,13 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       const { live, statements } = track(env, park.id, raw, states);
       if (statements.length) ctx.waitUntil(runStatements(env, statements).catch((e) => console.error(e)));
       return json(live, 200, { 'cache-control': 'public, max-age=20' });
+    }
+    if (c === 'shows') {
+      const date = url.searchParams.get('date') ?? '';
+      const today = localDateStr(park.timezone, Date.now());
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || date > addDays(today, 13)) return errorJson(400, 'invalid_date');
+      const data = await buildShowDay(env, park, date);
+      return data ? json(data, 200, { 'cache-control': 'public, max-age=120' }) : errorJson(502, 'park_not_found_upstream');
     }
     if (c === 'schedule') {
       const data = await getSchedule(park);

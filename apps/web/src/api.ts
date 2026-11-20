@@ -9,6 +9,7 @@ import type {
   PreferencesDto,
   RedeemResponse,
   ScheduleResponse,
+  ShowDayResponse,
 } from '../../../packages/shared/src/index';
 
 const CRED_KEY = 'pp.creds';
@@ -84,3 +85,4 @@ export const fetchHistoryToday = (parkId: string, entityId: string) =>
   request<HistoryResponse>(`/api/parks/${parkId}/history/${entityId}?since=today`, {}, false);
 
 export const fetchHealth = () => request<{ ok: boolean; version?: string }>('/api/health', {}, false);
+export const fetchShowDay = (parkId: string, date: string) => request<ShowDayResponse>(`/api/parks/${parkId}/shows?date=${date}`, {}, false);
