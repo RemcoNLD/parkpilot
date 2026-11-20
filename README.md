@@ -1,34 +1,23 @@
 # ParkPilot
 
-Mijn mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
+Mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
 Stack: Vite + TypeScript, één Cloudflare Worker (API + statische app), Cloudflare D1, live data van ThemeParks.wiki.
 
-Status: **fase 1, stap 1 en 2** (scaffold, data, favorieten, koppelcode). Nog niet gebouwd: sorteren, locatie,
-service worker/offline, showplanning en pushmeldingen.
+Status: **fase 1, v2** (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
+service worker/installatie-offline, showplanning en pushmeldingen.
 
-## Eenmalig instellen
+## Online zetten zonder terminal
 
-```bash
-npm install
-npx wrangler login
-npx wrangler d1 create parkpilot
-```
+1. Zet alle bestanden in een lege GitHub-repo (op github.com: Add file > Upload files, sleep de uitgepakte mappen erin).
+2. Cloudflare dashboard > Workers & Pages > Create > Import a repository > kies de repo.
+3. Vul in:
+   - Build command: `npm run build`
+   - Deploy command: `npm run deploy:cloudflare`
+4. Deploy. Cloudflare maakt de Worker en de D1-database aan, bouwt de app en voert de migraties uit.
+   Daarna gaat elke push naar `main` automatisch live, nieuwe migraties in `worker/migrations/` inbegrepen.
 
-Zet het `database_id` uit de uitvoer in `wrangler.toml`. Daarna:
-
-```bash
-npm run db:migrate        # maakt de tabellen aan in Cloudflare
-npm run deploy            # bouwt de app en zet Worker + app online
-```
-
-## Koppelen aan GitHub (automatisch deployen)
-
-Cloudflare dashboard → Workers & Pages → Create → Import a repository → kies deze repo.
-
-- Build command: `npm run build`
-- Deploy command: `npx wrangler d1 migrations apply parkpilot --remote && npx wrangler deploy`
-
-Zo draaien nieuwe migraties automatisch mee bij elke push.
+Faalt de eerste deploy bij de database of de migratie? Maak de database dan eenmalig zelf: `npx wrangler d1 create parkpilot`,
+zet `database_name = "parkpilot"` en het `database_id` in `wrangler.toml`, en push opnieuw.
 
 ## Lokaal ontwikkelen
 
@@ -74,3 +63,10 @@ De Worker is getest tegen een nagebootste ThemeParks.wiki en D1, niet tegen de e
 2. `/api/parks/dlp-disneyland/entities` bevat `location`-waarden. Zo niet, dan moet voor afstanden (stap 4) de
    locatie per entiteit apart worden opgehaald.
 3. Of Disneyland Paris wachttijden en showtijden daadwerkelijk levert (ThemeParks.wiki is een community-API).
+
+## Wachttijdhistorie
+
+ThemeParks.wiki geeft alleen de actuele stand. ParkPilot legt zelf vast wanneer een wachttijd of status verandert
+(`wait_state` en `wait_log`, 7 dagen bewaard). Dat gebeurt via een Cron Trigger elke 5 minuten (`wrangler.toml`)
+en bij elke live-aanvraag. "Gewijzigd X min geleden" is dus zo nauwkeurig als dat meetinterval.
+Nieuwe migraties draaien mee in `npm run deploy:cloudflare`.
