@@ -128,3 +128,12 @@ export interface HistoryResponse {
   from: string;
   rows: HistoryRow[];
 }
+
+/** Wanneer de server wachttijden en showtijden bijhoudt: nooit, alleen rond de openingstijden van het park, of altijd. */
+export type TrackingMode = 'off' | 'park-hours' | 'always';
+export const TRACKING_MODES: TrackingMode[] = ['off', 'park-hours', 'always'];
+
+export interface TrackingSettings {
+  mode: TrackingMode;
+  active: Record<string, boolean>; // per park: wordt er nu bijgehouden?
+}

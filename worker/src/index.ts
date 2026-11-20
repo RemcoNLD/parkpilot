@@ -1,5 +1,6 @@
 import {
   DEFAULT_PREFERENCES,
+  TRACKING_MODES,
   type FavoriteDto,
   type HistoryResponse,
   type LiveStatus,
@@ -7,13 +8,14 @@ import {
   type PreferencesDto,
   type RedeemResponse,
   type SortMode,
+  type TrackingMode,
 } from '../../packages/shared/src/index';
 import { allowAttempt, authenticate, clientKey, createDevice, type Env } from './auth';
 import { PARKS, findPark } from './parks';
 import { generateRecoveryCode, hashRecoveryCode, normalizeRecoveryCode } from './recovery';
 import { UpstreamError, getEntities, getLive, getSchedule, resolveParkIds } from './themeparks';
 import { buildShowDay } from './shows';
-import { loadStates, runStatements, track, trackAll } from './tracker';
+import { getTrackingMode, loadStates, runStatements, setTrackingMode, track, trackAll, trackingActive } from './tracker';
 import { addDays, errorJson, json, localDateStr, nowSec, startOfLocalDaySec } from './util';
 import { APP_VERSION } from '../../packages/shared/src/version';
 
@@ -64,7 +66,8 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       if (!raw) return errorJson(502, 'park_not_found_upstream');
       const states = await loadStates(env, park.id).catch(() => new Map());
       const { live, statements } = track(env, park.id, raw, states);
-      if (statements.length) ctx.waitUntil(runStatements(env, statements).catch((e) => console.error(e)));
+      const mode = statements.length ? await getTrackingMode(env) : 'off';
+      if (statements.length && (await trackingActive(park, mode))) ctx.waitUntil(runStatements(env, statements).catch((e) => console.error(e)));
       return json(live, 200, { 'cache-control': 'public, max-age=20' });
     }
     if (c === 'shows') {
@@ -197,6 +200,25 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       }
     }
     return errorJson(404, 'not_found');
+  }
+
+  if (a === 'settings' && b === 'tracking') {
+    if (method === 'GET') {
+      const mode = await getTrackingMode(env);
+      const active: Record<string, boolean> = {};
+      for (const p of PARKS) active[p.id] = await trackingActive(p, mode);
+      return json({ mode, active });
+    }
+    if (method === 'PUT') {
+      const body = (await readBody(req)) as { mode?: unknown } | null;
+      if (!body || !TRACKING_MODES.includes(body.mode as TrackingMode)) return errorJson(400, 'invalid_mode');
+      await setTrackingMode(env, body.mode as TrackingMode);
+      const mode = body.mode as TrackingMode;
+      const active: Record<string, boolean> = {};
+      for (const p of PARKS) active[p.id] = await trackingActive(p, mode);
+      return json({ mode, active });
+    }
+    return errorJson(405, 'method_not_allowed');
   }
 
   if (a === 'preferences' && b && findPark(b)) {

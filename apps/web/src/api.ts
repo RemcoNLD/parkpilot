@@ -9,6 +9,8 @@ import type {
   PreferencesDto,
   RedeemResponse,
   ScheduleResponse,
+  TrackingMode,
+  TrackingSettings,
   ShowDayResponse,
 } from '../../../packages/shared/src/index';
 
@@ -86,3 +88,6 @@ export const fetchHistoryToday = (parkId: string, entityId: string) =>
 
 export const fetchHealth = () => request<{ ok: boolean; version?: string }>('/api/health', {}, false);
 export const fetchShowDay = (parkId: string, date: string) => request<ShowDayResponse>(`/api/parks/${parkId}/shows?date=${date}`, {}, false);
+export const fetchTracking = () => request<TrackingSettings>('/api/settings/tracking');
+export const saveTracking = (mode: TrackingMode) =>
+  request<TrackingSettings>('/api/settings/tracking', { method: 'PUT', body: JSON.stringify({ mode }) });

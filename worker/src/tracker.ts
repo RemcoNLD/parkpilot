@@ -1,8 +1,8 @@
-import type { LiveInfo, LiveResponse } from '../../packages/shared/src/index';
+import { TRACKING_MODES, type LiveInfo, type LiveResponse, type TrackingMode } from '../../packages/shared/src/index';
 import type { Env } from './auth';
-import { PARKS } from './parks';
+import { PARKS, type ParkConfig } from './parks';
 import { hasShowHistory, recordShowtimes } from './shows';
-import { getLive } from './themeparks';
+import { getLive, getSchedule } from './themeparks';
 import { nowSec } from './util';
 
 /**
@@ -29,6 +29,31 @@ export async function loadStates(env: Env, parkId: string): Promise<Map<string, 
     .bind(parkId)
     .all<StateRow>();
   return new Map(rows.results.map((r) => [r.entity_id, r]));
+}
+
+const MARGIN_MS = 30 * 60_000; // een half uur voor opening en na sluiting blijven we meten
+
+export async function getTrackingMode(env: Env): Promise<TrackingMode> {
+  const row = await env.DB.prepare("SELECT value FROM app_settings WHERE key = 'tracking'").first<{ value: string }>().catch(() => null);
+  return TRACKING_MODES.includes(row?.value as TrackingMode) ? (row?.value as TrackingMode) : 'park-hours';
+}
+
+export async function setTrackingMode(env: Env, mode: TrackingMode): Promise<void> {
+  await env.DB.prepare("INSERT INTO app_settings (key, value) VALUES ('tracking', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(mode).run();
+}
+
+/** Moet de server nu voor dit park bijhouden? Bij onbekende openingstijden meten we liever door. */
+export async function trackingActive(park: ParkConfig, mode: TrackingMode, now = Date.now()): Promise<boolean> {
+  if (mode === 'off') return false;
+  if (mode === 'always') return true;
+  try {
+    const schedule = await getSchedule(park);
+    const windows = (schedule?.today ?? []).filter((s) => s.type === 'OPERATING');
+    if (!windows.length) return schedule === null;
+    return windows.some((s) => now >= Date.parse(s.opens) - MARGIN_MS && now <= Date.parse(s.closes) + MARGIN_MS);
+  } catch {
+    return true;
+  }
 }
 
 export function track(
@@ -79,8 +104,10 @@ export async function runStatements(env: Env, statements: D1PreparedStatement[])
 }
 
 export async function trackAll(env: Env): Promise<void> {
+  const mode = await getTrackingMode(env);
   for (const park of PARKS) {
     try {
+      if (!(await trackingActive(park, mode))) continue;
       const data = await getLive(park);
       if (!data) continue;
       const { statements } = track(env, park.id, data, await loadStates(env, park.id));

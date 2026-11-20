@@ -3,7 +3,7 @@
 Mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
 Stack: Vite + TypeScript, één Cloudflare Worker (API + statische app), Cloudflare D1, live data van ThemeParks.wiki.
 
-Status: **v0.4.0** (fase 1) (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
+Status: **v0.5.0** (fase 1) (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
 service worker/installatie-offline, showplanning en pushmeldingen.
 
 ## Online zetten zonder terminal
@@ -98,3 +98,11 @@ Een korte code is makkelijk te raden (10 pogingen per uur per IP); het lijstje b
 - Park dicht: wachttijden worden niet meer als live getoond; de kop zegt wanneer het park weer opent.
 - Shows: dagkeuze (Nu, Morgen, volgende dagen) met een programma op tijd gesorteerd. Tijden uit de bron zijn definitief. Voor dagen waarvoor de bron nog niets meldt toont de app een **verwachting** (streepjesrand) op basis van eerder geziene tijden. Daarvoor bewaart de server uurlijks de showtijden die ThemeParks.wiki meldt (migratie 0003, `show_seen`). De eerste dagen na installatie is er dus nog weinig te verwachten.
 - Fixes: actieve knoppen (tabs, parken, chips, hartjes) werden niet gemarkeerd; er verscheen soms de tekst "null"; breedte op desktop beperkt; tekst in de ring bij shows zonder tijden.
+
+## Wat er in v0.5.0 is veranderd
+- Twee modi: Overzicht (zoals voorheen) en Mijn programma (alleen wat je volgt: shows bovenaan met eerstvolgende tijd, attracties met alleen naam, wachttijd en pijl voor meer of minder).
+- Tekstgrootte: Compact of Comfortabel (knop "Aa" bovenin of via Instellingen). Beide keuzes worden onthouden.
+- "Alleen open" werkt nu ook als het park dicht is (dan is er niets open).
+- Simulatiestand (Instellingen): doet alsof je in het park staat met een open park, gekozen locatie en verzonnen wachttijden/showtijden, voor testen buiten het park. Duidelijke oranje balk zolang het aan staat.
+- Geschiedenis bijhouden (Instellingen): Uit, Alleen overdag (openingstijden van het park, 30 min marge) of Altijd. Geldt voor de hele server; opgeslagen in `app_settings` (migratie 0004). De cron blijft elke 5 minuten starten, maar doet bij "uit" of een gesloten park niets.
+- Tik op de wachttijd (of showtijd) in een rij: de rij klapt uit met het dagverloop of de showtijden van vandaag. Tik op de naam voor het detailvenster.
