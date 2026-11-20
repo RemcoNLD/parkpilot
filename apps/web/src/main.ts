@@ -88,7 +88,8 @@ const state = {
   onlyOpen: false,
   expanded: new Set<string>(), // uitgeklapte rijen (verloop of showtijden)
   hist: new Map<string, { at: number; data: HistoryResponse | 'loading' | 'error' }>(),
-  view: (store.get('pp.view') === 'plan' ? 'plan' : 'full') as View,
+  view: 'plan' as View, // bij opstarten: Mijn programma, tenzij dat leeg is (zie loadPark)
+  viewDecided: false,
   density: (store.get('pp.density') === 'comfortable' ? 'comfortable' : 'compact') as Density,
   pos: loadPos(),
   loc: 'idle' as LocStatus,
@@ -127,7 +128,7 @@ async function ensurePosition(): Promise<boolean> {
 
 async function refreshPositionQuietly(): Promise<void> {
   if (sim.on) return;
-  const needed = state.prefs.sort === 'distance' || [...state.favorites].some((id) => state.entities.find((e) => e.id === id)?.type === 'show');
+  const needed = state.prefs.sort === 'distance' || state.view === 'plan' || [...state.favorites].some((id) => state.entities.find((e) => e.id === id)?.type === 'show');
   if (!needed || state.loc === 'denied' || state.loc === 'asking') return;
   if (state.loc !== 'ok' && !(await hasGeoPermission())) return;
   try { state.pos = await getPosition(); state.loc = 'ok'; storePos(); } catch { /* oude positie blijft */ }
@@ -276,7 +277,7 @@ function statusRing(entity: EntityInfo, live: LiveInfo | undefined): HTMLElement
       if (parkClosed) return ring('stale', null, h('div', { class: 'ring-in' }, icon('moon', 20)));
       if (live.waitMinutes === null) return ring('', 1, txt('open'));
       {
-        const r = ring(waitLevel(live.waitMinutes), Math.min(live.waitMinutes, 90) / 90, h('div', { class: 'ring-in' }, String(live.waitMinutes), h('small', {}, 'min')));
+        const r = ring(waitLevel(live.waitMinutes), Math.min(live.waitMinutes, 90) / 90, h('div', { class: `ring-in num${live.waitMinutes >= 100 ? ' tri' : ''}` }, String(live.waitMinutes)));
         const t = trendDelta(live);
         if (t) r.append(h('span', { class: `ring-arrow ${t.up ? 'up' : 'down'}`, 'aria-hidden': 'true' }, t.up ? '▲' : '▼'));
         return r;
@@ -457,19 +458,25 @@ function programmeNodes(date: string): Node[] {
   return out;
 }
 
+const distText = (entity: EntityInfo): string | null => {
+  const d = distanceOf(entity, state.pos);
+  return d === null ? null : `${formatDistance(d)} · ${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`;
+};
+
 function planShow(entity: EntityInfo): HTMLElement {
   const live = state.live.get(entity.id);
   const starts = upcomingStarts(live);
   const next = starts[0] ?? null;
   const dep = next !== null ? departure(entity, next) : null;
+  const later = starts.slice(1, 4);
+  const sub = [next !== null ? untilLabel(next) : live ? 'geen shows meer vandaag' : 'tijden laden…', distText(entity), dep?.text ?? null].filter(Boolean).join(' · ');
   return h('div', { class: 'rowwrap' },
     h('div', { class: `prow show${next === null ? ' none' : ''}` },
-      ringToggle(entity, h('div', { class: 'ptime' }, next !== null ? clock(next, tz()) : '–'), 'ptoggle'),
+      ringToggle(entity, h('span', { class: 'pbig' }, next !== null ? clock(next, tz()) : '–'), 'ptoggle'),
       h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
         h('div', { class: 'pname' }, entity.name),
-        h('div', { class: 'psub' }, next !== null
-          ? [untilLabel(next), ...(starts.length > 1 ? [`daarna ${starts.slice(1, 4).map((t) => clock(t, tz())).join(', ')}`] : []), ...(dep ? [`${dep.text}`] : [])].join(' · ')
-          : live ? 'Geen shows meer vandaag' : 'Tijden laden…'))),
+        h('div', { class: 'psub' }, sub)),
+      later.length ? h('div', { class: 'plater', 'aria-label': 'Daarna' }, h('small', {}, 'daarna'), ...later.map((t) => h('span', {}, clock(t, tz())))) : null),
     expandPanel(entity));
 }
 
@@ -479,23 +486,51 @@ function planAttraction(entity: EntityInfo): HTMLElement {
   let label = '–', cls = '';
   if (live && !closed) {
     if (live.status === 'open') {
-      if (live.waitMinutes !== null) { label = `${live.waitMinutes} min`; cls = waitLevel(live.waitMinutes); } else label = 'open';
+      if (live.waitMinutes !== null) { label = String(live.waitMinutes); cls = waitLevel(live.waitMinutes); } else label = 'open';
     } else label = { down: 'storing', closed: 'dicht', refurbishment: 'onderhoud', open: 'open', unknown: '–' }[live.status];
   } else if (closed) label = 'dicht';
   const t = closed ? null : trendDelta(live);
   return h('div', { class: 'rowwrap' },
     h('div', { class: 'prow' },
-      h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) }, h('div', { class: 'pname' }, entity.name)),
+      h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
+        h('div', { class: 'pname' }, entity.name),
+        distText(entity) ? h('div', { class: 'psub' }, distText(entity)) : null),
       ringToggle(entity, h('span', { class: 'pright' },
-        t ? h('span', { class: `trend ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'} ${Math.abs(t.diff)}`) : null,
-        h('span', { class: `pwait ${cls}` }, label)), 'ptoggle')),
+        t ? h('span', { class: `trend ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null,
+        h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}` }, label)), 'ptoggle')),
     expandPanel(entity));
+}
+
+/** Dichtstbijzijnde attractie of show binnen 400 meter, voor de kleine kop. */
+function nearestName(): string | null {
+  if (!state.pos) return null;
+  let best: { name: string; d: number } | null = null;
+  for (const e of state.entities) {
+    if (!e.location) continue;
+    const d = haversineMeters(state.pos, e.location);
+    if (!best || d < best.d) best = { name: e.name, d };
+  }
+  return best && best.d <= 400 ? best.name : null;
+}
+
+function planHeader(): HTMLElement {
+  const near = nearestName();
+  return h('header', { class: 'phead' },
+    h('button', { class: 'pback', onclick: () => setView('full') }, '‹ Overzicht'),
+    h('div', { class: 'ploc' }, h('b', {}, currentPark()?.shortName ?? ''), near ? ` · bij ${near}` : ''),
+    h('button', { class: 'icon-btn', 'aria-label': 'Instellingen', onclick: openSettings }, icon('gear', 20)));
 }
 
 function planNodes(): Node[] {
   const favs = state.entities.filter((e) => state.favorites.has(e.id));
-  const shows = favs.filter((e) => e.type === 'show').sort(byNextStart);
-  const atts = sortEntities(favs.filter((e) => e.type === 'attraction'), { sort: state.prefs.sort, live: state.live, pos: state.pos });
+  const ctx = { sort: state.prefs.sort, live: state.live, pos: state.pos };
+  const render1 = (e: EntityInfo): HTMLElement => (e.type === 'show' ? planShow(e) : planAttraction(e));
+  // Op afstand: shows en attracties door elkaar, de dichtstbijzijnde bovenaan.
+  if (state.prefs.sort === 'distance') return sortEntities(favs, ctx).map(render1);
+  // Anders blijven de shows bovenaan, op starttijd (of naam), en daaronder de attracties.
+  const showList = favs.filter((e) => e.type === 'show');
+  const shows = state.prefs.sort === 'name' ? [...showList].sort((x, y) => x.name.localeCompare(y.name, 'nl')) : showList.sort(byNextStart);
+  const atts = sortEntities(favs.filter((e) => e.type === 'attraction'), ctx);
   const out: Node[] = [];
   if (shows.length) out.push(h('h2', { class: 'ptitle' }, 'Shows'), ...shows.map(planShow));
   if (atts.length) out.push(h('h2', { class: 'ptitle' }, 'Attracties'), ...atts.map(planAttraction));
@@ -525,18 +560,18 @@ function listNodes(): Node[] {
 
 function locationNotice(): HTMLElement | null {
   const park = currentPark();
-  if (state.prefs.sort === 'distance') {
+  if (state.prefs.sort === 'distance' || state.view === 'plan') {
     if (state.loc === 'asking') return h('div', { class: 'notice' }, 'Locatie bepalen…');
     if (state.loc === 'denied') {
       return h('div', { class: 'notice' }, 'ParkPilot mag je locatie niet gebruiken. Zet dat aan via Instellingen op je iPhone, bij Privacy en beveiliging, Locatievoorzieningen. Open daarna de app opnieuw.');
     }
     if (!state.pos) {
       return h('div', { class: 'notice' },
-        state.loc === 'error' ? 'Locatie bepalen is niet gelukt.' : 'Sorteren op afstand heeft je locatie nodig.',
+        state.loc === 'error' ? 'Locatie bepalen is niet gelukt.' : state.view === 'plan' ? 'Voor afstanden en looptijd heeft ParkPilot je locatie nodig.' : 'Sorteren op afstand heeft je locatie nodig.',
         h('div', {}, h('button', { class: 'btn', onclick: () => void ensurePosition() }, 'Gebruik mijn locatie')));
     }
   }
-  if (state.pos && park && haversineMeters(state.pos, park.center) > 3000) {
+  if (state.view !== 'plan' && state.pos && park && haversineMeters(state.pos, park.center) > 3000) {
     return h('div', { class: 'notice' }, 'Je bent niet in het park. Afstanden zijn vanaf je huidige locatie.');
   }
   return null;
@@ -575,9 +610,9 @@ function render(): void {
   const scrollTop = window.scrollY;
   const closedNote = !plan && status.open === false && state.tab !== 'shows' && state.entities.length
     ? h('div', { class: 'closed-note' }, 'Het park is nu dicht. Er zijn geen actuele wachttijden.') : null;
-  root.replaceChildren(
+  const items: (Node | null)[] = [
     sim.on ? h('div', { class: 'simbar' }, 'SIMULATIE: verzonnen wachttijden en showtijden, alsof je in het park staat. ', h('button', { onclick: () => void setSim(false) }, 'Stop')) : null,
-    h('header', { class: 'hero' },
+    plan ? planHeader() : h('header', { class: 'hero' },
       h('div', { class: 'hero-top' },
         h('div', { class: 'brand' }, 'ParkPilot', h('span', { class: 'ver' }, `v${APP_VERSION}`)),
         h('div', { class: 'top-actions' },
@@ -598,7 +633,7 @@ function render(): void {
               h('div', { class: 'stat' }, icon('gauge', 18), h('b', {}, stats.avg === null ? '–' : `${stats.avg} min`), h('span', {}, 'gemiddeld')),
               h('div', { class: 'stat' }, icon('bolt', 18), h('b', {}, stats.short ? `${stats.short.min} min` : '–'), h('span', {}, stats.short ? `korst: ${stats.short.name}` : 'korst')))
           : null)),
-    h('nav', { class: 'nav' },
+    plan ? h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` }, freshText) : h('nav', { class: 'nav' },
       h('div', { class: 'segments', role: 'group', 'aria-label': 'Modus' },
         h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, 'Overzicht'),
         h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, 'Mijn programma')),
@@ -612,11 +647,14 @@ function render(): void {
           ? h('button', { class: 'chip divider', 'aria-pressed': state.onlyOpen, onclick: () => { state.onlyOpen = !state.onlyOpen; render(); } }, 'Alleen open')
           : null),
       h('div', { class: `fresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}`, 'aria-live': 'polite' }, freshText)),
+    plan ? h('div', { class: 'chips pchips', role: 'group', 'aria-label': 'Sorteren' },
+      ...sortLabels.map(([mode, text]) => h('button', { class: 'chip', 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, mode === 'wait' ? 'Wachttijd' : text))) : null,
     ...[locationNotice(), !plan && state.tab === 'shows' && state.entities.length ? dayBar() : null].filter((n): n is HTMLElement => n !== null),
     closedNote,
     h('main', {}, body),
     h('footer', { class: 'foot' },
-      `ParkPilot v${APP_VERSION}${state.serverVersion && state.serverVersion !== APP_VERSION ? ` · server v${state.serverVersion}` : ''} · wachttijden via ThemeParks.wiki · niet gelieerd aan Disney`));
+      `ParkPilot v${APP_VERSION}${state.serverVersion && state.serverVersion !== APP_VERSION ? ` · server v${state.serverVersion}` : ''} · wachttijden via ThemeParks.wiki · niet gelieerd aan Disney`)];
+  root.replaceChildren(...items.filter((n): n is Node => n !== null));
   window.scrollTo(0, scrollTop);
 }
 
@@ -633,7 +671,10 @@ async function setSim(on: boolean, spot?: string): Promise<void> {
   else { state.pos = loadPos(); state.loc = 'idle'; render(); await refreshLive(); }
 }
 
-function setView(view: View): void { state.view = view; store.set('pp.view', view); render(); window.scrollTo(0, 0); }
+function setView(view: View): void {
+  state.view = view; render(); window.scrollTo(0, 0);
+  if (view === 'plan') void refreshPositionQuietly().then(render);
+}
 function setDensity(d: Density): void { state.density = d; store.set('pp.density', d); render(); }
 
 function setTab(tab: Tab): void { state.tab = tab; render(); }
@@ -686,11 +727,14 @@ function sparkline(data: HistoryResponse, now: number): Node {
     shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(r.y).toFixed(1)}H${x(t1).toFixed(1)}`, stroke: levelColor(r), 'stroke-width': 3.5, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   });
   const open = rows.filter((r) => r.open).map((r) => r.y);
+  const ticks = [0, 20, 45, max].filter((v, i, arr) => v <= max && arr.indexOf(v) === i && (v !== 45 || max - 45 >= 8) && (v !== 20 || max >= 28));
   return h('div', {},
-    svg('svg', { class: 'chart', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Verloop van de wachttijd vandaag' }, ...shapes),
+    h('div', { class: 'chartrow' },
+      svg('svg', { class: 'chart', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Verloop van de wachttijd vandaag' }, ...shapes),
+      h('div', { class: 'yaxis', 'aria-hidden': 'true' }, ...ticks.map((v) => h('span', { style: `top:${((y(v) / H) * 100).toFixed(1)}%` }, String(v))))),
     h('div', { class: 'chart-axis' }, h('span', {}, clock(from, tz())), h('span', {}, 'nu')),
     h('div', { class: 'chart-note' }, open.length
-      ? `Vandaag laagst ${Math.min(...open)} min, hoogst ${Math.max(...open)} min. Gestreepte lijnen: 20 en 45 min. Alleen wijzigingen die ParkPilot zag.`
+      ? `Vandaag laagst ${Math.min(...open)}, hoogst ${Math.max(...open)}. Schaal in minuten wachttijd. Alleen wijzigingen die ParkPilot zag.`
       : 'Vandaag nog geen wachttijd gezien. Alleen wijzigingen die ParkPilot zag.'));
 }
 
@@ -711,13 +755,13 @@ function openDetail(entity: EntityInfo): void {
 
   if (entity.type === 'attraction' && live) {
     if (live.status === 'open' && live.waitMinutes !== null) {
-      bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, 'minuten wachttijd')));
+      bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, 'wachttijd')));
     } else {
       const t = { open: 'Open, geen wachttijd bekend', down: 'Storing', closed: 'Dicht', refurbishment: 'In onderhoud', unknown: 'Status onbekend' }[live.status];
       bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, t)));
     }
     addFact('Wachttijd gewijzigd', live.changeObserved ? agoLabel(live.changedAt) : null);
-    if (live.changeObserved && live.prevWaitMinutes !== null) addFact('Daarvoor', `${live.prevWaitMinutes} min`);
+    if (live.changeObserved && live.prevWaitMinutes !== null) addFact('Daarvoor', String(live.prevWaitMinutes));
     addFact('Bron bijgewerkt', live.updatedAt ? `${agoLabel(live.updatedAt)}${{ fresh: ' (actueel)', aging: ' (wat oud)', old: ' (verouderd)', unknown: '' }[freshness(live.updatedAt)]}` : null);
     if (live.singleRider) addFact('Single rider', 'beschikbaar');
   }
@@ -798,7 +842,7 @@ const cacheKey = (parkId: string): string => `pp.cache.${parkId}`;
 function saveCache(): void {
   try {
     localStorage.setItem(cacheKey(state.parkId), JSON.stringify({
-      entities: state.entities, live: [...state.live.values()], schedule: state.schedule, generatedAt: state.generatedAt, sourceUpdatedAt: state.sourceUpdatedAt,
+      entities: state.entities, favorites: [...state.favorites], live: [...state.live.values()], schedule: state.schedule, generatedAt: state.generatedAt, sourceUpdatedAt: state.sourceUpdatedAt,
     }));
   } catch { /* opslag vol: geen ramp */ }
 }
@@ -806,9 +850,10 @@ function saveCache(): void {
 function loadCache(parkId: string): boolean {
   try {
     const c = JSON.parse(localStorage.getItem(cacheKey(parkId)) ?? 'null') as
-      { entities: EntityInfo[]; live: LiveInfo[]; schedule: ScheduleEntry[]; generatedAt: string; sourceUpdatedAt?: string | null } | null;
+      { entities: EntityInfo[]; favorites?: string[]; live: LiveInfo[]; schedule: ScheduleEntry[]; generatedAt: string; sourceUpdatedAt?: string | null } | null;
     if (!c) return false;
     state.entities = c.entities;
+    state.favorites = new Set(c.favorites ?? []);
     state.live = new Map(c.live.map((l) => [l.id, l]));
     state.schedule = c.schedule;
     state.generatedAt = c.generatedAt;
@@ -839,6 +884,7 @@ async function loadPark(): Promise<void> {
     state.scheduleDays = schedule?.days ?? [];
     state.favorites = new Set(favs.map((f) => f.entityId));
     state.prefs = prefs;
+    if (!state.viewDecided) { state.viewDecided = true; state.view = state.favorites.size ? 'plan' : 'full'; }
     saveCache();
     applySimulation();
     await refreshPositionQuietly();
@@ -848,6 +894,7 @@ async function loadPark(): Promise<void> {
       state.error = err instanceof ApiError && err.code === 'park_not_found_upstream' ? 'Dit park is niet gevonden bij ThemeParks.wiki.' : 'Gegevens laden mislukt.';
     }
   }
+  if (!state.viewDecided) { state.viewDecided = true; state.view = state.favorites.size ? 'plan' : 'full'; }
   state.loading = false;
   render();
 }

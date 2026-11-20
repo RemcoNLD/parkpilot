@@ -243,3 +243,36 @@ main { padding: 2px 0 12px; }
 .showwrap .expand { margin: 0 12px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-top: 0; }
 .section-title.tight { margin-top: 10px; }
 .ring-btn[aria-expanded="true"] .ring, .ptoggle[aria-expanded="true"] .pwait { filter: drop-shadow(0 0 6px var(--glow)); }
+
+/* Wachttijd zonder 'min', zo groot als past */
+.ring-in.num { font-size: 25px; letter-spacing: -0.02em; }
+.ring-in.num.tri { font-size: 19px; }
+
+/* Grafiek met schaal */
+.chartrow { display: flex; gap: 6px; }
+.yaxis { position: relative; flex: none; width: 24px; height: 84px; }
+.yaxis span { position: absolute; left: 0; transform: translateY(-50%); font: 600 11px/1 var(--rounded); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chartrow .chart { flex: 1; min-width: 0; }
+.chart-axis { margin-right: 30px; }
+
+/* Mijn programma: kleine kop en grote cijfers */
+.phead { display: flex; align-items: center; gap: 8px; padding: 6px 8px 0 12px; min-height: 44px; }
+.pback { flex: none; padding: 8px 10px 8px 0; color: var(--accent); font-weight: 700; }
+.ploc { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ploc b { color: var(--text); }
+.pfresh { padding: 0 16px 4px; font-size: 12px; color: var(--muted); }
+.pfresh.stale { color: var(--high); }
+.prow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; min-height: 76px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.pname { font-weight: 650; font-size: 18px; line-height: 1.2; overflow-wrap: anywhere; }
+.psub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.pbig { font: 800 44px/1 var(--rounded); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--lvl, var(--text)); }
+.pbig.low { --lvl: var(--low); } .pbig.mid { --lvl: var(--mid); } .pbig.high { --lvl: var(--high); }
+.pbig.word { font-size: 20px; letter-spacing: 0; }
+.prow.show .pbig { color: var(--accent); }
+.prow.none .pbig { color: var(--muted); }
+.prow .ptoggle { padding: 2px 4px; }
+.plater { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font: 600 15px/1.2 var(--rounded); font-variant-numeric: tabular-nums; color: var(--text); }
+.plater small { font: 600 11px/1 var(--rounded); color: var(--muted); margin-bottom: 2px; }
+.prow .trend { font-size: 16px; }
+
+.pchips { padding: 2px 16px 4px; margin-top: 0; }
