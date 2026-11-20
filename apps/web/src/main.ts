@@ -463,26 +463,59 @@ const distText = (entity: EntityInfo): string | null => {
   return d === null ? null : `${formatDistance(d)} · ${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`;
 };
 
+/** Afstand vooraan de regel, groot: voor attracties en shows precies hetzelfde blok. */
+function distBlock(entity: EntityInfo): HTMLElement {
+  const d = distanceOf(entity, state.pos);
+  if (d === null) return h('div', { class: 'pdist none' }, h('span', { class: 'pdnum' }, '–'));
+  const near = d < 1000;
+  const num = near ? String(Math.max(10, Math.round(d / 10) * 10)) : (d / 1000).toFixed(1).replace('.', ',');
+  return h('div', { class: 'pdist' },
+    h('span', { class: 'pdnum' }, num, h('small', {}, near ? 'm' : 'km')),
+    h('span', { class: 'pdwalk' }, `${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`));
+}
+
+/**
+ * Showtijden naast elkaar. Zijn er weinig (tot 6), dan staan ze er allemaal in. Zijn het er meer, dan alleen de laatste die
+ * al geweest is en de volgende drie. Geweest is grijs, wat nog komt is vol, de eerstvolgende is onderstreept en
+ * een "nu"-streepje scheidt verleden en toekomst.
+ */
+function showStrip(live: LiveInfo | undefined): HTMLElement | null {
+  const all = (live?.showtimes ?? []).map((s) => Date.parse(s.start)).filter(Number.isFinite).sort((x, y) => x - y);
+  if (!all.length) return null;
+  const now = Date.now();
+  const past = all.filter((t) => t <= now), up = all.filter((t) => t > now);
+  const shownPast = all.length <= 6 ? past : past.slice(-1);
+  const shownUp = all.length <= 6 ? up : up.slice(0, 3);
+  const t = (ms: number, cls: string): HTMLElement => h('span', { class: `pt ${cls}` }, clock(ms, tz()));
+  return h('div', { class: 'pstrip', 'aria-label': 'Showtijden vandaag' },
+    ...shownPast.map((ms) => t(ms, 'past')),
+    h('span', { class: 'pnow' }, 'nu'),
+    ...shownUp.map((ms, i) => t(ms, i === 0 ? 'next' : '')),
+    up.length > shownUp.length ? h('span', { class: 'pmore' }, `+${up.length - shownUp.length}`) : null);
+}
+
 function planShow(entity: EntityInfo): HTMLElement {
   const live = state.live.get(entity.id);
-  const starts = upcomingStarts(live);
-  const next = starts[0] ?? null;
+  const next = upcomingStarts(live)[0] ?? null;
   const dep = next !== null ? departure(entity, next) : null;
-  const later = starts.slice(1, 4);
-  const sub = [next !== null ? untilLabel(next) : live ? 'geen shows meer vandaag' : 'tijden laden…', distText(entity), dep?.text ?? null].filter(Boolean).join(' · ');
+  const byDist = state.prefs.sort === 'distance';
+  const nextText = next !== null ? clock(next, tz()) : '–';
+  const sub = [next !== null ? untilLabel(next) : live ? 'geen shows meer vandaag' : 'tijden laden…', byDist ? null : distText(entity), dep?.text ?? null].filter(Boolean).join(' · ');
   return h('div', { class: 'rowwrap' },
     h('div', { class: `prow show${next === null ? ' none' : ''}` },
-      ringToggle(entity, h('span', { class: 'pbig' }, next !== null ? clock(next, tz()) : '–'), 'ptoggle'),
+      byDist ? distBlock(entity) : ringToggle(entity, h('span', { class: 'pbig' }, nextText), 'ptoggle'),
       h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
         h('div', { class: 'pname' }, entity.name),
         h('div', { class: 'psub' }, sub)),
-      later.length ? h('div', { class: 'plater', 'aria-label': 'Daarna' }, h('small', {}, 'daarna'), ...later.map((t) => h('span', {}, clock(t, tz())))) : null),
+      byDist ? ringToggle(entity, h('span', { class: 'pbig tm' }, nextText), 'ptoggle') : null,
+      showStrip(live)),
     expandPanel(entity));
 }
 
 function planAttraction(entity: EntityInfo): HTMLElement {
   const live = state.live.get(entity.id);
   const closed = parkStatus().open === false;
+  const byDist = state.prefs.sort === 'distance';
   let label = '–', cls = '';
   if (live && !closed) {
     if (live.status === 'open') {
@@ -490,11 +523,13 @@ function planAttraction(entity: EntityInfo): HTMLElement {
     } else label = { down: 'storing', closed: 'dicht', refurbishment: 'onderhoud', open: 'open', unknown: '–' }[live.status];
   } else if (closed) label = 'dicht';
   const t = closed ? null : trendDelta(live);
+  const dist = byDist ? null : distText(entity);
   return h('div', { class: 'rowwrap' },
     h('div', { class: 'prow' },
+      byDist ? distBlock(entity) : null,
       h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
         h('div', { class: 'pname' }, entity.name),
-        distText(entity) ? h('div', { class: 'psub' }, distText(entity)) : null),
+        dist ? h('div', { class: 'psub' }, dist) : null),
       ringToggle(entity, h('span', { class: 'pright' },
         t ? h('span', { class: `trend ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null,
         h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}` }, label)), 'ptoggle')),

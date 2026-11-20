@@ -276,3 +276,19 @@ main { padding: 2px 0 12px; }
 .prow .trend { font-size: 16px; }
 
 .pchips { padding: 2px 16px 4px; margin-top: 0; }
+
+/* Afstand vooraan, showtijden naast elkaar */
+.prow { flex-wrap: wrap; }
+.pmain { flex: 1; min-width: 0; }
+.pdist { flex: none; width: 84px; display: flex; flex-direction: column; justify-content: center; }
+.pdnum { font: 800 36px/1 var(--rounded); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; color: var(--accent); }
+.pdnum small { font: 700 16px/1 var(--rounded); margin-left: 2px; letter-spacing: 0; }
+.pdwalk { margin-top: 3px; font: 600 12px/1.1 var(--rounded); color: var(--muted); }
+.pdist.none .pdnum { color: var(--muted); }
+.pbig.tm { font-size: 34px; color: var(--accent); }
+.pstrip { flex: 1 0 100%; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 16px; margin-top: -2px; font: 700 20px/1.2 var(--rounded); font-variant-numeric: tabular-nums; }
+.pt { color: var(--text); padding-bottom: 2px; border-bottom: 3px solid transparent; }
+.pt.past { color: var(--muted); font-weight: 600; opacity: 0.75; }
+.pt.next { border-bottom-color: var(--accent); }
+.pnow { padding: 2px 7px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: 800 10px/1.3 var(--rounded); text-transform: uppercase; letter-spacing: 0.06em; }
+.pmore { color: var(--muted); font: 600 14px var(--rounded); }
