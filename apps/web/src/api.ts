@@ -5,6 +5,7 @@ import type {
   FavoriteDto,
   LiveResponse,
   ParkInfo,
+  PreferencesDto,
   RedeemResponse,
 } from '../../../packages/shared/src/index';
 
@@ -70,3 +71,7 @@ export const deleteFavorite = (parkId: string, entityId: string) =>
 export const createRecoveryCode = () => request<{ code: string }>('/api/profile/recovery-code', { method: 'POST' });
 export const redeemRecoveryCode = (code: string) =>
   request<RedeemResponse>('/api/profile/redeem', { method: 'POST', body: JSON.stringify({ code }) }, false);
+
+export const fetchPreferences = (parkId: string) => request<PreferencesDto>(`/api/preferences/${parkId}`);
+export const savePreferences = (parkId: string, prefs: PreferencesDto) =>
+  request(`/api/preferences/${parkId}`, { method: 'PUT', body: JSON.stringify(prefs) });
