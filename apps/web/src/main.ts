@@ -331,7 +331,10 @@ async function loadHistory(entityId: string): Promise<void> {
 /** Het paneel dat onder een rij uitklapt: verloop van de wachttijd, of de showtijden van vandaag. */
 function expandPanel(entity: EntityInfo): HTMLElement | null {
   if (!state.expanded.has(entity.id)) return null;
-  if (entity.type === 'show') return h('div', { class: 'expand' }, timesNode(state.live.get(entity.id)));
+  if (entity.type === 'show') {
+    const strip = showStrip(state.live.get(entity.id));
+    return h('div', { class: 'expand' }, h('div', { class: 'section-title tight' }, 'Vandaag'), strip ?? h('p', { class: 'caveat' }, 'Voor vandaag zijn geen tijden bekend.'));
+  }
   const hist = state.hist.get(entity.id);
   let inner: Node;
   if (sim.on) inner = sparkline(simulateHistory(entity.id), Date.now());
@@ -474,41 +477,38 @@ function distBlock(entity: EntityInfo): HTMLElement {
     h('span', { class: 'pdwalk' }, `${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`));
 }
 
-/**
- * Showtijden naast elkaar. Zijn er weinig (tot 6), dan staan ze er allemaal in. Zijn het er meer, dan alleen de laatste die
- * al geweest is en de volgende drie. Geweest is grijs, wat nog komt is vol, de eerstvolgende is onderstreept en
- * een "nu"-streepje scheidt verleden en toekomst.
- */
+/** Alle showtijden van vandaag naast elkaar: geweest is grijs, wat nog komt vol, de eerstvolgende onderstreept, met een "nu"-streepje ertussen. */
 function showStrip(live: LiveInfo | undefined): HTMLElement | null {
   const all = (live?.showtimes ?? []).map((s) => Date.parse(s.start)).filter(Number.isFinite).sort((x, y) => x - y);
   if (!all.length) return null;
   const now = Date.now();
   const past = all.filter((t) => t <= now), up = all.filter((t) => t > now);
-  const shownPast = all.length <= 6 ? past : past.slice(-1);
-  const shownUp = all.length <= 6 ? up : up.slice(0, 3);
   const t = (ms: number, cls: string): HTMLElement => h('span', { class: `pt ${cls}` }, clock(ms, tz()));
   return h('div', { class: 'pstrip', 'aria-label': 'Showtijden vandaag' },
-    ...shownPast.map((ms) => t(ms, 'past')),
+    ...past.map((ms) => t(ms, 'past')),
     h('span', { class: 'pnow' }, 'nu'),
-    ...shownUp.map((ms, i) => t(ms, i === 0 ? 'next' : '')),
-    up.length > shownUp.length ? h('span', { class: 'pmore' }, `+${up.length - shownUp.length}`) : null);
+    ...up.map((ms, i) => t(ms, i === 0 ? 'next' : '')));
 }
 
 function planShow(entity: EntityInfo): HTMLElement {
   const live = state.live.get(entity.id);
-  const next = upcomingStarts(live)[0] ?? null;
+  const starts = upcomingStarts(live);
+  const next = starts[0] ?? null;
+  const after = starts[1] ?? null; // in het overzicht alleen de eerstvolgende na de volgende; de rest zit in het uitklappen
   const dep = next !== null ? departure(entity, next) : null;
   const byDist = state.prefs.sort === 'distance';
   const nextText = next !== null ? clock(next, tz()) : '–';
   const sub = [next !== null ? untilLabel(next) : live ? 'geen shows meer vandaag' : 'tijden laden…', byDist ? null : distText(entity), dep?.text ?? null].filter(Boolean).join(' · ');
+  const later = after !== null ? h('div', { class: 'plater' }, h('small', {}, 'daarna'), h('span', {}, clock(after, tz()))) : null;
   return h('div', { class: 'rowwrap' },
     h('div', { class: `prow show${next === null ? ' none' : ''}` },
       byDist ? distBlock(entity) : ringToggle(entity, h('span', { class: 'pbig' }, nextText), 'ptoggle'),
       h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
         h('div', { class: 'pname' }, entity.name),
         h('div', { class: 'psub' }, sub)),
-      byDist ? ringToggle(entity, h('span', { class: 'pbig tm' }, nextText), 'ptoggle') : null,
-      showStrip(live)),
+      byDist
+        ? h('div', { class: 'pend' }, ringToggle(entity, h('span', { class: 'pbig tm' }, nextText), 'ptoggle'), later)
+        : later),
     expandPanel(entity));
 }
 
@@ -668,7 +668,11 @@ function render(): void {
               h('div', { class: 'stat' }, icon('gauge', 18), h('b', {}, stats.avg === null ? '–' : `${stats.avg} min`), h('span', {}, 'gemiddeld')),
               h('div', { class: 'stat' }, icon('bolt', 18), h('b', {}, stats.short ? `${stats.short.min} min` : '–'), h('span', {}, stats.short ? `korst: ${stats.short.name}` : 'korst')))
           : null)),
-    plan ? h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` }, freshText) : h('nav', { class: 'nav' },
+    plan ? h('div', { class: 'pbar' },
+      h('div', { class: 'pseg', role: 'group', 'aria-label': 'Sorteren' },
+        ...(['wait', 'distance', 'name'] as SortMode[]).map((mode) => h('button', { 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, { wait: 'Wachttijd', distance: 'Afstand', name: 'Naam' }[mode]))),
+      h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` },
+        offline ? 'geen verbinding' : state.error ? 'verversen mislukt' : state.fromCache ? `opgeslagen, ${age}` : `bron ${agoLabel(state.sourceUpdatedAt ?? state.generatedAt)}`)) : h('nav', { class: 'nav' },
       h('div', { class: 'segments', role: 'group', 'aria-label': 'Modus' },
         h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, 'Overzicht'),
         h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, 'Mijn programma')),
@@ -682,8 +686,6 @@ function render(): void {
           ? h('button', { class: 'chip divider', 'aria-pressed': state.onlyOpen, onclick: () => { state.onlyOpen = !state.onlyOpen; render(); } }, 'Alleen open')
           : null),
       h('div', { class: `fresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}`, 'aria-live': 'polite' }, freshText)),
-    plan ? h('div', { class: 'chips pchips', role: 'group', 'aria-label': 'Sorteren' },
-      ...sortLabels.map(([mode, text]) => h('button', { class: 'chip', 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, mode === 'wait' ? 'Wachttijd' : text))) : null,
     ...[locationNotice(), !plan && state.tab === 'shows' && state.entities.length ? dayBar() : null].filter((n): n is HTMLElement => n !== null),
     closedNote,
     h('main', {}, body),
