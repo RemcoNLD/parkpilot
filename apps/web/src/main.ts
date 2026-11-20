@@ -24,6 +24,7 @@ import { agoLabel, clock, waitLevel } from './format';
 import { GeoError, formatDistance, getPosition, haversineMeters, hasGeoPermission, walkMinutes } from './geo';
 import { icon, iconForKind } from './icons';
 import { blurbFor } from './info';
+import { kindArt } from './kindart';
 import { simulateHistory, simulateLive, simulateSchedule } from './sim';
 import { distanceOf, nextStartMs, sortEntities } from './logic';
 import { applyTheme, effectiveTheme, getPref, setPref, watchSystemTheme, type ThemePref } from './theme';
@@ -167,20 +168,95 @@ function dayLabel(date: string): string {
   return new Intl.DateTimeFormat('nl-NL', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 }
 
-function parkStats(): { openCount: number; avg: number | null; short: { name: string; min: number } | null } {
-  let openCount = 0, sum = 0, n = 0;
-  if (parkStatus().open === false) return { openCount: 0, avg: null, short: null };
+function parkStats(): { openCount: number; down: number | null; refurb: number; avg: number | null; short: { name: string; min: number } | null } {
+  const closed = parkStatus().open === false;
+  let openCount = 0, down = 0, refurb = 0, sum = 0, n = 0;
   let short: { name: string; min: number } | null = null;
   for (const e of state.entities) {
     if (e.type !== 'attraction') continue;
     const l = state.live.get(e.id);
+    if (l?.status === 'refurbishment') refurb++;
+    if (closed) continue; // bij een gesloten park zijn open en storing niet actueel; onderhoud wel
+    if (l?.status === 'down') down++;
     if (l?.status !== 'open') continue;
     openCount++;
     if (l.waitMinutes === null) continue;
     sum += l.waitMinutes; n++;
     if (!short || l.waitMinutes < short.min) short = { name: e.name, min: l.waitMinutes };
   }
-  return { openCount, avg: n ? Math.round(sum / n) : null, short };
+  return { openCount, down: closed ? null : down, refurb, avg: n ? Math.round(sum / n) : null, short };
+}
+
+/** Lijsten voor de storingspagina. */
+function issueLists(): { down: { e: EntityInfo; l: LiveInfo }[]; refurb: { e: EntityInfo; l: LiveInfo }[]; closedNow: { e: EntityInfo; l: LiveInfo }[] } {
+  const out = { down: [] as { e: EntityInfo; l: LiveInfo }[], refurb: [] as { e: EntityInfo; l: LiveInfo }[], closedNow: [] as { e: EntityInfo; l: LiveInfo }[] };
+  const parkClosed = parkStatus().open === false;
+  for (const e of state.entities) {
+    if (e.type !== 'attraction') continue;
+    const l = state.live.get(e.id);
+    if (!l) continue;
+    if (l.status === 'refurbishment') out.refurb.push({ e, l });
+    else if (!parkClosed && l.status === 'down') out.down.push({ e, l });
+    else if (!parkClosed && l.status === 'closed') out.closedNow.push({ e, l });
+  }
+  const oldest = (x: { l: LiveInfo }, y: { l: LiveInfo }): number => Date.parse(x.l.changedAt ?? '') - Date.parse(y.l.changedAt ?? '') || 0;
+  for (const k of ['down', 'refurb', 'closedNow'] as const) out[k].sort(oldest);
+  return out;
+}
+
+const issuesKey = (): string => `pp.issuesSeen.${sim.on ? 'sim.' : ''}${state.parkId}`;
+
+/** Sleutels van alle huidige storingen en sluitingen. Een nieuwe periode (ander tijdstip van wijziging) telt als nieuw. */
+function issueKeys(): string[] {
+  const l = issueLists();
+  return [...l.down, ...l.refurb, ...l.closedNow].map(({ e, l: live }) => `${e.id}:${live.status}:${live.changedAt ?? ''}`);
+}
+
+function rememberIssues(): void { store.set(issuesKey(), JSON.stringify(issueKeys())); }
+
+/** Is er sinds je laatste bezoek aan de storingspagina iets nieuws? De eerste keer (nog niets bekend) wordt de stand stil onthouden. */
+function hasNewIssues(): boolean {
+  if (state.entities.length === 0 || state.live.size === 0 || state.loading) return false;
+  const raw = store.get(issuesKey());
+  if (raw === null) {
+    if (sim.on) return issueKeys().length > 0; // in de simulatie meteen zichtbaar, om het te kunnen testen
+    rememberIssues();
+    return false;
+  }
+  try {
+    const seen = new Set(JSON.parse(raw) as string[]);
+    return issueKeys().some((k) => !seen.has(k));
+  } catch { return false; }
+}
+
+function sinceText(l: LiveInfo): string {
+  if (!l.changedAt) return 'duur onbekend';
+  const min = Math.max(0, Math.floor((Date.now() - Date.parse(l.changedAt)) / 60000));
+  const span = min < 1 ? 'zojuist' : min < 60 ? `${min} min` : min < 48 * 60 ? `${Math.floor(min / 60)} u${min % 60 ? ` ${min % 60} min` : ''}` : `${Math.floor(min / 1440)} dagen`;
+  return l.changeObserved ? (span === 'zojuist' ? 'zojuist begonnen' : `al ${span}`) : `al minstens ${span}`;
+}
+
+function openIssues(): void {
+  const lists = issueLists();
+  rememberIssues();
+  render();
+  const close = (): void => sheet.remove();
+  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Storingen en onderhoud' });
+  const parkClosed = parkStatus().open === false;
+  const section = (title: string, cls: string, rows: { e: EntityInfo; l: LiveInfo }[], empty: string): Node[] => [
+    h('h3', { class: `issue-title ${cls}` }, `${title} (${rows.length})`),
+    ...(rows.length ? rows.map(({ e, l }) => h('button', { class: 'issue', onclick: () => { close(); openDetail(e); } },
+      h('div', { class: 'row-name' }, e.name),
+      h('div', { class: 'issue-since' }, sinceText(l)))) : [h('p', {}, empty)]),
+  ];
+  sheet.append(
+    h('div', { class: 'sheet-head' }, h('h2', {}, 'Storingen en onderhoud'), h('button', { class: 'icon-btn', 'aria-label': 'Sluiten', onclick: close }, '✕')),
+    parkClosed ? h('p', {}, 'Het park is nu dicht, dus storingen en tijdelijke sluitingen zijn niet actueel. Onderhoud (langere sluiting) staat hieronder wel.') : null,
+    ...(parkClosed ? [] : section('Storing', 'bad', lists.down, 'Geen storingen.')),
+    ...section('Onderhoud (refurbishment)', 'mid', lists.refurb, 'Geen attracties in onderhoud.'),
+    ...(parkClosed ? [] : section('Tijdelijk dicht', 'muted', lists.closedNow, 'Geen attracties tijdelijk dicht.')),
+    h('p', { class: 'hint' }, 'De duur komt uit wat ParkPilot zelf heeft gezien. "Al minstens" betekent dat de sluiting al liep toen ParkPilot begon te meten.'));
+  document.body.append(sheet);
 }
 
 function changedText(live: LiveInfo | undefined): string {
@@ -621,6 +697,7 @@ function render(): void {
   const offline = !navigator.onLine;
   const status = parkStatus();
   const stats = parkStats();
+  const newIssues = hasNewIssues();
   const plan = state.view === 'plan';
   const nodes = state.entities.length ? (plan ? planNodes() : listNodes()) : [];
 
@@ -664,7 +741,11 @@ function render(): void {
         h('div', { class: 'park-status' }, h('span', { class: `dot${status.open === true ? ' open' : status.open === false ? ' closed' : ''}` }), status.text),
         state.entities.length && !plan
           ? h('div', { class: 'stats' },
-              h('div', { class: 'stat' }, icon('door', 18), h('b', {}, String(stats.openCount)), h('span', {}, 'attracties open')),
+              h('button', { class: `stat issues${newIssues ? ' alert' : ''}`, 'aria-label': `Open, storing en onderhoud: toon de storingspagina${newIssues ? '. Er is iets nieuws' : ''}`, onclick: openIssues },
+                icon('door', 18),
+                h('div', { class: 'srow' }, h('b', {}, String(stats.openCount)), h('span', {}, 'open')),
+                h('div', { class: 'srow bad' }, h('b', {}, stats.down === null ? '–' : String(stats.down)), h('span', {}, 'storing')),
+                h('div', { class: 'srow mid' }, h('b', {}, String(stats.refurb)), h('span', {}, 'onderhoud'))),
               h('div', { class: 'stat' }, icon('gauge', 18), h('b', {}, stats.avg === null ? '–' : `${stats.avg} min`), h('span', {}, 'gemiddeld')),
               h('div', { class: 'stat' }, icon('bolt', 18), h('b', {}, stats.short ? `${stats.short.min} min` : '–'), h('span', {}, stats.short ? `korst: ${stats.short.name}` : 'korst')))
           : null)),
@@ -842,6 +923,7 @@ function openDetail(entity: EntityInfo): void {
     h('div', { class: 'drawer-head' },
       h('div', {}, h('h2', {}, entity.name), kind ? h('div', { class: 'kind' }, icon(iconForKind(kind), 15), kind) : null),
       h('button', { class: 'icon-btn', 'aria-label': 'Sluiten', onclick: close }, '✕')),
+    kind ? kindArt(kind) : null,
     ...bigNodes,
     entity.type === 'attraction' ? h('div', { class: 'section-title' }, 'Verloop vandaag') : null,
     entity.type === 'attraction' ? chartBox : null,
@@ -849,6 +931,7 @@ function openDetail(entity: EntityInfo): void {
     caveat,
     blurb ? h('div', { class: 'about' },
       h('p', {}, blurb.text),
+      blurb.area || blurb.opened ? h('div', { class: 'tip' }, h('b', {}, 'Gebied: '), [blurb.area, blurb.opened ? `geopend in ${blurb.opened}` : null].filter(Boolean).join(', ')) : null,
       blurb.height ? h('div', { class: 'tip' }, h('b', {}, 'Minimale lengte: '), blurb.height) : null,
       blurb.tip ? h('div', { class: 'tip' }, h('b', {}, 'Tip: '), blurb.tip) : null,
       h('div', { class: 'tip' }, 'Omschrijving en lengte zijn door ParkPilot samengesteld. Controleer de borden bij de ingang.')) : null,

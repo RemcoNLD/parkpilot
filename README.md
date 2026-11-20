@@ -107,3 +107,6 @@ Een korte code is makkelijk te raden (10 pogingen per uur per IP); het lijstje b
 - Geschiedenis bijhouden (Instellingen): Uit, Alleen overdag (openingstijden van het park, 30 min marge) of Altijd. Geldt voor de hele server; opgeslagen in `app_settings` (migratie 0004). De cron blijft elke 5 minuten starten, maar doet bij "uit" of een gesloten park niets.
 - Tik op de wachttijd (of showtijd) in een rij: de rij klapt uit met het dagverloop of de showtijden van vandaag. Tik op de naam voor het detailvenster.
 - Mijn programma is het startscherm als je iets volgt (anders het Overzicht). Kleine kop met park en dichtstbijzijnde attractie, grote wachttijden en showtijden zonder "min", afstand en looptijd per regel, de volgende showtijden rechts. Grafieken hebben een schaal.
+- Detailvenster: eigen getekende illustratie per soort attractie, gebied en openingsjaar, extra showomschrijvingen.
+- Linker tegel in de kop: open / storing / onderhoud; tik voor de storingspagina met duur per attractie.
+- De storingstegel knippert als er sinds je laatste bezoek aan de storingspagina iets nieuws is (per park onthouden op je toestel).

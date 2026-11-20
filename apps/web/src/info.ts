@@ -10,9 +10,13 @@ export interface EntityInfoText {
   /** Minimale lengte, bijvoorbeeld "102 cm" of "Geen minimum". Alleen invullen als bevestigd. */
   height?: string;
   tip?: string;
+  /** Themagebied in het park. */
+  area?: string;
+  /** Openingsjaar. */
+  opened?: number;
 }
 
-type Rule = [RegExp, string, string, { height?: string; tip?: string }?];
+type Rule = [RegExp, string, string, { height?: string; tip?: string; area?: string; opened?: number }?];
 
 const RULES: Rule[] = [
   // Disneyland Park
@@ -64,10 +68,32 @@ const RULES: Rule[] = [
   [/cavalcade/, 'Show', 'Een optocht met Disney-prinsessen die door het park trekt. Zoek een plek langs de route en wacht even.'],
   [/doctor strange|mystery of the mystics/, 'Show', 'Een show in Avengers Campus met Doctor Strange, vol toverkunsten en vechtscènes. Een korte show met veel actie.'],
   [/imaginary orchestra/, 'Show', 'Een korte vrolijke show met Goofy en zijn orkest. Leuk voor kleine kinderen.'],
+  [/lion king|rhythms of the pride/, 'Show', 'Een muzikale show in het Frontierland Theater met zang, dans, acrobatiek en poppen, gebaseerd op The Lion King. Het zijn de grote nummers uit de film, live gebracht. Kom op tijd voor een goede plek.'],
+  [/mickey and the magician/, 'Show', 'Een theatershow in Toon Studio met Mickey Mouse als goochelaar. Muziek, dans en veel Disney-personages in één voorstelling.'],
+  [/stitch live/, 'Show', 'Een interactieve show met Stitch op een scherm, die live met het publiek praat en grappen maakt. Kinderen kunnen zelf meedoen.'],
+  [/stars on parade/, 'Show', 'De dagelijkse parade over Main Street, U.S.A. met Disney-personages op wagens en te voet. Zoek op tijd een plek langs de route.'],
   [/parade/, 'Show', 'Een optocht met personages en wagens door het park. Zoek een plek langs de route en wacht even.'],
   [/illuminations/, 'Show', 'Een avondshow met projecties, vuurwerk en muziek bij het kasteel. Kom ruim op tijd voor een goede plek.'],
   [/frozen.*(sing|musical|invitation|chante)/, 'Show', 'Een meezingshow met liedjes uit Frozen.'],
   [/mickey/, 'Show', 'Een show met Mickey Mouse en vrienden.'],
+];
+
+/** Gebied (volgens demagieexpert.nl) en openingsjaar (alleen waar zeker). Gekoppeld op dezelfde naam-patronen. */
+const FACTS: [RegExp, string, number?][] = [
+  [/big thunder/, 'Frontierland', 1992], [/phantom manor/, 'Frontierland', 1992], [/riverboat|mississippi/, 'Frontierland'],
+  [/pirates (of the caribbean|des caraibes)/, 'Adventureland', 1992], [/indiana jones/, 'Adventureland', 1993],
+  [/robinson/, 'Adventureland'], [/aladdin/, 'Adventureland'],
+  [/small world/, 'Fantasyland', 1992], [/peter pan/, 'Fantasyland', 1992], [/dumbo/, 'Fantasyland', 1992], [/mad hatter|chapelier|tasses/, 'Fantasyland', 1992],
+  [/carrousel|carousel|lancelot/, 'Fantasyland', 1992], [/pinocchio|pinokkio/, 'Fantasyland', 1992], [/blanche.?neige|snow white/, 'Fantasyland', 1992],
+  [/labyrinth|labyrinthe/, 'Fantasyland', 1992], [/belle au bois|sleeping beauty|galerie|dragon/, 'Fantasyland', 1992], [/casey jr|casey junior/, 'Fantasyland', 1992], [/pays des contes|storybook/, 'Fantasyland', 1994],
+  [/space mountain|hyperspace|mission 2/, 'Discoveryland', 1995], [/star tours/, 'Discoveryland', 1992], [/buzz lightyear/, 'Discoveryland'],
+  [/autopia/, 'Discoveryland', 1992], [/orbitron/, 'Discoveryland', 1992], [/nautilus/, 'Discoveryland', 1992],
+  [/tower of terror|twilight zone|hollywood tower/, 'Production Courtyard', 2007], [/stitch live/, 'Production Courtyard'],
+  [/tapis volants|flying carpets/, 'Toon Studio', 2002], [/mickey and the magician/, 'Toon Studio'], [/frozen.*(musical|sing|invitation)/, 'Toon Studio'],
+  [/crush/, 'Worlds of Pixar', 2007], [/rc racer/, 'Worlds of Pixar', 2010], [/parachute drop/, 'Worlds of Pixar', 2010],
+  [/cars road trip/, 'Worlds of Pixar'], [/ratatouille|remy/, 'Worlds of Pixar', 2014], [/slinky dog/, 'Worlds of Pixar', 2010], [/cars.*(rallye|quatre roues)/, 'Worlds of Pixar', 2007],
+  [/spider-?man|w\.?e\.?b\.? adventure/, 'Marvel Avengers Campus', 2022], [/flight force|avengers assemble/, 'Marvel Avengers Campus', 2022], [/doctor strange|mystery of the mystics/, 'Marvel Avengers Campus'],
+  [/lion king|rhythms of the pride/, 'Frontierland'], [/stars on parade/, 'Main Street, U.S.A.'],
 ];
 
 export const normalizeName = (name: string): string =>
@@ -75,6 +101,10 @@ export const normalizeName = (name: string): string =>
 
 export function blurbFor(name: string): EntityInfoText | null {
   const n = normalizeName(name);
-  for (const [re, kind, text, extra] of RULES) if (re.test(n)) return { kind, text, ...extra };
+  for (const [re, kind, text, extra] of RULES) {
+    if (!re.test(n)) continue;
+    const fact = FACTS.find(([fre]) => fre.test(n));
+    return { kind, text, ...extra, ...(fact ? { area: fact[1], ...(fact[2] ? { opened: fact[2] } : {}) } : {}) };
+  }
   return null;
 }

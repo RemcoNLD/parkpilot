@@ -307,3 +307,23 @@ main { padding: 2px 0 12px; }
 .pend { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .pend .plater { flex-direction: row; align-items: baseline; gap: 6px; font-size: 15px; color: var(--muted); }
 .expand .pstrip { justify-content: flex-start; margin-top: 4px; }
+
+.kindart { display: block; width: 100%; height: 96px; margin: 12px 0 0; border-radius: 16px; background: linear-gradient(160deg, var(--raised2), var(--raised)); border: 1px solid var(--line); }
+
+/* Storingstegel en -pagina */
+.stat.issues { text-align: left; display: block; }
+.stat .srow { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.stat .srow b { display: inline; margin: 0; font-size: 18px; }
+.stat .srow span { display: inline; font-size: 12.5px; }
+.stat .srow.bad b { color: var(--high); } .stat .srow.mid b { color: var(--mid); }
+.issue-title { display: flex; align-items: center; gap: 8px; }
+.issue-title.bad { color: var(--high); } .issue-title.mid { color: var(--mid); } .issue-title.muted { color: var(--muted); }
+.issue { display: block; width: 100%; padding: 12px 4px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.issue-since { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.stat.issues.alert { border-color: var(--high); box-shadow: 0 0 0 1px var(--high), 0 0 14px color-mix(in srgb, var(--high) 55%, transparent); }
+.stat.issues.alert .ico { color: var(--high); }
+@media (prefers-reduced-motion: no-preference) {
+  .stat.issues.alert { animation: blink 1.1s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { box-shadow: 0 0 0 1px var(--high), 0 0 16px color-mix(in srgb, var(--high) 60%, transparent); background: color-mix(in srgb, var(--high) 22%, var(--raised)); } 50% { box-shadow: 0 0 0 1px var(--line); background: color-mix(in srgb, var(--raised) 86%, transparent); } }
+}
