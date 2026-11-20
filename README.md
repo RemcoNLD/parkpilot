@@ -110,3 +110,4 @@ Een korte code is makkelijk te raden (10 pogingen per uur per IP); het lijstje b
 - Detailvenster: eigen getekende illustratie per soort attractie, gebied en openingsjaar, extra showomschrijvingen.
 - Linker tegel in de kop: open / storing / onderhoud; tik voor de storingspagina met duur per attractie.
 - De storingstegel knippert als er sinds je laatste bezoek aan de storingspagina iets nieuws is (per park onthouden op je toestel).
+- Offline: service worker (apps/web/public/sw.js) bewaart de app zelf; laatst opgehaalde gegevens staan in localStorage met de leeftijd erbij (rood als ze niet vers zijn).

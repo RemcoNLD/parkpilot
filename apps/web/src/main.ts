@@ -754,7 +754,7 @@ function render(): void {
       h('div', { class: 'pseg', role: 'group', 'aria-label': 'Sorteren' },
         ...(['wait', 'distance', 'name'] as SortMode[]).map((mode) => h('button', { 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, { wait: 'Wachttijd', distance: 'Afstand', name: 'Naam' }[mode]))),
       h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` },
-        offline ? 'geen verbinding' : state.error ? 'verversen mislukt' : state.fromCache ? `opgeslagen, ${age}` : `bron ${agoLabel(state.sourceUpdatedAt ?? state.generatedAt)}`)) : h('nav', { class: 'nav' },
+        offline ? `geen verbinding, gegevens van ${age}` : state.error ? `verversen mislukt, gegevens van ${age}` : state.fromCache ? `opgeslagen, ${age}` : `bron ${agoLabel(state.sourceUpdatedAt ?? state.generatedAt)}`)) : h('nav', { class: 'nav' },
       h('div', { class: 'segments', role: 'group', 'aria-label': 'Modus' },
         h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, 'Overzicht'),
         h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, 'Mijn programma')),
@@ -1235,5 +1235,9 @@ setInterval(() => { if (document.visibilityState === 'visible') render(); }, 30_
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshLive(); });
 window.addEventListener('online', () => void refreshLive());
 window.addEventListener('offline', render);
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => undefined); });
+}
 
 void boot();
