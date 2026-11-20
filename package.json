@@ -8,9 +8,10 @@
     "dev:worker": "wrangler dev",
     "build": "vite build apps/web",
     "typecheck": "tsc -p worker && tsc -p apps/web",
-    "db:migrate:local": "wrangler d1 migrations apply parkpilot --local",
-    "db:migrate": "wrangler d1 migrations apply parkpilot --remote",
-    "deploy": "npm run build && wrangler deploy"
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate": "wrangler d1 migrations apply DB --remote",
+    "deploy:cloudflare": "wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run build && npm run deploy:cloudflare"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250910.0",
