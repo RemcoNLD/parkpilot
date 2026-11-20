@@ -743,11 +743,12 @@ function render(): void {
           ? h('div', { class: 'stats' },
               h('button', { class: `stat issues${newIssues ? ' alert' : ''}`, 'aria-label': `Open, storing en onderhoud: toon de storingspagina${newIssues ? '. Er is iets nieuws' : ''}`, onclick: openIssues },
                 icon('door', 18),
-                h('div', { class: 'srow' }, h('b', {}, String(stats.openCount)), h('span', {}, 'open')),
-                h('div', { class: 'srow bad' }, h('b', {}, stats.down === null ? '–' : String(stats.down)), h('span', {}, 'storing')),
-                h('div', { class: 'srow mid' }, h('b', {}, String(stats.refurb)), h('span', {}, 'onderhoud'))),
-              h('div', { class: 'stat' }, icon('gauge', 18), h('b', {}, stats.avg === null ? '–' : `${stats.avg} min`), h('span', {}, 'gemiddeld')),
-              h('div', { class: 'stat' }, icon('bolt', 18), h('b', {}, stats.short ? `${stats.short.min} min` : '–'), h('span', {}, stats.short ? `korst: ${stats.short.name}` : 'korst')))
+                h('div', { class: 'snums' },
+                  h('div', { class: 'snum good' }, h('b', {}, String(stats.openCount))),
+                  h('div', { class: 'snum bad' }, h('b', {}, stats.down === null ? '–' : String(stats.down))),
+                  h('div', { class: 'snum off' }, h('b', {}, String(stats.refurb))))),
+              h('div', { class: 'stat' }, icon('gauge', 18), h('b', {}, stats.avg === null ? '–' : String(stats.avg)), h('span', {}, 'gemiddeld')),
+              h('div', { class: 'stat' }, icon('bolt', 18), h('b', {}, stats.short ? String(stats.short.min) : '–'), h('span', {}, stats.short ? `korst: ${stats.short.name}` : 'korst')))
           : null)),
     plan ? h('div', { class: 'pbar' },
       h('div', { class: 'pseg', role: 'group', 'aria-label': 'Sorteren' },

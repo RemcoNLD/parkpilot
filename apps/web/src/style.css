@@ -327,3 +327,14 @@ main { padding: 2px 0 12px; }
   .stat.issues.alert { animation: blink 1.1s ease-in-out infinite; }
   @keyframes blink { 0%, 100% { box-shadow: 0 0 0 1px var(--high), 0 0 16px color-mix(in srgb, var(--high) 60%, transparent); background: color-mix(in srgb, var(--high) 22%, var(--raised)); } 50% { box-shadow: 0 0 0 1px var(--line); background: color-mix(in srgb, var(--raised) 86%, transparent); } }
 }
+
+/* Storingstegel: drie grote getallen naast elkaar */
+.stats { grid-template-columns: 1.9fr 1fr 1fr; }
+.snums { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.snum { min-width: 0; }
+.stat .snum b { display: block; margin: 0; font: 800 30px/1 var(--rounded); font-variant-numeric: tabular-nums; }
+.stat .snum span { font-size: 11.5px; }
+.snum.good b { color: var(--low); } .snum.bad b { color: var(--high); } .snum.off b { color: var(--muted); }
+
+.snums { margin-top: 6px; }
+.stat .snum b { font-size: 36px; }
