@@ -1,6 +1,6 @@
 # ParkPilot
 
-Mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
+Mijn mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
 Stack: Vite + TypeScript, één Cloudflare Worker (API + statische app), Cloudflare D1, live data van ThemeParks.wiki.
 
 Status: **fase 1, stap 1 en 2** (scaffold, data, favorieten, koppelcode). Nog niet gebouwd: sorteren, locatie,
