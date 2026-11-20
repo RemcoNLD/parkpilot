@@ -70,7 +70,8 @@ export const putFavorite = (parkId: string, entityId: string, type: EntityType) 
 export const deleteFavorite = (parkId: string, entityId: string) =>
   request(`/api/favorites/${parkId}/${entityId}`, { method: 'DELETE' });
 
-export const createRecoveryCode = () => request<{ code: string }>('/api/profile/recovery-code', { method: 'POST' });
+export const createRecoveryCode = (code?: string) =>
+  request<{ code: string }>('/api/profile/recovery-code', { method: 'POST', body: code ? JSON.stringify({ code }) : undefined });
 export const redeemRecoveryCode = (code: string) =>
   request<RedeemResponse>('/api/profile/redeem', { method: 'POST', body: JSON.stringify({ code }) }, false);
 
@@ -79,5 +80,7 @@ export const savePreferences = (parkId: string, prefs: PreferencesDto) =>
   request(`/api/preferences/${parkId}`, { method: 'PUT', body: JSON.stringify(prefs) });
 
 export const fetchSchedule = (parkId: string) => request<ScheduleResponse>(`/api/parks/${parkId}/schedule`, {}, false);
-export const fetchHistory = (parkId: string, entityId: string, hours = 12) =>
-  request<HistoryResponse>(`/api/parks/${parkId}/history/${entityId}?hours=${hours}`, {}, false);
+export const fetchHistoryToday = (parkId: string, entityId: string) =>
+  request<HistoryResponse>(`/api/parks/${parkId}/history/${entityId}?since=today`, {}, false);
+
+export const fetchHealth = () => request<{ ok: boolean; version?: string }>('/api/health', {}, false);

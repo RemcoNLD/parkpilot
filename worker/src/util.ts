@@ -30,3 +30,11 @@ export function json(data: unknown, status = 200, headers: Record<string, string
 }
 
 export const errorJson = (status: number, code: string): Response => json({ error: code }, status);
+
+/** Begin van de huidige dag (00:00) in de tijdzone van het park, in seconden sinds 1970. */
+export function startOfLocalDaySec(timeZone: string, now = Date.now()): number {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    .formatToParts(new Date(now));
+  const get = (t: string): number => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return Math.floor(now / 1000) - (get('hour') * 3600 + get('minute') * 60 + get('second'));
+}

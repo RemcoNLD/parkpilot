@@ -3,7 +3,7 @@
 Mobile-first PWA voor wachttijden en shows in Disneyland Paris (opzet geschikt voor andere parken).
 Stack: Vite + TypeScript, één Cloudflare Worker (API + statische app), Cloudflare D1, live data van ThemeParks.wiki.
 
-Status: **fase 1, v2** (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
+Status: **v0.3.0** (fase 1) (data, favorieten, koppelcode, sorteren, afstand, parkthema's, wachttijdhistorie). Nog niet gebouwd:
 service worker/installatie-offline, showplanning en pushmeldingen.
 
 ## Online zetten zonder terminal
@@ -70,3 +70,23 @@ ThemeParks.wiki geeft alleen de actuele stand. ParkPilot legt zelf vast wanneer 
 (`wait_state` en `wait_log`, 7 dagen bewaard). Dat gebeurt via een Cron Trigger elke 5 minuten (`wrangler.toml`)
 en bij elke live-aanvraag. "Gewijzigd X min geleden" is dus zo nauwkeurig als dat meetinterval.
 Nieuwe migraties draaien mee in `npm run deploy:cloudflare`.
+
+## Versienummer
+
+Het versienummer staat op één plek: `packages/shared/src/version.ts`. App en server tonen het allebei
+(bovenin, onderaan en in Instellingen). Verhoog het bij elke oplevering. Toont de app een ander
+versienummer dan de server, dan draait er een oude versie in de cache.
+
+## Koppelcode
+
+Je kiest zelf een code (minimaal 4 letters of cijfers, bijvoorbeeld `1234`) of laat een sterke code maken.
+Alle toestellen die de code invullen delen één profiel: dezelfde favorieten en voorkeuren. De app haalt
+favorieten elke minuut en bij het openen opnieuw op, zodat wijzigingen van een ander toestel verschijnen.
+Een korte code is makkelijk te raden (10 pogingen per uur per IP); het lijstje bevat alleen favorieten.
+
+## Actualiteit
+
+- `lastUpdated` per attractie komt uit ThemeParks.wiki en wordt getoond als "bron X min geleden"
+  (groen tot 10 min, oranje tot 30, rood daarboven).
+- "Gewijzigd X min geleden", de pijl (rood = langer, groen = korter) en het dagverloop komen uit
+  de eigen meting (zie Wachttijdhistorie).

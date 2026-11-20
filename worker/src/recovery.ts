@@ -12,12 +12,16 @@ export function generateRecoveryCode(): string {
   return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
 }
 
-/** Zet invoer van een gebruiker om naar de canonieke vorm, of null als die niet kan kloppen. */
+export const MIN_CODE_LENGTH = 4;
+export const MAX_CODE_LENGTH = 24;
+
+/**
+ * Zet invoer om naar de canonieke vorm (hoofdletters, alleen letters en cijfers), of null als die niet kan kloppen.
+ * Geldt voor zowel gegenereerde codes als zelfgekozen codes zoals "1234".
+ */
 export function normalizeRecoveryCode(input: string): string | null {
   const raw = input.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (raw.length !== CODE_LENGTH) return null;
-  for (const ch of raw) if (!ALPHABET.includes(ch)) return null;
-  return raw;
+  return raw.length >= MIN_CODE_LENGTH && raw.length <= MAX_CODE_LENGTH ? raw : null;
 }
 
 export function hashRecoveryCode(normalized: string): Promise<string> {

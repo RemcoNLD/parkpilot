@@ -13,7 +13,8 @@ import { PARKS, findPark } from './parks';
 import { generateRecoveryCode, hashRecoveryCode, normalizeRecoveryCode } from './recovery';
 import { UpstreamError, getEntities, getLive, getSchedule, resolveParkIds } from './themeparks';
 import { loadStates, runStatements, track, trackAll } from './tracker';
-import { errorJson, json, nowSec } from './util';
+import { errorJson, json, nowSec, startOfLocalDaySec } from './util';
+import { APP_VERSION } from '../../packages/shared/src/version';
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SORTS: SortMode[] = ['distance', 'wait', 'name'];
@@ -33,7 +34,7 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   const method = req.method;
   const [a, b, c] = parts;
 
-  if (a === 'health' && method === 'GET') return json({ ok: true });
+  if (a === 'health' && method === 'GET') return json({ ok: true, version: APP_VERSION }, 200, { 'cache-control': 'no-store' });
 
   // ---- Parken en live-data (publiek, geen profiel nodig) ------------------------------------
   if (a === 'parks' && method === 'GET') {
@@ -73,7 +74,9 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     }
     if (c === 'history' && parts[3] && ID_PATTERN.test(parts[3])) {
       const hours = Math.min(48, Math.max(1, Number(url.searchParams.get('hours')) || 12));
-      const from = nowSec() - hours * 3600;
+      const from = url.searchParams.get('since') === 'today'
+        ? Math.max(nowSec() - 48 * 3600, startOfLocalDaySec(park.timezone))
+        : nowSec() - hours * 3600;
       type Row = { at: number; wait: number | null; status: LiveStatus };
       const [inWindow, base] = await Promise.all([
         env.DB.prepare('SELECT at, wait, status FROM wait_log WHERE park_id = ? AND entity_id = ? AND at >= ? ORDER BY at')
@@ -123,12 +126,28 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     if (b === 'recovery-code' && method === 'POST') {
       const auth = await authenticate(req, env);
       if (!auth) return errorJson(401, 'unauthorized');
-      const code = generateRecoveryCode();
-      const normalized = code.replace(/-/g, '');
+      const body = await readBody(req);
+      let display: string;
+      let normalized: string;
+      if (typeof body?.code === 'string') {
+        // Zelfgekozen code, bijvoorbeeld "1234". Korter betekent makkelijker te raden; de app waarschuwt daarvoor.
+        const custom = normalizeRecoveryCode(body.code);
+        if (!custom) return errorJson(400, 'invalid_code');
+        normalized = custom;
+        display = custom;
+      } else {
+        display = generateRecoveryCode();
+        normalized = display.replace(/-/g, '');
+      }
+      const hash = await hashRecoveryCode(normalized);
+      const taken = await env.DB.prepare('SELECT id FROM profiles WHERE recovery_hash = ? AND id != ?')
+        .bind(hash, auth.profileId)
+        .first<{ id: string }>();
+      if (taken) return errorJson(409, 'code_taken');
       await env.DB.prepare('UPDATE profiles SET recovery_hash = ?, recovery_created_at = ? WHERE id = ?')
-        .bind(await hashRecoveryCode(normalized), nowSec(), auth.profileId)
+        .bind(hash, nowSec(), auth.profileId)
         .run();
-      return json({ code });
+      return json({ code: display });
     }
     return errorJson(404, 'not_found');
   }
