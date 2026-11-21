@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:45** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.17.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:45, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.17.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:45 (commit ac467f7), nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`), Engels (`en`) én Portugees (`pt`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Meertalig:** Nederlands, Engels (sinds 0.13.0) en Portugees (sinds 0.16.0). Elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en + pt). Nooit losse teksten in `main.ts`; nieuwe teksten altijd in alle drie de talen; zie 6.9.
 - **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
