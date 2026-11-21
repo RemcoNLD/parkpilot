@@ -43,6 +43,7 @@ export interface LiveInfo {
   showtimes: Showtime[];
   updatedAt: string | null; // tijdstip waarop de bron dit item voor het laatst bijwerkte
   singleRider: boolean;
+  singleRiderWait?: number | null; // wachttijd single rider volgens de bron (null = niet bekend); sinds 0.9.0
   // Door ParkPilot zelf bijgehouden (worker/src/tracker.ts):
   changedAt: string | null; // wanneer wij de laatste wijziging van status/wachttijd zagen
   changeObserved: boolean; // false = nog nooit zien veranderen; changedAt is dan "sinds we meten"

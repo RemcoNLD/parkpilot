@@ -430,7 +430,15 @@ function expandPanel(entity: EntityInfo): HTMLElement | null {
   else if (!hist || hist.data === 'loading') inner = h('div', { class: 'chart-note' }, 'Verloop laden…');
   else if (hist.data === 'error') inner = h('div', { class: 'chart-note' }, 'Verloop is nu niet beschikbaar.');
   else inner = sparkline(hist.data, Date.now());
-  return h('div', { class: 'expand' }, h('div', { class: 'section-title tight' }, 'Verloop vandaag'), inner);
+  return h('div', { class: 'expand' }, singleRiderLine(state.live.get(entity.id)), h('div', { class: 'section-title tight' }, 'Verloop vandaag'), inner);
+}
+
+/** Wachttijd voor single riders in het uitklappen, alleen als de attractie een single-rider-rij heeft en open is. */
+function singleRiderLine(live: LiveInfo | undefined): HTMLElement | null {
+  if (!live?.singleRider || live.status !== 'open' || parkStatus().open === false) return null;
+  const w = live.singleRiderWait ?? null;
+  return h('div', { class: 'srline' }, h('span', {}, 'Single rider'),
+    w === null ? h('span', { class: 'srnone' }, 'geen wachttijd bekend') : h('b', { class: waitLevel(w) }, String(w)));
 }
 
 const ringToggle = (entity: EntityInfo, child: Node, cls = 'ring-btn'): HTMLElement =>
@@ -1048,7 +1056,7 @@ function openDetail(entity: EntityInfo): void {
     addFact('Wachttijd gewijzigd', live.changeObserved ? agoLabel(live.changedAt) : null);
     if (live.changeObserved && live.prevWaitMinutes !== null) addFact('Daarvoor', String(live.prevWaitMinutes));
     addFact('Bron bijgewerkt', live.updatedAt ? `${agoLabel(live.updatedAt)}${{ fresh: ' (actueel)', aging: ' (wat oud)', old: ' (verouderd)', unknown: '' }[freshness(live.updatedAt)]}` : null);
-    if (live.singleRider) addFact('Single rider', 'beschikbaar');
+    if (live.singleRider) addFact('Single rider', typeof live.singleRiderWait === 'number' ? String(live.singleRiderWait) : 'beschikbaar, geen wachttijd bekend');
   }
   if (entity.type === 'show' && live) {
     const next = nextStartMs(live);

@@ -81,7 +81,7 @@ globalThis.fetch = async (input) => {
   }
   if (kind === 'live') {
     return respond({ liveData: [
-      { id: 'A1', entityType: 'ATTRACTION', status: 'OPERATING', lastUpdated: iso(Date.now() - 120000), queue: { STANDBY: { waitTime: fake.wait }, SINGLE_RIDER: { waitTime: null } } },
+      { id: 'A1', entityType: 'ATTRACTION', status: 'OPERATING', lastUpdated: iso(Date.now() - 120000), queue: { STANDBY: { waitTime: fake.wait }, SINGLE_RIDER: { waitTime: 10 } } },
       { id: 'A2', entityType: 'ATTRACTION', status: 'DOWN', queue: { STANDBY: { waitTime: null } } },
       { id: 'S1', entityType: 'SHOW', status: 'OPERATING', showtimes: fake.showtimes() },
       { id: 'R1', entityType: 'RESTAURANT', status: 'OPERATING' },
@@ -155,7 +155,7 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
   await test('live: statussen, wachttijd, restaurant genegeerd', async () => {
     const r = await call('GET', 'parks/dlp-studios/live');
     eq(r.data.live.map((l) => [l.id, l.status, l.waitMinutes]), [['A1', 'open', 25], ['A2', 'down', null], ['S1', 'open', null]], 'live');
-    eq(r.data.live[0].singleRider, true, 'single rider');
+    eq([r.data.live[0].singleRider, r.data.live[0].singleRiderWait, r.data.live[1].singleRiderWait], [true, 10, null], 'single rider');
     eq(r.data.live[2].showtimes.length, 2, 'showtijden');
   });
   await test('live-route schrijft niets naar D1', async () => {

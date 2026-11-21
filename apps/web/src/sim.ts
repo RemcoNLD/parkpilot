@@ -36,6 +36,7 @@ export function simulateLive(entities: EntityInfo[], now = Date.now()): LiveInfo
     base.changedAt = new Date(bucket * 300_000 + (hash(e.id) % 240) * 1000).toISOString();
     base.changeObserved = cur !== prev;
     base.singleRider = hash(e.id + 'sr') % 4 === 0;
+    base.singleRiderWait = base.singleRider ? Math.max(5, Math.round(cur / 3 / 5) * 5) : null;
     return base;
   });
 }

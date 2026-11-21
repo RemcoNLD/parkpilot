@@ -3,6 +3,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.0',
+    date: '21 nov 2026',
+    changes: [
+      'Uitklappen van een attractie toont nu ook de wachttijd voor single riders, als de attractie een single-rider-rij heeft. Levert de bron geen tijd, dan staat er "geen wachttijd bekend".',
+    ],
+  },
+  {
     version: '0.8.0',
     date: '21 nov 2026',
     changes: [

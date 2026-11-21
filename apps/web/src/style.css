@@ -389,3 +389,10 @@ main { padding: 2px 0 12px; }
 .asheet-btn { background: var(--raised); border-radius: 14px; padding: 16px; font: 650 17px/1.2 var(--rounded); color: var(--text); text-align: center; }
 .asheet-btn.primary { color: var(--accent); }
 .asheet-btn.cancel { font-weight: 750; margin-top: 4px; }
+
+/* Uitklappen: wachttijd single rider (alleen getal, kleur volgens niveau) */
+.srline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.srline span { font-weight: 650; }
+.srline b { font: 800 26px/1 var(--rounded); font-variant-numeric: tabular-nums; color: var(--text); }
+.srline b.low { color: var(--low); } .srline b.mid { color: var(--mid); } .srline b.high { color: var(--high); }
+.srline .srnone { font-weight: 400; color: var(--muted); font-size: 14px; }

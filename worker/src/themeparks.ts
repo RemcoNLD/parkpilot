@@ -123,7 +123,7 @@ interface RawLive {
   entityType: string;
   status?: string;
   lastUpdated?: string;
-  queue?: { STANDBY?: { waitTime?: number | null } | null; SINGLE_RIDER?: unknown } | null;
+  queue?: { STANDBY?: { waitTime?: number | null } | null; SINGLE_RIDER?: { waitTime?: number | null } | null } | null;
   showtimes?: { startTime?: string; endTime?: string | null }[] | null;
 }
 
@@ -163,6 +163,7 @@ export async function getLive(cfg: ParkConfig, force = false): Promise<LiveRespo
       showtimes,
       updatedAt: Number.isFinite(updated) ? new Date(updated).toISOString() : null,
       singleRider: Boolean(l.queue?.SINGLE_RIDER),
+      singleRiderWait: typeof l.queue?.SINGLE_RIDER?.waitTime === 'number' ? l.queue.SINGLE_RIDER.waitTime : null,
       changedAt: null,
       changeObserved: false,
       prevWaitMinutes: null,

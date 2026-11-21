@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:35** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:45** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:35** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.8.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:35, nog niet door Remco bevestigd. 0.5.0 was op 21 nov bevestigd.
+- **Versie in de code:** `0.9.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:45, nog niet door Remco bevestigd. 0.5.0 was op 21 nov bevestigd.
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -162,7 +162,7 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
   - Midden en rechts: gemiddelde en kortste wachttijd, **zonder "min"**.
 - Segmentknop **Overzicht | Mijn programma**, tabs Attracties / Shows / Volgend, sorteerchips (Wachttijd, Afstand, Naam), filter "Alleen open" (houdt rekening met gesloten park). Shows-tab heeft een **dagkeuze** (zie 7.3).
 - Rij: ring met wachttijd (<20 groen, <45 oranje, anders rood), naam, soortregel, afstand/looptijd, bronleeftijd. Storing = rood uitroepteken zonder ring; onderhoud = grijze moersleutel zonder ring; park dicht = gedimd met maantje.
-- **Tik op wachttijd/showtijd** klapt de rij uit. **Tik op de naam** opent het detailvenster.
+- **Tik op wachttijd/showtijd** klapt de rij uit. Bij attracties met single rider staat bovenin het uitklappen "Single rider" met de wachttijd (alleen getal, kleur per niveau) of "geen wachttijd bekend"; alleen als de attractie open is en het park open. Geldt in Overzicht én Mijn programma (`singleRiderLine()`). Ook in het detailvenster bij de feiten. **Tik op de naam** opent het detailvenster.
 - **Geen omschrijvingen in lijsten.**
 
 ### 6.3 Mijn programma
@@ -209,7 +209,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 ### 7.1 ThemeParks.wiki API v1
 - In gebruik: `/destinations`, `/entity/{id}/children`, `/entity/{id}/live`, `/entity/{id}/schedule`.
-- Live: status (OPERATING/DOWN/CLOSED/REFURBISHMENT), `queue.STANDBY.waitTime`, SINGLE_RIDER, `showtimes`, `lastUpdated`.
+- Live: status (OPERATING/DOWN/CLOSED/REFURBISHMENT), `queue.STANDBY.waitTime`, `queue.SINGLE_RIDER.waitTime`, `showtimes`, `lastUpdated`.
+- **Single rider (sinds 0.9.0):** de Worker geeft `singleRider` (rij bestaat) en `singleRiderWait` (getal of null). **Niet gecontroleerd of de bron voor Disneyland Paris echt single-rider-wachttijden levert**; mogelijk is die meestal null. Dan toont de app "geen wachttijd bekend". Single-rider-tijden worden niet in de historie bijgehouden.
 - **Geen wijzigingstijd van de wachttijd** in de bron; daarom de eigen tracker (5 min nauwkeurig).
 - **Showtijden:** lijken alleen voor vandaag te komen; toekomst **niet bevestigd**. App toont voor andere dagen **verwachte** tijden (zelfde weekdag vorige week of laatst geziene dag), gemarkeerd. Nog te onderzoeken: `/entity/{showId}/schedule`.
 - Bronleeftijd meestal 2 tot 5 min; geforceerd verversen maakt de bron niet verser.
@@ -264,6 +265,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 **Nieuw gevonden (21 nov 2026):**
 - ~~`tools/` ontbrak~~ en ~~oude losse bestanden in de root~~: opgelost op 21 nov 2026 (28 tests, root opgeruimd).
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
+
+**0.9.0 (21 nov 2026), door Remco te controleren:** komt er bij attracties met single rider (bijv. in Adventure World) een echt getal, of steeds "geen wachttijd bekend"? Dat laatste betekent dat de bron het niet levert.
 
 **0.8.0 (21 nov 2026), door Remco te controleren:** vegen links/rechts op zijn iPhone (botst het niet met scrollen?), bevestigingsmenu, Apple Kaarten opent met looproute, Google Maps opent de app (en start die meteen de navigatie?).
 
@@ -378,6 +381,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:45 — versie 0.9.0:** single-rider-wachttijd in het uitklappen (en detailvenster); Worker levert `singleRiderWait`; test uitgebreid.
 - **21 nov 2026, 11:35 — versie 0.8.0:** vegen in Mijn programma: links = afstrepen als gezien (bevestiging, per dag, per toestel), rechts = lopend navigeren via Apple Kaarten of Google Maps (zie 6.3b).
 - **21 nov 2026, 11:20 — versie 0.7.1:** fout van 0.7.0 hersteld: de nieuwe kop "Shows ▾" gebruikte de bestaande CSS-klasse `.ptoggle` (de knop van de grote tijd/wachttijd in Mijn programma) en overschreef de opmaak daarvan. Nu `.pshows-toggle`. Les: zoek altijd eerst of een klassenaam al bestaat (`grep -n "\.naam" style.css main.ts`). Remco vroeg ook of afgelopen shows verdwijnen: nee (zie 6.3); voorstel gedaan, nog niet gebouwd.
 - **21 nov 2026, 11:15 — versie 0.7.0:** shows inklappen in Mijn programma (onthouden); changelog in de app (Instellingen > Wat is er nieuw, `changelog.ts`).
