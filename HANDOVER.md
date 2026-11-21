@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:00** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:05** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -338,14 +338,14 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
    - Eén attribuut op het root-element (`data-theme="light|dark"`); alle kleuren als CSS custom properties per thema. Tweede attribuut (bij ParkPilot `data-park`) voor een accent per context.
    - iOS-PWA: statusbalk `black-translucent` met eigen `.statusbar`-div.
    - Code: `apps/web/src/theme.ts` + `style.css`. **Nog te controleren:** thema vóór eerste render (geen witte flits) en meeveranderende `<meta name="theme-color">`.
-2. **Zichtbaar versienummer** op drie plekken, uit één bron, ook via `/api/health`; elke levering ophogen. In Instellingen als **knop "Versie X · zoek update"** die geforceerd op een update controleert en zo nodig herlaadt (`checkForUpdate()`, vergelijkt `/api/health` met de app-versie). *(Versie zichtbaar: letterlijk gewenst. Updateknop: letterlijk gevraagd 21 nov 2026. Dat het in elke app hoort: afgeleid, nog bevestigen.)*
+2. **Zichtbaar versienummer** op drie plekken, uit één bron, ook via `/api/health`; elke levering ophogen. In Instellingen als **knop "Versie X · zoek update"** die geforceerd op een update controleert en zo nodig herlaadt (`checkForUpdate()`, vergelijkt `/api/health` met de app-versie). *(**Bevestigd door Remco als framework feature, 21 nov 2026.**)*
 3. **Tekstgrootte Compact/Comfortabel** ("Aa", ~20%, onthouden). *(Afgeleid.)*
 4. **Mobile-first PWA** met offline app-schil. *(Afgeleid.)*
 5. **`store`-helper** voor localStorage met try/catch en app-prefix. *(Afgeleid.)*
 6. **Anoniem profiel + koppelcode** voor meerdere toestellen. *(Afgeleid.)*
 7. **Versheid en offline zichtbaar.** *(Afgeleid.)*
 8. **Zuinig verversen** (zichtbaar + online, plus ↻). *(Afgeleid.)*
-11. **Locatie zuinig:** alleen op verzoek, eenmalig per app-start, daarna gps uit; handmatig bijwerken via ↻. *(Gevraagd voor ParkPilot op 21 nov 2026; dat het in elke app hoort: afgeleid.)*
+11. **Locatie zuinig:** alleen op verzoek, eenmalig per app-start, daarna gps uit; handmatig bijwerken via ↻. *(**Bevestigd door Remco als framework feature, 21 nov 2026.**)*
 9. **Simulatie-/demostand** met gekleurde balk en Stop. *(Afgeleid.)*
 10. **Instellingenscherm** als vaste plek voor voorkeuren. *(Afgeleid.)*
 
@@ -357,6 +357,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:05:** Remco bevestigt updateknop-met-versie en zuinige locatie als framework features (15.3 punten 2 en 11).
 - **21 nov 2026, 11:00 — versie 0.6.0:** locatie eenmalig per app-start (gps daarna uit, ↻ werkt bij); updateknop met versie in Instellingen; storingspagina-bug ("null") opgelost; strengere app-typecheck toegevoegd aan `tools/test-worker.sh` (vond 3 oude typefouten, alle opgelost).
 - **21 nov 2026, 09:15:** Op verzoek van Remco: tien oude losse bestanden uit de repo-root verwijderd, `.gitignore` toegevoegd, `tools/` met worker-typecheck en 28 tests opnieuw opgebouwd (alles ok). App-code ongewijzigd, versie blijft 0.5.0.
 
