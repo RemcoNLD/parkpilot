@@ -8,6 +8,18 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.15.0',
+    date: '2026-11-21',
+    changes: [
+      'Inchecken in de rij: houd een attractie even ingedrukt en kies de gewone rij of single rider. Onderin loopt de tijd mee, met de verwachte wachttijd en hoeveel er nog over is.',
+      'Tik op "Aan de beurt" en daarna "Eruit". Je ziet dan hoe lang je echt wachtte vergeleken met de verwachting. Je ritten van vandaag staan in het detailvenster.',
+    ],
+    en: [
+      'Queue check-in: press and hold an attraction and choose the standby or single rider queue. A timer runs at the bottom, with the expected wait and how much is left.',
+      'Tap "My turn" and then "Done". You then see how long you actually waited compared with the estimate. Your rides of today are shown in the details panel.',
+    ],
+  },
+  {
     version: '0.14.1',
     date: '2026-11-21',
     changes: ['Schakelaar Alles | Mijn dag met icoontjes en meer diepte. Daaronder in beide schermen het park met een eigen icoontje in de parkkleur, even hoog als de schakelaar.'],

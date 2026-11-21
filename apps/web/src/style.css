@@ -463,3 +463,25 @@ main { padding: 2px 0 12px; }
 .chart-stale { margin-top: 4px; padding: 6px 8px 4px; border-radius: 10px; background: color-mix(in srgb, var(--muted) 18%, transparent); }
 .chart-stale svg { filter: grayscale(0.6); opacity: 0.8; }
 .stale-note { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+
+/* Inchecken in de rij (0.15.0): balk onderin, accentstreep op de rij, ritten in het detailvenster. */
+.row.inq, .prow.inq { box-shadow: inset 4px 0 0 var(--accent); }
+.qbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 18; max-width: calc(640px * var(--z)); margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px) 14px; background: var(--raised); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.18); }
+.qbar-main { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; gap: 3px; color: var(--text); }
+.qbar-top { display: flex; align-items: baseline; gap: 8px; }
+.qbar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 15px/1.2 var(--rounded); }
+.qbar-time { font: 800 22px/1 var(--rounded); font-variant-numeric: tabular-nums; }
+.qbar-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.qbar-exp { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qbar-exp.over, .qbar.over:not(.turn) .qbar-time { color: var(--high); }
+.qbar-prog { height: 4px; border-radius: 2px; background: var(--raised2); overflow: hidden; }
+.qbar-fill { height: 100%; width: 0; background: var(--low); border-radius: 2px; transition: width .9s linear; }
+.qbar.over .qbar-fill { background: var(--high); }
+.qbar.turn .qbar-fill { background: var(--accent); }
+.qbar.noexp:not(.turn) .qbar-prog { visibility: hidden; }
+.qbar-btn { flex: none; height: 40px; padding: 0 14px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font: 700 14px/1 var(--rounded); white-space: nowrap; }
+.foot.qspace { padding-bottom: calc(env(safe-area-inset-bottom) + 110px); }
+.qlog { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.qlog-row { display: flex; gap: 10px; align-items: baseline; }
+.qlog-row b { font-variant-numeric: tabular-nums; min-width: 3em; }
+.qlog-exp { margin-left: auto; color: var(--muted); font-size: 13px; }

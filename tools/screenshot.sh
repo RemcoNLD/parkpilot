@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang]
+# Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue]
 # Bouwt de app met Bun (zonder vite/npm install) en maakt screenshots met Chrome + Playwright, met nepdata.
 # Werkte in de Claude-sandbox van 21 nov 2026 (bun in /root/.bun/bin, chrome in /usr/bin, playwright in /opt/npm-tools).
 set -euo pipefail

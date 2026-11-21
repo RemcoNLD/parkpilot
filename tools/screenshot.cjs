@@ -1,4 +1,4 @@
-// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang]
+// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue]
 // Opent nu het instellingenscherm; pas de stappen onderaan aan voor andere schermen.
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs'), path = require('path');
@@ -12,7 +12,7 @@ const api = {
     { id: 'A1', type: 'attraction', name: 'Crush\'s Coaster', location: { lat: 48.867, lng: 2.779 }, locationSource: 'source' },
     { id: 'S1', type: 'show', name: 'Disney Tales of Magic', location: null, locationSource: null } ] },
   '/api/parks/dlp-studios/live': { parkId: 'dlp-studios', generatedAt: new Date().toISOString(), sourceUpdatedAt: new Date().toISOString(), live: [
-    { id: 'A1', status: 'open', waitMinutes: 35, showtimes: [], updatedAt: new Date().toISOString(), singleRider: false, changedAt: null, changeObserved: false, prevWaitMinutes: null },
+    { id: 'A1', status: 'open', waitMinutes: 35, showtimes: [], updatedAt: new Date().toISOString(), singleRider: true, singleRiderWait: 15, changedAt: null, changeObserved: false, prevWaitMinutes: null },
     { id: 'S1', status: 'open', waitMinutes: null, showtimes: [{ start: new Date(now + 3600e3).toISOString(), end: null }], updatedAt: null, singleRider: false, changedAt: null, changeObserved: false, prevWaitMinutes: null } ] },
   '/api/favorites': [],
   '/api/preferences/dlp-studios': { sort: 'wait', arrivalMarginMin: 15, walkingSpeedKmh: 4.5 },
@@ -71,6 +71,29 @@ const api = {
     await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
     await page.click('.set-sec:nth-of-type(1) .set-item:nth-of-type(3) .segments button:nth-of-type(1)'); await page.waitForTimeout(300);
     console.log('na Auto:', await page.evaluate(() => document.documentElement.lang + ' / ' + localStorage.getItem('pp.lang')));
+    await browser.close();
+    return;
+  }
+  if (scenario === 'queue') {
+    // Inchecken: lang drukken op de attractie, rij kiezen, tijd loopt, over de verwachting, aan de beurt, eruit, detailvenster.
+    const longPress = async (sel) => { const b = await page.locator(sel).first().boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up(); await page.waitForTimeout(300); };
+    await longPress('.row .row-name');
+    await page.screenshot({ path: `${OUT}/queue-${theme}-${locale}-1-choose.png` });
+    await page.click('.asheet-btn.primary'); await page.waitForTimeout(2300);
+    await page.screenshot({ path: `${OUT}/queue-${theme}-${locale}-2-running.png` });
+    await page.evaluate(() => { const q = JSON.parse(localStorage.getItem('pp.queue')); q.start = Date.now() - 41 * 60e3 - 12e3; localStorage.setItem('pp.queue', JSON.stringify(q)); });
+    await page.reload(); await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${OUT}/queue-${theme}-${locale}-3-over.png` });
+    await page.click('.qbar-btn'); await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${OUT}/queue-${theme}-${locale}-4-turn.png` });
+    await page.evaluate(() => { const q = JSON.parse(localStorage.getItem('pp.queue')); q.turnAt = Date.now() - 4 * 60e3; localStorage.setItem('pp.queue', JSON.stringify(q)); });
+    await page.reload(); await page.waitForTimeout(1500);
+    await page.click('.qbar-btn'); await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/queue-${theme}-${locale}-5-result.png` });
+    await page.click('.asheet-btn.cancel'); await page.waitForTimeout(300);
+    await page.click('.row-open'); await page.waitForTimeout(800);
+    await page.evaluate(() => document.querySelector('.drawer').scrollTo(0, 99999)); await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/queue-${theme}-${locale}-6-detail.png` });
     await browser.close();
     return;
   }

@@ -43,6 +43,7 @@ type Density = 'compact' | 'comfortable';
 const store = {
   get: (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k: string, v: string): void => { try { localStorage.setItem(k, v); } catch { /* geen opslag */ } },
+  remove: (k: string): void => { try { localStorage.removeItem(k); } catch { /* geen opslag */ } },
 };
 const DEFAULT_PARK = 'dlp-studios'; // Disney Adventure World, tenzij de gebruiker zelf een ander park koos
 
@@ -526,7 +527,7 @@ function renderRow(entity: EntityInfo): HTMLElement {
   if (d !== null) extra.push(`${formatDistance(d)}, ${T.walkMin(walkMinutes(d, state.prefs.walkingSpeedKmh))}`);
   const meta = entity.type === 'attraction' && parkStatus().open !== false ? metaLine(live) : null;
   return h('div', { class: 'rowwrap' },
-    withLongPress(entity, h('div', { class: 'row' },
+    withLongPress(entity, h('div', { class: `row${inQueue(entity) ? ' inq' : ''}` },
       ringToggle(entity, statusRing(entity, live)),
       h('button', { class: 'row-open', 'aria-label': T.details(entity.name), onclick: () => openDetail(entity) },
         h('div', { class: 'row-main' },
@@ -701,7 +702,7 @@ function planAttraction(entity: EntityInfo): HTMLElement {
   // Single rider klein rechtsboven de wachttijd: alleen een getal, alleen als de bron er een geeft en de attractie open is.
   const sr = srOf(live);
   return h('div', { class: 'rowwrap' },
-    h('div', { class: 'prow' },
+    withLongPress(entity, h('div', { class: `prow${inQueue(entity) ? ' inq' : ''}` },
       byDist ? distBlock(entity) : null,
       h('button', { class: 'pmain', 'aria-label': T.details(entity.name), onclick: () => openDetail(entity) },
         h('div', { class: 'pname' }, entity.name),
@@ -711,7 +712,7 @@ function planAttraction(entity: EntityInfo): HTMLElement {
           h('span', { class: `pbig pwait-xl ${cls}${label.length > 3 ? ' word' : ''}`, style: label.length > 3 ? null : `min-width:${planLayout.digits}ch` }, label),
           // Rechts van de wachttijd, onder elkaar: single rider (badge) boven, verschil (▲/▼) onder.
           sr !== null ? h('span', { class: `psr ${waitLevel(sr)}`, 'aria-label': `${T.singleRiderLower} ${sr}` }, String(sr)) : null,
-          t ? h('span', { class: `trend ptr ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null)), 'ptoggle')),
+          t ? h('span', { class: `trend ptr ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null)), 'ptoggle'))),
     expandPanel(entity));
 }
 
@@ -873,9 +874,13 @@ const canSetSpot = (e: EntityInfo): boolean =>
 
 const LONG_PRESS_MS = 600;
 
-/** Lang drukken (0,6 s stil houden) op een showrij opent het kijkplek-menu. Bewegen of vegen annuleert. */
+/**
+ * Lang drukken (0,6 s stil houden): op een attractie inchecken in de rij, op een show zonder bronlocatie het
+ * kijkplek-menu. Bewegen of vegen annuleert.
+ */
 function withLongPress(entity: EntityInfo, el: HTMLElement): HTMLElement {
-  if (!canSetSpot(entity)) return el;
+  const isAttraction = entity.type === 'attraction';
+  if (!isAttraction && !canSetSpot(entity)) return el;
   el.classList.add('lp');
   let timer = 0, sx = 0, sy = 0, pid = -1, suppressUntil = 0;
   const cancel = (): void => { clearTimeout(timer); timer = 0; pid = -1; el.classList.remove('lp-hold'); };
@@ -886,7 +891,7 @@ function withLongPress(entity: EntityInfo, el: HTMLElement): HTMLElement {
     timer = window.setTimeout(() => {
       timer = 0; el.classList.remove('lp-hold');
       suppressUntil = Date.now() + 700; // de tik die op het loslaten volgt niet ook laten tellen
-      void showSpotMenu(entity);
+      if (isAttraction) showQueueMenu(entity); else void showSpotMenu(entity);
     }, LONG_PRESS_MS);
   });
   el.addEventListener('pointermove', (e) => {
@@ -987,6 +992,170 @@ async function removeSpot(entity: EntityInfo): Promise<void> {
     setEntityLocation(entity.id, { location: null, locationSource: null, locationAccuracy: null, locationUpdatedAt: null });
   } catch {
     actionSheet(T.notRemoved, T.errRemoveConn, [{ label: T.ok, kind: 'cancel' }]);
+  }
+}
+
+// ---- Inchecken in de rij (lang drukken op een attractie) ---------------------------------------
+// Eén rij tegelijk, alleen op dit toestel. Statussen: in de rij → aan de beurt → eruit.
+
+type QueueLine = 'standby' | 'single';
+interface QueueState { id: string; parkId: string; name: string; line: QueueLine; expected: number | null; start: number; turnAt: number | null }
+interface QueueDone extends QueueState { outAt: number }
+
+const QUEUE_MAX_MS = 12 * 3600_000; // een vergeten rij vervalt na 12 uur
+
+function loadQueue(): QueueState | null {
+  try {
+    const q = JSON.parse(store.get('pp.queue') ?? 'null') as QueueState | null;
+    if (!q || typeof q.start !== 'number' || Date.now() - q.start > QUEUE_MAX_MS) return null;
+    return q;
+  } catch { return null; }
+}
+let queue: QueueState | null = loadQueue();
+function saveQueue(q: QueueState | null): void {
+  queue = q;
+  if (q) store.set('pp.queue', JSON.stringify(q)); else store.remove('pp.queue');
+}
+const inQueue = (e: EntityInfo): boolean => !!queue && queue.id === e.id && queue.parkId === state.parkId;
+
+/** Afgeronde rijen van vandaag (Parijse datum), alleen op dit toestel. */
+function queueLog(): QueueDone[] {
+  try {
+    const v = JSON.parse(store.get('pp.queueLog') ?? 'null') as { date: string; items: QueueDone[] } | null;
+    return v && v.date === todayStr() ? v.items : [];
+  } catch { return []; }
+}
+function addQueueLog(item: QueueDone): void {
+  store.set('pp.queueLog', JSON.stringify({ date: todayStr(), items: [...queueLog(), item] }));
+}
+
+const lineName = (l: QueueLine): string => (l === 'single' ? T.singleRider : T.qStandby);
+/** Lopende tijd als m:ss (of u:mm:ss boven het uur). */
+function stopwatch(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60;
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return hh ? `${hh}:${p(mm)}:${p(ss)}` : `${mm}:${p(ss)}`;
+}
+const minutesOf = (ms: number): number => Math.max(0, Math.round(ms / 60000));
+
+function showQueueMenu(entity: EntityInfo): void {
+  if (queue && queue.id === entity.id && queue.parkId === state.parkId) { queueOptions(); return; }
+  if (queue) {
+    const cur = queue;
+    actionSheet(T.qSwitchTitle(entity.name), T.qSwitchBody(cur.name), [
+      { label: T.qSwitchBtn, kind: 'primary', run: () => { saveQueue(null); chooseLine(entity); } },
+      { label: T.cancel, kind: 'cancel' },
+    ]);
+    return;
+  }
+  chooseLine(entity);
+}
+
+function chooseLine(entity: EntityInfo): void {
+  const live = state.live.get(entity.id);
+  const parkOpen = parkStatus().open !== false;
+  const standby = parkOpen && live?.status === 'open' && typeof live.waitMinutes === 'number' ? live.waitMinutes : null;
+  const single = srOf(live);
+  const label = (name: string, n: number | null): string => (n === null ? name : `${name} · ${n}`);
+  actionSheet(T.qWhichLine, entity.name, [
+    { label: label(T.qStandby, standby), kind: 'primary', run: () => checkIn(entity, 'standby', standby) },
+    ...(live?.singleRider ? [{ label: label(T.singleRider, single), kind: 'primary' as const, run: () => checkIn(entity, 'single', single) }] : []),
+    { label: T.cancel, kind: 'cancel' },
+  ]);
+}
+
+function checkIn(entity: EntityInfo, line: QueueLine, expected: number | null): void {
+  saveQueue({ id: entity.id, parkId: state.parkId, name: entity.name, line, expected, start: Date.now(), turnAt: null });
+  render();
+}
+
+/** Tik op de balk: alle keuzes voor de rij waar je in staat. */
+function queueOptions(): void {
+  const q = queue;
+  if (!q) return;
+  const sub = `${lineName(q.line)} · ${stopwatch((q.turnAt ?? Date.now()) - q.start)}`;
+  actionSheet(q.name, sub, q.turnAt === null
+    ? [
+        { label: T.qTurn, kind: 'primary', run: markTurn },
+        { label: T.qOut, kind: 'primary', run: markOut },
+        { label: T.qUndo, kind: 'danger', run: () => { saveQueue(null); render(); } },
+        { label: T.cancel, kind: 'cancel' },
+      ]
+    : [
+        { label: T.qOut, kind: 'primary', run: markOut },
+        { label: T.qBackInLine, kind: 'primary', run: () => { if (queue) { saveQueue({ ...queue, turnAt: null }); render(); } } },
+        { label: T.qUndo, kind: 'danger', run: () => { saveQueue(null); render(); } },
+        { label: T.cancel, kind: 'cancel' },
+      ]);
+}
+
+function markTurn(): void {
+  if (!queue || queue.turnAt !== null) return;
+  saveQueue({ ...queue, turnAt: Date.now() });
+  render();
+}
+
+function markOut(): void {
+  const q = queue;
+  if (!q) return;
+  const done: QueueDone = { ...q, outAt: Date.now() };
+  addQueueLog(done);
+  saveQueue(null);
+  render();
+  actionSheet(T.qDoneTitle(q.name), queueResult(done), [{ label: T.ok, kind: 'cancel' }]);
+}
+
+/** "Je wachtte X. Verwacht was Y: Z sneller/langer. Rit tot eruit: R." */
+function queueResult(d: QueueDone): string {
+  const waited = minutesOf((d.turnAt ?? d.outAt) - d.start);
+  const parts = [T.qWaited(dur(waited))];
+  if (d.expected === null) parts.push(T.qNoExpected);
+  else {
+    const diff = waited - d.expected;
+    parts.push(diff === 0 ? T.qExactly(d.expected) : diff < 0 ? T.qFaster(d.expected, dur(-diff)) : T.qSlower(d.expected, dur(diff)));
+  }
+  if (d.turnAt !== null) parts.push(T.qRide(dur(minutesOf(d.outAt - d.turnAt))));
+  else parts.push(T.qNoTurn);
+  return parts.join(' ');
+}
+
+/** Balk onderin zolang je in een rij staat. De tijd wordt elke seconde bijgewerkt door paintQueue(). */
+function queueBar(): HTMLElement | null {
+  const q = queue;
+  if (!q) return null;
+  return h('div', { class: `qbar${q.turnAt !== null ? ' turn' : ''}`, role: 'region', 'aria-label': T.qBarAria },
+    h('button', { class: 'qbar-main', onclick: queueOptions },
+      h('div', { class: 'qbar-top' },
+        h('b', { class: 'qbar-name' }, q.name),
+        h('span', { class: 'qbar-time' }, '')),
+      h('div', { class: 'qbar-sub' }, h('span', { class: 'qbar-line' }, lineName(q.line)), h('span', { class: 'qbar-exp' }, '')),
+      h('div', { class: 'qbar-prog' }, h('div', { class: 'qbar-fill' }))),
+    h('button', { class: 'qbar-btn', onclick: (ev: Event) => { ev.stopPropagation(); if (q.turnAt === null) markTurn(); else markOut(); } },
+      q.turnAt === null ? T.qTurn : T.qOut));
+}
+
+function paintQueue(): void {
+  const bar = document.querySelector('.qbar');
+  const q = queue;
+  if (!bar || !q) return;
+  const now = Date.now();
+  const waitMs = (q.turnAt ?? now) - q.start;
+  const time = bar.querySelector('.qbar-time'), exp = bar.querySelector('.qbar-exp'), fill = bar.querySelector('.qbar-fill') as HTMLElement | null;
+  if (time) time.textContent = stopwatch(waitMs);
+  const over = q.expected !== null && waitMs > q.expected * 60000;
+  if (exp) {
+    if (q.turnAt !== null) exp.textContent = T.qTurnSince(stopwatch(now - q.turnAt));
+    else if (q.expected === null) exp.textContent = T.qExpUnknown;
+    else if (over) exp.textContent = T.qExpOver(q.expected, minutesOf(waitMs - q.expected * 60000));
+    else exp.textContent = T.qExpLeft(q.expected, Math.max(0, Math.ceil((q.expected * 60000 - waitMs) / 60000)));
+    exp.classList.toggle('over', over && q.turnAt === null);
+  }
+  bar.classList.toggle('over', over);
+  if (fill) {
+    const pct = q.expected === null ? 0 : q.expected === 0 ? 100 : Math.min(100, (waitMs / (q.expected * 60000)) * 100);
+    fill.style.width = `${q.turnAt !== null ? 100 : pct}%`;
+    bar.classList.toggle('noexp', q.expected === null);
   }
 }
 
@@ -1166,9 +1335,11 @@ function render(): void {
     ...[locationNotice(), !plan && state.tab === 'shows' && state.entities.length ? dayBar() : null].filter((n): n is HTMLElement => n !== null),
     closedNote,
     h('main', {}, body),
-    h('footer', { class: 'foot' },
+    queueBar(),
+    h('footer', { class: `foot${queue ? ' qspace' : ''}` },
       `ParkPilot v${APP_VERSION}${state.serverVersion && state.serverVersion !== APP_VERSION ? ` · server v${state.serverVersion}` : ''}${T.footer}`)];
   root.replaceChildren(...items.filter((n): n is Node => n !== null));
+  paintQueue();
   window.scrollTo(0, scrollTop);
 }
 
@@ -1330,6 +1501,7 @@ function openDetail(entity: EntityInfo): void {
     ? h('p', { class: 'caveat' }, T.caveat(agoLabel(live.changedAt)))
     : null;
 
+  const myRides = entity.type === 'attraction' ? queueLog().filter((r) => r.id === entity.id && r.parkId === state.parkId) : [];
   const chartBox = h('div', {});
   if (entity.type === 'attraction') {
     // Meteen het bewaarde verloop (grijs als niet actueel), daarna bijwerken zodra het ophalen klaar is.
@@ -1360,6 +1532,11 @@ function openDetail(entity: EntityInfo): void {
     entity.type === 'attraction' ? h('div', { class: 'section-title' }, T.histToday) : null,
     entity.type === 'attraction' ? chartBox : null,
     facts.childNodes.length ? facts : null,
+    myRides.length ? h('div', { class: 'section-title' }, T.qYouToday) : null,
+    myRides.length ? h('div', { class: 'qlog' }, ...myRides.map((r) => h('div', { class: 'qlog-row' },
+      h('b', {}, clock(r.start, tz())),
+      h('span', {}, `${lineName(r.line)}: ${dur(minutesOf((r.turnAt ?? r.outAt) - r.start))}`),
+      h('span', { class: 'qlog-exp' }, r.expected === null ? T.qExpUnknownShort : T.qExpShort(r.expected))))) : null,
     caveat,
     blurb ? h('div', { class: 'about' },
       h('p', {}, blurb.text),
@@ -1760,6 +1937,8 @@ setInterval(() => {
   if (tick % (state.view === 'plan' ? 2 : 4) === 0) void refreshLive();
 }, 30_000);
 setInterval(() => { if (document.visibilityState === 'visible') render(); }, 30_000);
+// Lopende tijd in de rij: elke seconde alleen de balk bijwerken, niet het hele scherm.
+setInterval(() => { if (queue && document.visibilityState === 'visible') paintQueue(); }, 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshLive(); });
 window.addEventListener('online', () => void refreshLive());
 window.addEventListener('offline', render);
