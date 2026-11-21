@@ -452,6 +452,7 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 7. Kleurdrempels, meer omschrijvingen, CSS opruimen, `main.ts` splitsen.
 8. Beveiliging verscherpen bij breder delen.
 9. **Framework-features losmaken** (15.3) als herbruikbare modules. Alleen op verzoek.
+10. **Profiel overzetten met een QR-code** (Remco, 21 nov 21:28, nog niet gebouwd; advies gegeven, wacht op zijn keuze). Zijn vraag: is het eenmalig tonen + hashen van de code nodig, of mag de eigen app de code gewoon laten zien? Advies Claude: hash op de server houden (kost niets, beschermt als de database uitlekt); de code wél op het eigen toestel bewaren en in Instellingen tonen (wie je ontgrendelde telefoon heeft, kan je lijstje toch al aanpassen). QR liefst met een kortlevende eenmalige overdrachtscode (bijv. 10 min) in plaats van de vaste code. Valkuil iPhone: de camera opent een QR-link in Safari, niet in de beginscherm-app (eigen opslag); daarom ook een korte code om over te typen en/of een scanner in de app (vergt een QR-bibliotheek, dus netwerktoegang voor package-installs in een nieuwe chat).
 
 ---
 
