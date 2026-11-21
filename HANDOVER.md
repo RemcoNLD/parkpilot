@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:45** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:50** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:45** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.9.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:45, nog niet door Remco bevestigd. 0.5.0 was op 21 nov bevestigd.
+- **Versie in de code:** `0.10.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:50, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -183,7 +183,8 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
   - Google: eerst `comgooglemaps://?daddr=…&directionsmode=walking` (de app); als de PWA na 1,5 s nog zichtbaar is (app niet geïnstalleerd), de website `https://www.google.com/maps/dir/?api=1&destination=…&travelmode=walking&dir_action=navigate`. Of de Google-app meteen de navigatie start, is niet gecontroleerd.
   - Zonder bekende locatie van de attractie/show: melding dat navigeren niet kan.
 - Techniek: `withSwipe()` in `main.ts` met pointer events, `touch-action: pan-y` (verticaal scrollen blijft werken), drempel 80 px, max 140 px uitslag. Tijdens een veeg wordt `render()` uitgesteld (`swipeBusy`/`renderPending`), anders zou de automatische verversing de rij onder je vinger vervangen. Na een veeg wordt de tik op de rij 400 ms genegeerd. Keuzemenu: `actionSheet()` (herbruikbaar, CSS `.asheet*`).
-- Niet gebouwd (mogelijke vervolgstappen): afgestreepte rijen onderaan zetten; afstrepen delen tussen toestellen; dezelfde acties als knoppen in het detailvenster (voor wie niet veegt).
+- **Afgestreepte verbergen (sinds 0.10.0):** knopje "Gezien" naast "Shows" (alleen zichtbaar als er vandaag iets is afgestreept). Uit = afgestreepte rijen weg; onderaan één tikbare regel "Afgestreept (N) ▸" die ze weer toont. Onthouden in `pp.planDone`. Werkt bij alle sorteringen en samen met shows inklappen.
+- Niet gebouwd (mogelijke vervolgstappen): afstrepen delen tussen toestellen; dezelfde acties als knoppen in het detailvenster (voor wie niet veegt).
 
 ### 6.3a Locatie (sinds 0.6.0)
 - **Eenmalig per keer dat de app opent** (`posAskedThisSession` in `main.ts`), daarna gaat de gps uit. Op Remco's verzoek (21 nov 2026). Daarvoor vroeg de app bij elke verversing (elke 1 à 2 min) opnieuw een gps-positie op.
@@ -266,7 +267,9 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - ~~`tools/` ontbrak~~ en ~~oude losse bestanden in de root~~: opgelost op 21 nov 2026 (28 tests, root opgeruimd).
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
-**0.9.0 (21 nov 2026), door Remco te controleren:** komt er bij attracties met single rider (bijv. in Adventure World) een echt getal, of steeds "geen wachttijd bekend"? Dat laatste betekent dat de bron het niet levert.
+**0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.9.0:** door Remco bevestigd ("Werkt", 21 nov 2026 11:31).
 
 **0.8.0 (21 nov 2026), door Remco te controleren:** vegen links/rechts op zijn iPhone (botst het niet met scrollen?), bevestigingsmenu, Apple Kaarten opent met looproute, Google Maps opent de app (en start die meteen de navigatie?).
 
@@ -381,6 +384,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:50 — versie 0.10.0:** Remco bevestigt 0.9.0. Nieuw: afgestreepte attracties/shows verbergen in Mijn programma (knop "Gezien").
 - **21 nov 2026, 11:45 — versie 0.9.0:** single-rider-wachttijd in het uitklappen (en detailvenster); Worker levert `singleRiderWait`; test uitgebreid.
 - **21 nov 2026, 11:35 — versie 0.8.0:** vegen in Mijn programma: links = afstrepen als gezien (bevestiging, per dag, per toestel), rechts = lopend navigeren via Apple Kaarten of Google Maps (zie 6.3b).
 - **21 nov 2026, 11:20 — versie 0.7.1:** fout van 0.7.0 hersteld: de nieuwe kop "Shows ▾" gebruikte de bestaande CSS-klasse `.ptoggle` (de knop van de grote tijd/wachttijd in Mijn programma) en overschreef de opmaak daarvan. Nu `.pshows-toggle`. Les: zoek altijd eerst of een klassenaam al bestaat (`grep -n "\.naam" style.css main.ts`). Remco vroeg ook of afgelopen shows verdwijnen: nee (zie 6.3); voorstel gedaan, nog niet gebouwd.

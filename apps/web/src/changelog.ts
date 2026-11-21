@@ -3,6 +3,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.0',
+    date: '21 nov 2026',
+    changes: [
+      'Mijn programma: met de knop "Gezien" verberg je afgestreepte attracties en shows. Onderaan staat dan "Afgestreept (aantal)"; tik daarop om ze weer te tonen. De keuze wordt onthouden.',
+    ],
+  },
+  {
     version: '0.9.0',
     date: '21 nov 2026',
     changes: [

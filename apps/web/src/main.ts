@@ -101,7 +101,14 @@ const state = {
   fromCache: false,
   serverVersion: null as string | null,
   planShowsHidden: store.get('pp.planShows') === 'hidden', // Mijn programma: shows ingeklapt (onthouden)
+  planDoneHidden: store.get('pp.planDone') === 'hidden', // Mijn programma: afgestreepte rijen verborgen (onthouden)
 };
+
+function togglePlanDone(): void {
+  state.planDoneHidden = !state.planDoneHidden;
+  store.set('pp.planDone', state.planDoneHidden ? 'hidden' : 'shown');
+  render();
+}
 
 function togglePlanShows(): void {
   state.planShowsHidden = !state.planShowsHidden;
@@ -774,7 +781,15 @@ function withSwipe(wrap: HTMLElement, entity: EntityInfo): HTMLElement {
 }
 
 function planNodes(): Node[] {
-  const favs = state.entities.filter((e) => state.favorites.has(e.id));
+  const allFavs = state.entities.filter((e) => state.favorites.has(e.id));
+  const done = doneSet();
+  const doneCount = allFavs.filter((e) => done.has(e.id)).length;
+  const hideDone = state.planDoneHidden && doneCount > 0;
+  const favs = hideDone ? allFavs.filter((e) => !done.has(e.id)) : allFavs;
+  // Verborgen afgestreepte rijen: één tikbare regel onderaan.
+  const doneStub = (): Node[] => (hideDone
+    ? [h('button', { class: 'ptitle pshows-toggle', 'aria-expanded': false, onclick: togglePlanDone }, `Afgestreept (${doneCount}) ▸`)]
+    : []);
   const ctx = { sort: state.prefs.sort, live: state.live, pos: state.pos };
   const planShowS = (e: EntityInfo): HTMLElement => withSwipe(planShow(e), e);
   const planAttractionS = (e: EntityInfo): HTMLElement => withSwipe(planAttraction(e), e);
@@ -786,7 +801,7 @@ function planNodes(): Node[] {
     hidden ? `Shows (${showList.length}) ▸` : 'Shows ▾');
   // Op afstand: shows en attracties door elkaar, de dichtstbijzijnde bovenaan.
   if (state.prefs.sort === 'distance') {
-    return hidden ? [showsTitle(), ...sortEntities(favs.filter((e) => e.type !== 'show'), ctx).map(render1)] : sortEntities(favs, ctx).map(render1);
+    return [...(hidden ? [showsTitle(), ...sortEntities(favs.filter((e) => e.type !== 'show'), ctx).map(render1)] : sortEntities(favs, ctx).map(render1)), ...doneStub()];
   }
   // Anders blijven de shows bovenaan, op starttijd (of naam), en daaronder de attracties.
   const shows = state.prefs.sort === 'name' ? [...showList].sort((x, y) => x.name.localeCompare(y.name, 'nl')) : showList.sort(byNextStart);
@@ -794,6 +809,7 @@ function planNodes(): Node[] {
   const out: Node[] = [];
   if (shows.length) out.push(showsTitle(), ...(hidden ? [] : shows.map(planShowS)));
   if (atts.length) out.push(h('h2', { class: 'ptitle' }, 'Attracties'), ...atts.map(planAttractionS));
+  out.push(...doneStub());
   return out;
 }
 
@@ -907,6 +923,9 @@ function render(): void {
           ...(['wait', 'distance', 'name'] as SortMode[]).map((mode) => h('button', { 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, { wait: 'Wachttijd', distance: 'Afstand', name: 'Naam' }[mode]))),
         state.entities.some((e) => e.type === 'show' && state.favorites.has(e.id))
           ? h('button', { class: 'pchip', 'aria-pressed': !state.planShowsHidden, 'aria-label': state.planShowsHidden ? 'Shows tonen' : 'Shows inklappen', onclick: togglePlanShows }, 'Shows')
+          : null,
+        state.entities.some((e) => state.favorites.has(e.id) && doneSet().has(e.id))
+          ? h('button', { class: 'pchip', 'aria-pressed': !state.planDoneHidden, 'aria-label': state.planDoneHidden ? 'Afgestreepte tonen' : 'Afgestreepte verbergen', onclick: togglePlanDone }, 'Gezien')
           : null),
       h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` },
         offline ? `geen verbinding, gegevens van ${age}` : state.error ? `verversen mislukt, gegevens van ${age}` : state.fromCache ? `opgeslagen, ${age}` : `bron ${agoLabel(state.sourceUpdatedAt ?? state.generatedAt)}`)) : h('nav', { class: 'nav' },
