@@ -3,6 +3,11 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.11.5',
+    date: '21 nov 2026',
+    changes: ['Mijn programma: het verschil (▲/▼) staat nu rechts van de wachttijd, onder het single-rider-getal. Daardoor meer ruimte voor de naam.'],
+  },
+  {
     version: '0.11.4',
     date: '21 nov 2026',
     changes: ['Mijn programma: wachttijden groter, en het single-rider-getal in een wit badge (getal in de kleur van het niveau).'],
