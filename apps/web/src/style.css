@@ -583,6 +583,9 @@ html.game-open, html.game-open body { overflow: hidden; }
 .inc-tr { display: grid; grid-template-columns: 94px 68px minmax(0, 1fr); gap: 8px; align-items: center; width: 100%; text-align: left; padding: 7px 12px; font-size: 14px; line-height: 1.3; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
 .inc-tr:active { background: var(--raised2); }
 .inc-th { border-top: 0; padding-top: 6px; padding-bottom: 5px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: color-mix(in srgb, var(--raised2) 55%, var(--raised)); }
+.inc-sort { display: inline-flex; align-items: center; gap: 3px; min-height: 28px; margin: -6px 0 -5px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.inc-sort.on { color: var(--text); }
+.inc-arrow { font-size: 9px; color: var(--accent); min-width: 9px; }
 .inc-time, .inc-dur { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .inc-time { font-weight: 650; }
 .inc-dur { color: var(--muted); }

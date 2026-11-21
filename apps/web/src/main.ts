@@ -321,7 +321,24 @@ async function loadIncidents(): Promise<void> {
   }
 }
 
-/** Tijdlijn van de storingen van vandaag: samenvatting, as van opening tot sluiting, per attractie een balk. */
+/** Sortering van de storingstabel. Standaard nieuwste eerst; onthouden op dit toestel (`pp.incSort`). */
+type IncSortKey = 'time' | 'dur' | 'name';
+const INC_SORT_KEY = 'pp.incSort';
+let incSort: { key: IncSortKey; dir: 1 | -1 } = (() => {
+  try {
+    const v = JSON.parse(store.get(INC_SORT_KEY) ?? 'null') as { key: IncSortKey; dir: 1 | -1 } | null;
+    if (v && ['time', 'dur', 'name'].includes(v.key) && (v.dir === 1 || v.dir === -1)) return v;
+  } catch { /* negeren */ }
+  return { key: 'time', dir: -1 };
+})();
+
+/** Zelfde kop nog eens: omdraaien. Andere kop: tijd en duur beginnen aflopend (nieuwste/langste), naam oplopend (A–Z). */
+function setIncSort(key: IncSortKey): void {
+  incSort = incSort.key === key ? { key, dir: incSort.dir === 1 ? -1 : 1 } : { key, dir: key === 'name' ? 1 : -1 };
+  store.set(INC_SORT_KEY, JSON.stringify(incSort));
+}
+
+/** Storingen van vandaag: samenvatting en een sorteerbare tabel (tijd · duur · attractie). */
 function incidentsNode(close: () => void): HTMLElement {
   const now = Date.now();
   const entry: IncEntry | null = sim.on ? { at: now, ok: true, data: simulateIncidents(state.entities, now) } : incEntry();
@@ -351,22 +368,37 @@ function incidentsNode(close: () => void): HTMLElement {
     return box;
   }
 
-  // Tabel: één regel per storing (tijd · duur · attractie). Lopende eerst, daarna de nieuwste bovenaan.
-  const rows = [...items].sort((x, y) => Number(y.end === null) - Number(x.end === null) || y.s - x.s);
+  // Tabel: één regel per storing (tijd · duur · attractie). Sorteren door op de kop te tikken (sinds 0.21.1).
   const rides = new Set(items.map((x) => x.entityId)).size;
   const totalMin = items.reduce((n, x) => n + x.min, 0);
   box.append(h('p', { class: 'inc-sum' }, ...T.incSummary(items.length, rides, dur(totalMin)).map((part, i) => (i % 2 ? h('b', {}, part) : part))));
-  const table = h('div', { class: 'inc-table', role: 'table' },
-    h('div', { class: 'inc-tr inc-th', role: 'row' },
-      h('span', { role: 'columnheader' }, T.incColTime), h('span', { role: 'columnheader' }, T.incColDur), h('span', { role: 'columnheader' }, T.incColName)));
-  for (const x of rows) {
-    const e = byId.get(x.entityId) as EntityInfo;
-    const live = x.end === null;
-    table.append(h('button', { class: `inc-tr${live ? ' live' : ''}`, role: 'row', onclick: () => { close(); openDetail(e); } },
-      h('span', { class: 'inc-time', role: 'cell' }, `${x.startKnown || hours ? clock(x.s, tz()) : T.incEarlier}–${live ? T.now : clock(x.e, tz())}`),
-      h('span', { class: 'inc-dur', role: 'cell' }, dur(x.min)),
-      h('span', { class: 'inc-name', role: 'cell' }, live ? h('i', { class: 'inc-dot', 'aria-label': T.incOngoing }) : null, e.name)));
-  }
+  const nameOf = (x: typeof items[number]): string => byId.get(x.entityId)?.name ?? '';
+  const table = h('div', { class: 'inc-table', role: 'table' });
+  const paintTable = (): void => {
+    const { key, dir } = incSort;
+    const cmp = (x: typeof items[number], y: typeof items[number]): number =>
+      key === 'dur' ? x.min - y.min : key === 'name' ? nameOf(x).localeCompare(nameOf(y), T.locale) : x.s - y.s;
+    const rows = [...items].sort((x, y) => dir * cmp(x, y) || y.s - x.s);
+    const head = (k: IncSortKey, label: string): Node => {
+      const on = key === k;
+      return h('button', {
+        class: `inc-sort${on ? ' on' : ''}`, role: 'columnheader',
+        'aria-sort': on ? (dir === 1 ? 'ascending' : 'descending') : 'none',
+        onclick: () => { setIncSort(k); paintTable(); },
+      }, label, h('span', { class: 'inc-arrow', 'aria-hidden': 'true' }, on ? (dir === 1 ? '▲' : '▼') : ''));
+    };
+    table.replaceChildren(h('div', { class: 'inc-tr inc-th', role: 'row' },
+      head('time', T.incColTime), head('dur', T.incColDur), head('name', T.incColName)));
+    for (const x of rows) {
+      const e = byId.get(x.entityId) as EntityInfo;
+      const live = x.end === null;
+      table.append(h('button', { class: `inc-tr${live ? ' live' : ''}`, role: 'row', onclick: () => { close(); openDetail(e); } },
+        h('span', { class: 'inc-time', role: 'cell' }, `${x.startKnown || hours ? clock(x.s, tz()) : T.incEarlier}–${live ? T.now : clock(x.e, tz())}`),
+        h('span', { class: 'inc-dur', role: 'cell' }, dur(x.min)),
+        h('span', { class: 'inc-name', role: 'cell' }, live ? h('i', { class: 'inc-dot', 'aria-label': T.incOngoing }) : null, e.name)));
+    }
+  };
+  paintTable();
   box.append(table);
   if (stale) box.append(h('p', { class: 'inc-stale' }, T.histStale(clock(entry.at, tz()))));
   box.append(h('p', { class: 'hint' }, T.incHint));

@@ -276,6 +276,13 @@ if (RICH) {
     await page.evaluate(() => document.querySelector('.sheet').scrollTo(0, 420));
     await page.waitForTimeout(200);
     await page.screenshot({ path: `${OUT}/issues-${theme}-${locale}-2.png` });
+    // Sorteren via de kop: duur (aflopend), nog eens (oplopend), naam (A–Z). Clip op de tabel.
+    const clip = async (name) => { const b = await page.locator('.inc').boundingBox(); await page.screenshot({ path: `${OUT}/issues-${theme}-${locale}-${name}.png`, clip: b }); };
+    await page.evaluate(() => document.querySelector('.sheet').scrollTo(0, 300)); await page.waitForTimeout(150);
+    await page.click('.inc-sort:nth-of-type(2)'); await page.waitForTimeout(150); await clip('sort-dur-desc');
+    await page.click('.inc-sort:nth-of-type(2)'); await page.waitForTimeout(150); await clip('sort-dur-asc');
+    await page.click('.inc-sort:nth-of-type(3)'); await page.waitForTimeout(150); await clip('sort-name-asc');
+    console.log('pp.incSort =', await page.evaluate(() => localStorage.getItem('pp.incSort')));
     await browser.close();
     return;
   }

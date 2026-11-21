@@ -85,7 +85,7 @@ const nl = {
   incColDur: 'Duur',
   incColName: 'Attractie',
   incEarlier: 'eerder',
-  incHint: 'Op basis van metingen van ParkPilot, elke 5 minuten. Tik op een regel voor het verloop.',
+  incHint: 'Op basis van metingen van ParkPilot, elke 5 minuten. Tik op een kop om te sorteren (nog eens = omgekeerd), op een regel voor het verloop.',
   issuesHint: 'De duur komt uit wat ParkPilot zelf heeft gezien. "Al minstens" betekent dat de sluiting al liep toen ParkPilot begon te meten. Onder Onderhoud staan ook attracties die al meer dan een dag dicht zijn zonder update van de bron; de datum is de laatste update.',
 
   // Rijen
@@ -552,7 +552,7 @@ const en: Dict = {
   incColDur: 'Duration',
   incColName: 'Ride',
   incEarlier: 'earlier',
-  incHint: 'Based on ParkPilot’s own measurements, every 5 minutes. Tap a row for its timeline.',
+  incHint: 'Based on ParkPilot’s own measurements, every 5 minutes. Tap a heading to sort (again = reverse), a row for its timeline.',
   issuesHint: 'The duration is based on what ParkPilot has seen itself. "For at least" means the closure was already going on when ParkPilot started measuring. Refurbishment also lists rides that have been closed for more than a day without an update from the source; the date is the last update.',
 
   changed: (ago) => `changed ${ago}`,
@@ -1003,7 +1003,7 @@ const pt: Dict = {
   incColDur: 'Duração',
   incColName: 'Atração',
   incEarlier: 'antes',
-  incHint: 'Com base nas medições do ParkPilot, a cada 5 minutos. Toque numa linha para ver o histórico.',
+  incHint: 'Com base nas medições do ParkPilot, a cada 5 minutos. Toque num cabeçalho para ordenar (de novo = inverter), numa linha para ver o histórico.',
   issuesHint: 'A duração baseia-se no que o próprio ParkPilot viu. "Há pelo menos" significa que o fecho já estava a decorrer quando o ParkPilot começou a medir. Em Manutenção aparecem também atrações fechadas há mais de um dia sem atualização da fonte; a data é a última atualização.',
 
   changed: (ago) => `alterado ${ago}`,

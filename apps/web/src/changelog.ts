@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.1',
+    date: '2026-11-21',
+    changes: ['Storingstabel sorteren: tik op Tijd, Duur of Attractie. Nog eens tikken draait de volgorde om. De keuze wordt onthouden.'],
+    en: ['Sort the breakdowns table: tap Time, Duration or Ride. Tap again to reverse the order. Your choice is remembered.'],
+    pt: ['Ordenar a tabela de avarias: toque em Hora, Duração ou Atração. Toque de novo para inverter a ordem. A escolha fica guardada.'],
+  },
+  {
     version: '0.21.0',
     date: '2026-11-21',
     changes: [
