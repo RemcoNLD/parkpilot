@@ -7,7 +7,7 @@ const now = Date.now();
 const OUT = process.env.PP_SHOT_OUT || '/tmp/ppshot/shots';
 fs.mkdirSync(OUT, { recursive: true });
 const api = {
-  '/api/parks': [{ id: 'dlp-studios', name: 'Disney Adventure World', shortName: 'Adventure World', timezone: 'Europe/Paris', center: { lat: 48.868, lng: 2.78 }, available: true }],
+  '/api/parks': [{ id: 'dlp-disneyland', name: 'Disneyland Park', shortName: 'Disneyland Park', timezone: 'Europe/Paris', center: { lat: 48.872, lng: 2.776 }, available: true }, { id: 'dlp-studios', name: 'Disney Adventure World', shortName: 'Adventure World', timezone: 'Europe/Paris', center: { lat: 48.868, lng: 2.78 }, available: true }],
   '/api/parks/dlp-studios/entities': { parkId: 'dlp-studios', generatedAt: new Date().toISOString(), entities: [
     { id: 'A1', type: 'attraction', name: 'Crush\'s Coaster', location: { lat: 48.867, lng: 2.779 }, locationSource: 'source' },
     { id: 'S1', type: 'show', name: 'Disney Tales of Magic', location: null, locationSource: null } ] },

@@ -19,7 +19,7 @@ import {
   ApiError, createRecoveryCode, deleteFavorite, deleteShowLocation, ensureProfile, putShowLocation, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday,
   fetchLive, fetchParks, fetchPreferences, fetchSchedule, fetchShowDay, fetchTracking, saveTracking, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
 } from './api';
-import { parkArt } from './art';
+import { parkArt, parkIcon } from './art';
 import { h, svg } from './dom';
 import { agoLabel, clock, dec1, dur, minutesSince, waitLevel } from './format';
 import { applyLang, getLangPref, kindName, lang, LANG_NAMES, LANGS, setLangPref, t as T, type LangPref } from './i18n';
@@ -731,17 +731,21 @@ function nearestName(): string | null {
 function viewSwitch(): HTMLElement {
   const plan = state.view === 'plan';
   return h('div', { class: 'vswitch', role: 'group', 'aria-label': T.mode },
-    h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, T.overview),
-    h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, T.myPlan));
+    h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, icon('grid', 15), T.overview),
+    h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, icon('heart', 15), T.myPlan));
 }
 
 function planHeader(): HTMLElement {
   const near = nearestName();
-  return h('header', { class: 'phead' },
-    viewSwitch(),
-    h('div', { class: 'ploc' }, h('b', {}, currentPark()?.shortName ?? ''), near ? T.near(near) : ''),
-    refreshButton(),
-    h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 20)));
+  // Rij 1: schakelaar + knoppen (zelfde plek als in Alles). Rij 2: het park met icoontje in de parkkleur, even hoog als de schakelaar.
+  return h('header', {},
+    h('div', { class: 'phead' },
+      viewSwitch(),
+      h('div', { class: 'spacer' }),
+      refreshButton(),
+      h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 20))),
+    h('div', { class: 'parkline' },
+      h('div', { class: 'park-chip' }, parkIcon(state.parkId), h('b', {}, currentPark()?.shortName ?? ''), near ? h('span', { class: 'near' }, T.near(near)) : null)));
 }
 
 // ---- Mijn programma: vegen (links = afstrepen, rechts = navigeren) ---------------------------
@@ -1117,11 +1121,11 @@ function render(): void {
           h('button', { class: 'icon-btn aa', 'aria-label': state.density === 'compact' ? T.biggerText : T.compactText, onclick: () => setDensity(state.density === 'compact' ? 'comfortable' : 'compact') }, 'Aa'),
           h('button', { class: 'icon-btn', 'aria-label': dark ? T.toLight : T.toDark, onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', 22)),
           h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 22)))),
-      h('div', { class: 'brand' }, 'ParkPilot', h('span', { class: 'ver' }, `v${APP_VERSION}`)),
       state.parks.length > 1
         ? h('div', { class: 'parks', role: 'group', 'aria-label': T.park },
-            ...state.parks.map((p) => h('button', { class: 'park-pill', 'aria-pressed': p.id === state.parkId, onclick: () => switchPark(p.id) }, p.shortName)))
+            ...state.parks.map((p) => h('button', { class: 'park-pill', 'aria-pressed': p.id === state.parkId, onclick: () => switchPark(p.id) }, parkIcon(p.id, 16), p.shortName)))
         : null,
+      h('div', { class: 'brand' }, 'ParkPilot', h('span', { class: 'ver' }, `v${APP_VERSION}`)),
       h('div', { class: 'hero-main' },
         parkArt(state.parkId),
         h('h1', { class: 'park-name' }, park?.name ?? 'ParkPilot'),

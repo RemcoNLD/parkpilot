@@ -46,3 +46,12 @@ function iceAndWater(): SVGElement {
 export function parkArt(parkId: string): SVGElement {
   return parkId === 'dlp-studios' ? iceAndWater() : fairytaleSkyline();
 }
+
+/** Klein parkicoontje (lijnicoon, kleurt mee met de tekst): kasteel voor Disneyland Park, ijskristal voor Adventure World. */
+export function parkIcon(parkId: string, size = 18): SVGElement {
+  const d = parkId === 'dlp-studios'
+    ? ['M12 3v18', 'M4.2 7.5l15.6 9', 'M4.2 16.5l15.6-9', 'M9.5 4.5L12 7l2.5-2.5', 'M9.5 19.5L12 17l2.5 2.5']
+    : ['M4 21V11l2-2 2 2v3h2V7l2-4 2 4v7h2v-3l2-2 2 2v10z', 'M10.5 21v-3a1.5 1.5 0 0 1 3 0v3'];
+  return svg('svg', { class: 'ico park-ico', width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' },
+    ...d.map((p) => svg('path', { d: p })));
+}

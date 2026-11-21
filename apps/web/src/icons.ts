@@ -20,6 +20,8 @@ const PATHS: Record<string, string[]> = {
   door: ['M5 21V4h9l5 2v15', 'M3 21h18', 'M11 12h.01'],
   gauge: ['M4 17a8 8 0 1 1 16 0', 'M12 17l4-5'],
   bolt: ['M13 2L5 14h6l-1 8 8-12h-6z'],
+  grid: ['M4 4h6.5v6.5H4z', 'M13.5 4H20v6.5h-6.5z', 'M4 13.5h6.5V20H4z', 'M13.5 13.5H20V20h-6.5z'],
+  heart: ['M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z'],
 };
 
 const KIND_ICON: Record<string, string> = {

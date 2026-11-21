@@ -8,6 +8,12 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.14.1',
+    date: '2026-11-21',
+    changes: ['Schakelaar Alles | Mijn dag met icoontjes en meer diepte. Daaronder in beide schermen het park met een eigen icoontje in de parkkleur, even hoog als de schakelaar.'],
+    en: ['All | My day toggle with icons and more depth. Below it, on both screens, the park with its own icon in the park colour, the same height as the toggle.'],
+  },
+  {
     version: '0.14.0',
     date: '2026-11-21',
     changes: [
