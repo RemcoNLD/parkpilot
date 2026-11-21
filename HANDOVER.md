@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 09:00** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 09:15** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -49,7 +49,8 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
 - **Gevolg:** de frontend is wel getypecheckt maar **nooit gebouwd of in een browser uitgeprobeerd door Claude**. Zeg dat eerlijk in elke oplevering ("niet op een telefoon bekeken").
 - Typecheck frontend: `tsc -p apps/web 2>&1 | grep -E "^apps|^packages" | grep -vE "vite|style.css"`.
-- **Worker typecheck + test:** `bash tools/test-worker.sh` (typecheck met Cloudflare-typeshim, testharnas met `node:sqlite` als nep-D1 en nep-`fetch`; verwacht 24 × `ok`). **Let op (21 nov 2026): de map `tools/` staat niet in de GitHub-repo** (nooit geüpload) en de oude sandbox is weg. De tests moeten dus opnieuw worden gemaakt voordat ze weer te draaien zijn. Zie 11.
+- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: 28 × `ok` en "alles ok".** Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
+- tsc in de sandbox was versie 7 (Go-versie): `moduleResolution: node` bestaat daar niet meer; de test-tsconfig laat die optie daarom weg.
 - Gebruikte ontwerpconventie: geen framework; DOM-helpers `h()` en `svg()` in `apps/web/src/dom.ts`.
 - Dit document staat in het claude.ai-project én als `HANDOVER.md` in de repo. Houd beide gelijk; het projectdocument is leidend als ze verschillen.
 
@@ -78,7 +79,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 **Werkt / werkt niet (getest 21 nov 2026):**
 - Clone en `git push` van een branch: **werkt** (`git -c push.negotiate=true push -u origin BRANCH`).
 - Een remote branch verwijderen (`git push --delete`) en schrijven via `gh api`: **geblokkeerd** door de proxy. Claude kan dus geen branches opruimen; dat moet Remco in GitHub doen (Branches → prullenbak).
-- Rechtstreeks naar `main` pushen: wordt getest met de commit die dit document toevoegt. Zie logboek voor de uitkomst.
+- Rechtstreeks naar `main` pushen: **werkt** (getest 21 nov 2026, commit f2ec320).
 
 **Afspraak:** wijzigingen gaan rechtstreeks naar `main` (meteen live, net als vroeger met uploads); elke app-versie is zichtbaar genummerd. Bij grote of risicovolle wijzigingen eerst overleggen. Als `main` geblokkeerd blijkt: push naar een branch `claude/...` en Remco voegt de pull request samen in de GitHub-app.
 
@@ -88,7 +89,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 
 ```
 parkpilot/
-├─ package.json, wrangler.toml, README.md, HANDOVER.md
+├─ package.json, wrangler.toml, README.md, HANDOVER.md, .gitignore
 ├─ packages/shared/src/
 │   ├─ index.ts        gedeelde types en DEFAULT_PREFERENCES, TrackingMode
 │   └─ version.ts      APP_VERSION
@@ -111,10 +112,10 @@ parkpilot/
 │       ├─ info.ts   omschrijvingen/lengtes/gebied/jaar
 │       ├─ sim.ts    simulatiestand (verzonnen data)
 │       └─ style.css
-└─ tools/  (ONTBREEKT in repo, zie 3) test-worker.sh, worker-test.cjs, tsconfig.*.json, cf-shim.d.ts
+└─ tools/  test-worker.sh, worker-test.cjs, tsconfig.worker.json, tsconfig.test.json, cf-shim.d.ts
 ```
 
-**Restanten in de repo-root (21 nov 2026):** `dom.ts`, `format.ts`, `index.ts`, `index (1).ts`, `info.ts`, `main.ts`, `parks.ts`, `style.css`, `themeparks.ts`, `tracker.ts`. Oude losse uploads, niet gebruikt door de build. Opruimen kan Claude nu zelf doen (na akkoord Remco). Geen `.gitignore` in de repo gezien.
+De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste uploads) zijn op 21 nov 2026 verwijderd; ze werden niet door de build gebruikt. `.gitignore` toegevoegd (node_modules, dist, .wrangler, .test-build).
 
 ### Worker
 - `GET /api/health` → `{ok, version}`
@@ -241,8 +242,7 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 **Bevestigd door Remco op 21 nov 2026:** "Versie 0.5.0 is in orde." De laatste reeks wijzigingen staat live. Niet per onderdeel nagevraagd.
 
 **Nieuw gevonden (21 nov 2026):**
-- **`tools/` ontbreekt in de repo**, dus geen worker-tests. Opnieuw opbouwen (typeshim + nep-D1-harnas) voordat er serieuze worker-wijzigingen komen.
-- **Oude losse bestanden in de repo-root** (zie 5). Opruimen met akkoord.
+- ~~`tools/` ontbrak~~ en ~~oude losse bestanden in de root~~: opgelost op 21 nov 2026 (28 tests, root opgeruimd).
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **Niet gecontroleerd door Claude (geen browser):**
@@ -261,7 +261,7 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 1. Lees dit document volledig, vooral 2, 4.1, 15 en het logboek (16).
 2. `add_repo` RemcoNLD/parkpilot (push), `git clone --depth 1`. Werkt schrijven niet: Remco moet de Claude GitHub App installeren (4.1).
-3. Frontend-typecheck draaien; worker-tests zodra `tools/` weer bestaat.
+3. `bash tools/test-worker.sh` (28 × ok) en de frontend-typecheck draaien.
 4. Verhoog bij de eerstvolgende app-levering het versienummer (`version.ts` en `package.json`).
 5. Werk na elke stap dit document bij (project én repo).
 
@@ -282,7 +282,6 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 7. Kleurdrempels, meer omschrijvingen, CSS opruimen, `main.ts` splitsen.
 8. Beveiliging verscherpen bij breder delen.
 9. **Framework-features losmaken** (15.3) als herbruikbare modules. Alleen op verzoek.
-10. **`tools/` (tests) herstellen** en repo-root opruimen.
 
 ---
 
@@ -344,6 +343,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, ochtend:** overdrachtsdocument opgesteld (einde vorige bouwsessie).
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
-- **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude (test van rechtstreeks pushen naar `main`; app ongewijzigd, versie blijft 0.5.0).
+- **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 09:15:** Op verzoek van Remco: tien oude losse bestanden uit de repo-root verwijderd, `.gitignore` toegevoegd, `tools/` met worker-typecheck en 28 tests opnieuw opgebouwd (alles ok). App-code ongewijzigd, versie blijft 0.5.0.
 
 *Einde van het overdrachtsdocument.*

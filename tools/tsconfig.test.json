@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "lib": ["ES2022", "WebWorker"],
+    "types": [],
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "..",
+    "outDir": "../.test-build"
+  },
+  "include": ["../worker/src", "../packages/shared/src", "cf-shim.d.ts"]
+}
