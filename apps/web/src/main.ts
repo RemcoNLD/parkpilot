@@ -657,7 +657,7 @@ function planNodes(): Node[] {
   const showList = favs.filter((e) => e.type === 'show');
   const hidden = state.planShowsHidden && showList.length > 0;
   // Ingeklapt: één tikbare regel in plaats van de shows.
-  const showsTitle = (): HTMLElement => h('button', { class: 'ptitle ptoggle', 'aria-expanded': !hidden, onclick: togglePlanShows },
+  const showsTitle = (): HTMLElement => h('button', { class: 'ptitle pshows-toggle', 'aria-expanded': !hidden, onclick: togglePlanShows },
     hidden ? `Shows (${showList.length}) ▸` : 'Shows ▾');
   // Op afstand: shows en attracties door elkaar, de dichtstbijzijnde bovenaan.
   if (state.prefs.sort === 'distance') {

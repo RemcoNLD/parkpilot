@@ -355,7 +355,7 @@ main { padding: 2px 0 12px; }
 .pleft { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .pchip { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--raised); font: 650 12.5px/1.3 var(--rounded); color: var(--muted); }
 .pchip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-.ptoggle { display: block; text-align: left; width: calc(100% - 32px); }
+.pshows-toggle { display: block; text-align: left; width: calc(100% - 32px); }
 
 /* Instellingen: wat is er nieuw */
 .changelog { margin-top: 14px; }

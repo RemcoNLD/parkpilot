@@ -3,6 +3,11 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.1',
+    date: '21 nov 2026',
+    changes: ['Mijn programma: de grote tijd en wachttijd stonden in 0.7.0 mogelijk verschoven. Hersteld.'],
+  },
+  {
     version: '0.7.0',
     date: '21 nov 2026',
     changes: [
