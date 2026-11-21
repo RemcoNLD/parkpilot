@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:15** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:45** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:15** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.16.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:15 (commit c4ce74b), nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.17.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:45, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`), Engels (`en`) én Portugees (`pt`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Meertalig:** Nederlands, Engels (sinds 0.13.0) en Portugees (sinds 0.16.0). Elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en + pt). Nooit losse teksten in `main.ts`; nieuwe teksten altijd in alle drie de talen; zie 6.9.
 - **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
@@ -50,10 +50,10 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - Projectmap: `/home/claude/parkpilot`, een clone van de repo. **Bron van waarheid is de GitHub-repo.** Begin een nieuwe chat met `add_repo` (RemcoNLD/parkpilot, push) en `git clone --depth 1`.
 - **Bash had geen algemeen netwerk.** Geen `npm install`, geen `vite build`, geen `wrangler`. Wel `tsc` en Node 22 (met `node:sqlite`). Git naar GitHub loopt via een eigen proxy en werkt wel (4.1). Package-installs vereisen dat Remco netwerktoegang in zijn instellingen aanzet (werkt pas in een nieuwe chat).
 - **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
-- **Screenshots kunnen wél (ontdekt 21 nov 2026):** de sandbox had Bun (`/root/.bun/bin/bun`), Google Chrome (`/usr/bin/google-chrome`) en Playwright (`/opt/npm-tools/node_modules/playwright`). `[PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue]` bouwt de app met Bun (zonder vite/npm install), serveert hem met nep-API-antwoorden via Playwright en maakt screenshots op 390×844 (iPhone-formaat) in `/tmp/ppshot/shots/`. Scenario's: `settings` (instellingenscherm), `history` (verloop online, zonder bereik uit de cache, en na herstel), `main` (overzicht, uitklappen, detailvenster) `lang` (taalschakelaar: EN kiezen, herladen, terug naar Auto; print de uitkomst) en `queue` (inchecken in de rij, zie 6.10). `PP_LANG` = taal van de nep-telefoon (standaard `nl-NL`; `de-DE` test de terugval op Engels). Pas de stappen in `tools/screenshot.cjs` aan voor andere schermen. Gebruik dit bij UI-wijzigingen en bekijk de PNG met Read. Beperkingen: Chrome, geen iOS Safari; geen echte touch/gps; nepdata.
+- **Screenshots kunnen wél (ontdekt 21 nov 2026):** de sandbox had Bun (`/root/.bun/bin/bun`), Google Chrome (`/usr/bin/google-chrome`) en Playwright (`/opt/npm-tools/node_modules/playwright`). `[PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue|game]` bouwt de app met Bun (zonder vite/npm install), serveert hem met nep-API-antwoorden via Playwright en maakt screenshots op 390×844 (iPhone-formaat) in `/tmp/ppshot/shots/`. Scenario's: `settings` (instellingenscherm), `history` (verloop online, zonder bereik uit de cache, en na herstel), `main` (overzicht, uitklappen, detailvenster) `lang` (taalschakelaar: EN kiezen, herladen, terug naar Auto; print de uitkomst) `queue` (inchecken in de rij, zie 6.10) en `game` (inchecken → vraag → naam → potje → einde met hiscores, zie 6.11; print de localStorage-sleutels van het spel). `PP_LANG` = taal van de nep-telefoon (standaard `nl-NL`; `de-DE` test de terugval op Engels). Pas de stappen in `tools/screenshot.cjs` aan voor andere schermen. Gebruik dit bij UI-wijzigingen en bekijk de PNG met Read. Beperkingen: Chrome, geen iOS Safari; geen echte touch/gps; nepdata.
 - **Gevolg:** vóór 0.12.1 is de frontend **nooit in een browser bekeken door Claude**; daarna alleen via deze screenshots. Zeg in elke oplevering wat wel en niet bekeken is ("in Chrome-screenshot gezien, niet op een iPhone").
 - Typecheck frontend: zit nu in `bash tools/test-worker.sh` (stap "typecheck app", via `tools/tsconfig.web.json` + `tools/vite-shim.d.ts`). De oude filtermethode (`tsc -p apps/web | grep ...`) verborg echte fouten omdat de ontbrekende vite-types de check verstoorden; niet meer gebruiken.
-- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 31 × `ok` en "alles ok".** (De showprogramma-test controleert sinds 0.13.0 ook het veld `basis`.) Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
+- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 33 × `ok` en "alles ok".** (De showprogramma-test controleert sinds 0.13.0 ook het veld `basis`.) Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen, kijkplekken, spel-hiscores (beste per naam, rang, onzin geweigerd). Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
 - tsc in de sandbox was versie 7 (Go-versie): `moduleResolution: node` bestaat daar niet meer; de test-tsconfig laat die optie daarom weg.
 - Gebruikte ontwerpconventie: geen framework; DOM-helpers `h()` en `svg()` in `apps/web/src/dom.ts`.
 - Dit document staat in het claude.ai-project én als `HANDOVER.md` in de repo. Houd beide gelijk; het projectdocument is leidend als ze verschillen.
@@ -66,7 +66,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
   - Build command: `npm run build` (= `vite build apps/web`).
   - Deploy command: `npm run deploy:cloudflare` (= `wrangler deploy && wrangler d1 migrations apply DB --remote`).
   - Root directory: repo-root. `package.json` moet in de root van de repo staan.
-- D1 wordt automatisch aangemaakt door wrangler (binding `DB` zonder `database_id`). Migraties in `worker/migrations/` draaien bij elke deploy (0001 t/m 0005).
+- D1 wordt automatisch aangemaakt door wrangler (binding `DB` zonder `database_id`). Migraties in `worker/migrations/` draaien bij elke deploy (0001 t/m 0006).
 - `wrangler.toml`: `[assets]` met `run_worker_first = ["/api/*"]` en `not_found_handling = "single-page-application"`; cron `*/5 * * * *`.
 - Gezien in het verleden:
   - "package.json not found": bestanden stonden in een submap van de repo.
@@ -99,7 +99,7 @@ parkpilot/
 │   ├─ index.ts        gedeelde types en DEFAULT_PREFERENCES, TrackingMode
 │   └─ version.ts      APP_VERSION
 ├─ worker/
-│   ├─ migrations/     0001_init … 0005_show_locations.sql
+│   ├─ migrations/     0001_init … 0006_game_scores.sql
 │   └─ src/
 │       ├─ index.ts        router (fetch + scheduled)
 │       ├─ parks.ts        parkconfiguratie (dlp-disneyland, dlp-studios)
@@ -118,6 +118,7 @@ parkpilot/
 │       ├─ i18n.ts   alle teksten (nl + en + pt), taalkeuze en -detectie (6.9)
 │       ├─ changelog.ts  versiegeschiedenis voor "Wat is er nieuw" (nl + en + pt)
 │       ├─ sim.ts    simulatiestand (verzonnen data)
+│       ├─ game.ts   spelletje tijdens het wachten (Ballonvlucht, canvas) + hiscores (6.11)
 │       └─ style.css
 └─ tools/  test-worker.sh, worker-test.cjs, screenshot.sh, screenshot.cjs, tsconfig.worker.json, tsconfig.test.json, tsconfig.web.json, cf-shim.d.ts, vite-shim.d.ts
 ```
@@ -134,11 +135,12 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - `POST /api/profile`, `/api/profile/redeem`, `/api/profile/recovery-code`.
 - `GET/PUT/DELETE /api/favorites/...`, `GET/PUT /api/preferences/:parkId`.
 - `PUT/DELETE /api/locations/:parkId/:entityId` (profiel nodig): kijkplek van een show opslaan/verwijderen, zie 6.8. PUT met `{lat, lng, accuracy, replace}`; bestaat er al een plek en is `replace` niet `true`, dan `409 location_exists` met `current`. Alleen shows zonder bronlocatie (`409 has_source_location`), binnen 3 km van het parkcentrum (`400 too_far_from_park`), 30 per uur per profiel.
+- `GET /api/game/:game/scores` (publiek, cache 15 s): top 10. `POST /api/game/:game/scores` (profiel nodig) met `{name, score}`: bewaart alleen de beste score per profiel + naam, geeft `{top, rank, best}`. Naam 1–16 tekens (stuurtekens en `<>` eruit), score geheel getal 1–9999, 60 per uur per profiel. Alleen spel `balloon` (`GAMES` in shared).
 - `GET/PUT /api/settings/tracking`: `off | park-hours | always`, server-breed.
 - `scheduled()` draait `trackAll` elke 5 minuten.
 
 ### Database (D1)
-`profiles`, `devices`, `favorites`, `preferences`, `rate_limits` (0001) · `wait_state`, `wait_log` (0002, 7 dagen) · `show_seen` (0003, 60 dagen) · `app_settings` (0004) · `user_locations` (0005: kijkplekken, één per show, met `accuracy_m`, `profile_id`, `updated_at`).
+`profiles`, `devices`, `favorites`, `preferences`, `rate_limits` (0001) · `wait_state`, `wait_log` (0002, 7 dagen) · `show_seen` (0003, 60 dagen) · `app_settings` (0004) · `user_locations` (0005: kijkplekken, één per show, met `accuracy_m`, `profile_id`, `updated_at`) · `game_scores` (0006: één regel per spel + profiel + naam met de beste score; groeit niet mee met het aantal potjes).
 
 ### Authenticatie (anoniem)
 - Geen account. `POST /api/profile` geeft `deviceId.token`, bewaard in localStorage. Bearer-token, SHA-256-hashes in D1.
@@ -150,7 +152,7 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - De live-route leest D1, schrijft niet.
 
 ### Frontend-state en opslag
-- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.lang` (alleen bij een vaste taalkeuze), `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`), `pp.hist.<park>` (wachttijdverloop van vandaag, zie 6.5), `pp.queue` (rij waar je nu in staat) en `pp.queueLog` (afgeronde rijen van vandaag), zie 6.10. Alles in try/catch via een `store` helper.
+- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.lang` (alleen bij een vaste taalkeuze), `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`), `pp.hist.<park>` (wachttijdverloop van vandaag, zie 6.5), `pp.queue` (rij waar je nu in staat) en `pp.queueLog` (afgeronde rijen van vandaag), zie 6.10; `pp.gameName`, `pp.gameBest` (record per naam) en `pp.gamePending` (nog niet verstuurde scores), zie 6.11. Alles in try/catch via een `store` helper.
 - Service worker (`public/sw.js`): app-schil offline; `/api/*` niet bewaard. Navigatie netwerk-eerst met 5 s time-out, rest stale-while-revalidate.
 
 ---
@@ -251,6 +253,18 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - Niet gebouwd (mogelijke vervolgstappen): delen via de koppelcode/server; echte wachttijden van gebruikers gebruiken om de bron te ijken; na Eruit automatisch afstrepen in Mijn dag; knop in het detailvenster voor wie niet lang drukt; geschiedenis van eerdere dagen.
 - Getest in Chrome-screenshots (`bash tools/screenshot.sh [light|dark] queue`, ook met `PP_LANG=en-US`): kiezen, lopen, over de verwachting, aan de beurt, resultaat, detailvenster. Niet op een iPhone: of lang drukken op een attractierij botst met scrollen, vegen of het iOS-tekstmenu is niet gecontroleerd; of iOS de timer na terugkeren uit de achtergrond meteen goed toont (zou moeten: rekent vanaf de bewaarde starttijd).
 
+### 6.11 Spelletje tijdens het wachten (sinds 0.17.0)
+- Op verzoek van Remco (16:14): "voeg een leuke minigame toe die niet te duur is en vraag bij het inchecken of gebruiker dat wil tijdens wachten. Laat naam opgeven en hou hiscores bij."
+- **Ballonvlucht** (en Balloon Flight, pt Voo de Balão), eigen ontwerp in de stijl van Flappy Bird: tik = ballon stijgt, zwaartekracht trekt omlaag, vlieg tussen kasteeltorens door; elke toren = 1 punt. Wordt langzaam sneller en de opening kleiner. Plafond is veilig, grond en torens niet. Kleuren uit het thema (licht/donker × park).
+- **Vraag bij inchecken:** na het kiezen van de rij een keuzemenu "Spelletje tijdens het wachten?" met Spelen / Nee, dank je. Elke keer (er is geen "niet meer vragen"; bewust niet meer gebouwd dan gevraagd). Later spelen: tik op de rijbalk → "Spelletje spelen".
+- **Scherm:** volledig scherm boven de app. Bovenin: ✕, naam van de attractie, lopende wachttijd (elke seconde) en de knop **Aan de beurt** (sluit het spel en zet de rij op aan de beurt). Daaronder het speelveld met kaartjes voor menu / pauze / einde.
+- **Naam:** gevraagd vóór het eerste potje (invoerveld, max 16 tekens), onthouden in `pp.gameName`, te wijzigen via "wijzig". Start is uitgeschakeld zolang er geen naam is.
+- **Hiscores:** gedeeld voor iedereen (server, tabel `game_scores`), top 10, eigen naam gemarkeerd. Persoonlijk record per naam op het toestel (`pp.gameBest`). **Zuinig:** de app stuurt alleen een score in als die beter is dan het eigen record op dit toestel → hooguit een paar D1-schrijfacties per dag. Lijst ophalen alleen bij openen van het spel. Zonder bereik: score in `pp.gamePending`, opnieuw geprobeerd bij het volgende openen van het spel; melding "wordt later opgeslagen".
+- **Batterij:** de animatie (requestAnimationFrame, tijdstap-gebaseerd zodat 60 en 120 Hz even snel zijn) draait alleen tijdens een potje; app naar de achtergrond = pauze. Canvas op max. 2× pixeldichtheid.
+- Code: `apps/web/src/game.ts` (`openGame(hooks)`); koppeling in `main.ts` (`checkIn` → vraag, `playGame()`, optie in `queueOptions`); teksten `game…` in `i18n.ts`; CSS-blok "Spelletje" onderaan `style.css`; `fetchGameScores`/`postGameScore` in `api.ts`.
+- Bekende zwaktes: iedereen kan een nepscore insturen met een eigen verzoek (geen controle op de server; prima voor persoonlijk gebruik). Eén persoon kan met verschillende namen meerdere plekken innemen. Moeilijkheid (zwaartekracht, snelheid, opening) is door Claude gekozen en niet door een mens gespeeld; misschien te makkelijk of te moeilijk. Bijstellen: constanten in `game.ts` (`H * 2.2`, `-H * 0.62`, `speed()`, `gapSize()`).
+- Getest in Chrome-screenshots (licht/nl, donker/nl, licht/pt): vraag, naam, menu, potje, einde met hiscores. Niet op een iPhone: of tikken snel genoeg reageert, of het toetsenbord bij het naamveld het kaartje goed laat zien, en of de veilige zones (notch, thuisbalk) kloppen.
+
 ## 7. Data, bronnen en wat we weten (en niet weten)
 
 ### 7.1 ThemeParks.wiki API v1
@@ -314,6 +328,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
 
+**0.17.0 (21 nov 2026), door Remco te controleren:** inchecken → vraag om te spelen; naam opgeven; is Ballonvlucht leuk en niet te moeilijk/makkelijk; Aan de beurt bovenin het spel; komt je score in de hiscores (ook na geen bereik)?
+
 **0.16.0 (21 nov 2026), door Remco te controleren:** Instellingen > Taal > PT zet alles in het Portugees (ook omschrijvingen en Wat is er nieuw); past alles op zijn iPhone? Europees of Braziliaans Portugees gewenst? Een moedertaalspreker zou de teksten moeten nalezen.
 
 **0.15.0 (21 nov 2026), door Remco te controleren:** lang drukken op een attractie (Alles en Mijn dag) → rij kiezen; balk onderin met lopende tijd; Aan de beurt / Eruit; resultaatmelding; "Jij vandaag" in het detailvenster. Botst lang drukken niet met scrollen/vegen? Bedekt de balk niets belangrijks?
@@ -359,7 +375,7 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 1. Lees dit document volledig, vooral 2, 4.1, 15 en het logboek (16).
 2. `add_repo` RemcoNLD/parkpilot (push), `git clone --depth 1`. Werkt schrijven niet: Remco moet de Claude GitHub App installeren (4.1).
-3. `bash tools/test-worker.sh` (31 × ok) en de frontend-typecheck draaien.
+3. `bash tools/test-worker.sh` (33 × ok) en de frontend-typecheck draaien.
 4. Verhoog bij de eerstvolgende app-levering het versienummer (`version.ts` en `package.json`).
 5. Werk na elke stap dit document bij (project én repo).
 
@@ -416,7 +432,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 ### 15.2 Wat Remco belangrijk vindt
 - **Eerlijkheid boven gemak:** kritisch, niets verzinnen, benoemen wat niet gecontroleerd is. (letterlijk)
 - **Geen verzonnen data in de app:** aannames zichtbaar labelen. (afgeleid)
-- **Lage kosten** bij acceptabel gebruik. (letterlijk)
+- **Lage kosten** bij acceptabel gebruik. (letterlijk) Ook bij nieuwe functies ("niet te duur", 21 nov 2026): Claude vertaalt dat naar zo min mogelijk D1-schrijfacties (bijv. hiscores alleen bij een nieuw record) en geen animatie of gps die blijft lopen. (afgeleid)
 - **Rustige, compacte UI:** getallen boven labels, geen overbodige tekst. (afgeleid; bevestigd 21 nov 2026 bij single rider: "Geen label. Het is wel duidelijk. Dus alleen getallen.")
 - **Werkt in het park met wisselend bereik:** liever oude gegevens duidelijk gemarkeerd (grijs + tijdstip) dan niets; later vanzelf bijwerken. (21 nov 2026, letterlijk bij het verloop: "Toon met grijze achtergrond zolang die niet actueel is. Later wel updaten als je toevallig weer bereik hebt.")
 - **Uitleg niet standaard in beeld:** omschrijvingen achter een (i) of uitklapper, zodat schermen compact blijven. (21 nov 2026, letterlijk: "Omschrijvingen mogen achter een expand of (I)")
@@ -472,6 +488,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 16:45 — versie 0.17.0:** Remco: minigame die niet te duur is, vraag bij inchecken, naam en hiscores. Gebouwd: Ballonvlucht (6.11), gedeelde hiscores (migratie 0006, `/api/game/...`), 2 nieuwe tests (33 × ok), screenshot-scenario `game`. Keuzes zelf gemaakt en gemeld: soort spel, gedeelde lijst (niet alleen op het toestel), elke keer vragen.
 - **21 nov 2026, 16:15 — versie 0.16.0:** Remco: "Lees handover en voeg Portugees toe." Portugees (pt-PT) als derde taal: woordenboek in `i18n.ts`, alle omschrijvingen/tips in `info.ts` (tuples nu `[nl, en, pt]`), alle changelog-versies. Twee labels ingekort na screenshots (afgekapt). 31 × ok, typechecks ok. Gekozen voor Europees Portugees zonder het te vragen; gemeld aan Remco.
 - **21 nov 2026, 15:01 — versie 0.15.0 live:** Remco: "Probeer het opnieuw." Nieuwe chat: `add_repo` werkte nu. De lokale commit uit de vorige chat was weg, dus 0.15.0 opnieuw gebouwd volgens 6.10 en rechtstreeks naar `main` gepusht (commit f1f5bc0). 31 × ok, typechecks ok, screenshots licht/nl en donker/en bekeken. De eerder geleverde zip is daarmee overbodig.
 - **21 nov 2026, ~14:55 — versie 0.15.0 (eerste poging):** gebouwd, maar niet gepusht: `add_repo` geweigerd ("Unauthorized Access"). Geleverd als zip; commit bestond alleen lokaal.

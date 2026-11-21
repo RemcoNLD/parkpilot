@@ -1,6 +1,9 @@
 import {
   DEFAULT_PREFERENCES,
+  GAMES,
   TRACKING_MODES,
+  type GameId,
+  type GameScoresResponse,
   type FavoriteDto,
   type HistoryResponse,
   type LiveStatus,
@@ -43,6 +46,23 @@ async function readBody(req: Request): Promise<Record<string, unknown> | null> {
   } catch {
     return null;
   }
+}
+
+// ---- Spelletje: hiscores ---------------------------------------------------------------------
+const GAME_TOP = 10;
+const GAME_MAX_SCORE = 9999;
+/** Naam voor de hiscores: zonder stuurtekens, spaties samengevoegd, 1 tot 16 tekens. */
+function cleanName(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/[\u0000-\u001f\u007f-\u009f<>]/g, '').replace(/\s+/g, ' ').trim();
+  const chars = [...s];
+  return chars.length >= 1 && chars.length <= 16 ? s : null;
+}
+type ScoreRow = { name: string; score: number; updated_at: number };
+async function gameTop(env: Env, game: GameId): Promise<GameScoresResponse> {
+  const rows = await env.DB.prepare('SELECT name, score, updated_at FROM game_scores WHERE game = ? ORDER BY score DESC, updated_at ASC LIMIT ?')
+    .bind(game, GAME_TOP).all<ScoreRow>();
+  return { game, top: rows.results.map((r) => ({ name: r.name, score: r.score, at: new Date(r.updated_at * 1000).toISOString() })) };
 }
 
 async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -123,6 +143,12 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       return json(out, 200, { 'cache-control': 'public, max-age=30' });
     }
     return errorJson(404, 'not_found');
+  }
+
+  // ---- Spelletje: hiscores lezen (publiek) --------------------------------------------------
+  if (a === 'game' && c === 'scores' && method === 'GET') {
+    if (!(GAMES as readonly string[]).includes(b ?? '')) return errorJson(404, 'unknown_game');
+    return json(await gameTop(env, b as GameId), 200, { 'cache-control': 'public, max-age=15' });
   }
 
   // ---- Profiel aanmaken en koppelen --------------------------------------------------------
@@ -258,6 +284,30 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       return json({ ok: true });
     }
     return errorJson(405, 'method_not_allowed');
+  }
+
+  // ---- Spelletje: score insturen. Alleen de beste score per profiel + naam blijft bewaard. -----
+  if (a === 'game' && c === 'scores' && method === 'POST') {
+    if (!(GAMES as readonly string[]).includes(b ?? '')) return errorJson(404, 'unknown_game');
+    const game = b as GameId;
+    const body = await readBody(req);
+    const name = cleanName(body?.name);
+    const score = body?.score;
+    if (!name) return errorJson(400, 'invalid_name');
+    if (typeof score !== 'number' || !Number.isInteger(score) || score < 1 || score > GAME_MAX_SCORE) return errorJson(400, 'invalid_score');
+    if (!(await allowAttempt(env, `game:${auth.profileId}`, 60))) return errorJson(429, 'rate_limited');
+    const now = nowSec();
+    await env.DB.prepare(
+      'INSERT INTO game_scores (game, profile_id, name, score, updated_at) VALUES (?, ?, ?, ?, ?) ' +
+        'ON CONFLICT(game, profile_id, name) DO UPDATE SET updated_at = CASE WHEN excluded.score > score THEN excluded.updated_at ELSE updated_at END, ' +
+        'score = MAX(score, excluded.score)',
+    ).bind(game, auth.profileId, name, score, now).run();
+    const mine = await env.DB.prepare('SELECT score, updated_at FROM game_scores WHERE game = ? AND profile_id = ? AND name = ?')
+      .bind(game, auth.profileId, name).first<{ score: number; updated_at: number }>();
+    const best = mine?.score ?? score;
+    const above = await env.DB.prepare('SELECT COUNT(*) AS n FROM game_scores WHERE game = ? AND (score > ? OR (score = ? AND updated_at < ?))')
+      .bind(game, best, best, mine?.updated_at ?? now).first<{ n: number }>();
+    return json({ ...(await gameTop(env, game)), rank: (above?.n ?? 0) + 1, best });
   }
 
   if (a === 'settings' && b === 'tracking') {

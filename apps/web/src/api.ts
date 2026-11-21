@@ -4,6 +4,8 @@ import type {
   EntityInfo,
   EntityType,
   FavoriteDto,
+  GameId,
+  GameScoresResponse,
   HistoryResponse,
   LiveResponse,
   ParkInfo,
@@ -99,3 +101,10 @@ export const putShowLocation = (parkId: string, entityId: string, lat: number, l
   request<Partial<EntityInfo>>(`/api/locations/${parkId}/${entityId}`, { method: 'PUT', body: JSON.stringify({ lat, lng, accuracy, replace }) });
 export const deleteShowLocation = (parkId: string, entityId: string) =>
   request(`/api/locations/${parkId}/${entityId}`, { method: 'DELETE' });
+
+/** Spelletje: hiscores lezen (publiek) en een score insturen (profiel nodig). */
+export const fetchGameScores = (game: GameId) => request<GameScoresResponse>(`/api/game/${game}/scores`, { cache: 'no-store' }, false);
+export const postGameScore = async (game: GameId, name: string, score: number) => {
+  await ensureProfile();
+  return request<GameScoresResponse>(`/api/game/${game}/scores`, { method: 'POST', body: JSON.stringify({ name, score }) });
+};

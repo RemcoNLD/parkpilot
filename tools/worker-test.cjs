@@ -304,6 +304,28 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     eq(count('user_locations'), 0, 'niets opgeslagen');
   });
 
+  await test('spel: score insturen, alleen de beste per naam, lijst voor iedereen', async () => {
+    eq((await call('GET', 'game/balloon/scores')).data.top, [], 'leeg');
+    eq((await call('POST', 'game/balloon/scores', { body: { name: 'Remco', score: 5 } })).status, 401, 'zonder profiel');
+    let r = await call('POST', 'game/balloon/scores', { token: tokA, body: { name: '  Remco ', score: 5 } });
+    eq([r.status, r.data.rank, r.data.best], [200, 1, 5], 'eerste score');
+    r = await call('POST', 'game/balloon/scores', { token: tokA, body: { name: 'Remco', score: 3 } });
+    eq([r.data.rank, r.data.best], [1, 5], 'lagere score verandert niets');
+    await call('POST', 'game/balloon/scores', { token: tokB, body: { name: 'Ana', score: 9 } });
+    r = await call('POST', 'game/balloon/scores', { token: tokA, body: { name: 'Remco', score: 7 } });
+    eq([r.data.rank, r.data.best], [2, 7], 'hogere score telt, plek 2');
+    eq(count('game_scores'), 2, 'één regel per profiel en naam');
+    const top = (await call('GET', 'game/balloon/scores')).data.top.map((x) => [x.name, x.score]);
+    eq(top, [['Ana', 9], ['Remco', 7]], 'lijst zonder profiel, hoogste eerst');
+  });
+  await test('spel: onzin geweigerd', async () => {
+    eq((await call('POST', 'game/balloon/scores', { token: tokA, body: { name: '', score: 4 } })).status, 400, 'lege naam');
+    eq((await call('POST', 'game/balloon/scores', { token: tokA, body: { name: 'x'.repeat(17), score: 4 } })).status, 400, 'te lange naam');
+    eq((await call('POST', 'game/balloon/scores', { token: tokA, body: { name: 'Remco', score: 2.5 } })).status, 400, 'geen geheel getal');
+    eq((await call('POST', 'game/balloon/scores', { token: tokA, body: { name: 'Remco', score: 100000 } })).status, 400, 'te hoog');
+    eq((await call('GET', 'game/tetris/scores')).status, 404, 'onbekend spel');
+  });
+
   console.log(failed ? `\n${failed} test(s) mislukt` : '\nalles ok');
   process.exit(failed ? 1 : 0);
 })();

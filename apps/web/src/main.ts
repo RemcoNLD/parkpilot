@@ -27,6 +27,7 @@ import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMet
 import { icon, iconForKind } from './icons';
 import { blurbFor } from './info';
 import { kindArt } from './kindart';
+import { openGame } from './game';
 import { simulateHistory, simulateLive, simulateSchedule } from './sim';
 import { distanceOf, nextStartMs, sortEntities } from './logic';
 import { applyTheme, effectiveTheme, getPref, setPref, watchSystemTheme, type ThemePref } from './theme';
@@ -1068,6 +1069,18 @@ function chooseLine(entity: EntityInfo): void {
 function checkIn(entity: EntityInfo, line: QueueLine, expected: number | null): void {
   saveQueue({ id: entity.id, parkId: state.parkId, name: entity.name, line, expected, start: Date.now(), turnAt: null });
   render();
+  actionSheet(T.gameAsk, T.gameAskBody, [
+    { label: T.gamePlay, kind: 'primary', run: playGame },
+    { label: T.gameNoThanks, kind: 'cancel' },
+  ]);
+}
+
+/** Spelletje tijdens het wachten (game.ts). Bovenin het spel lopen de rij en de tijd mee. */
+function playGame(): void {
+  openGame({
+    queue: () => (queue ? { name: queue.name, time: stopwatch((queue.turnAt ?? Date.now()) - queue.start), canTurn: queue.turnAt === null } : null),
+    onTurn: markTurn,
+  });
 }
 
 /** Tik op de balk: alle keuzes voor de rij waar je in staat. */
@@ -1079,6 +1092,7 @@ function queueOptions(): void {
     ? [
         { label: T.qTurn, kind: 'primary', run: markTurn },
         { label: T.qOut, kind: 'primary', run: markOut },
+        { label: T.gameFromQueue, kind: 'primary', run: playGame },
         { label: T.qUndo, kind: 'danger', run: () => { saveQueue(null); render(); } },
         { label: T.cancel, kind: 'cancel' },
       ]

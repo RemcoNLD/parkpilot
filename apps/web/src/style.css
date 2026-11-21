@@ -485,3 +485,39 @@ main { padding: 2px 0 12px; }
 .qlog-row { display: flex; gap: 10px; align-items: baseline; }
 .qlog-row b { font-variant-numeric: tabular-nums; min-width: 3em; }
 .qlog-exp { margin-left: auto; color: var(--muted); font-size: 13px; }
+
+/* ---- Spelletje tijdens het wachten (game.ts) ---- */
+html.game-open, html.game-open body { overflow: hidden; }
+.game { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; background: var(--bg); color: var(--text); padding-top: env(safe-area-inset-top); }
+.game-top { flex: none; display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 10px; background: var(--raised); border-bottom: 1px solid var(--line); }
+.game-x { flex: none; width: 36px; height: 36px; border-radius: 18px; background: var(--raised2); color: var(--text); font: 700 16px/1 var(--rounded); }
+.game-q { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.game-qname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 650 14px/1.2 var(--rounded); color: var(--muted); }
+.game-qtime { font: 800 19px/1 var(--rounded); font-variant-numeric: tabular-nums; }
+.game-turn { flex: none; height: 34px; padding: 0 12px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 700 13px/1 var(--rounded); white-space: nowrap; }
+.game-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
+.game-canvas { position: absolute; inset: 0; display: block; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.game-panel { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.28); overflow-y: auto; }
+.game-card { width: 100%; max-width: 340px; max-height: 100%; overflow-y: auto; background: var(--raised); border: 1px solid var(--line); border-radius: 18px; padding: 18px 16px; display: flex; flex-direction: column; gap: 10px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+.game-title { font: 800 22px/1.15 var(--rounded); }
+.game-big { font: 800 34px/1 var(--rounded); font-variant-numeric: tabular-nums; }
+.game-muted { margin: 0; color: var(--muted); font-size: 14px; }
+.game-good { margin: 0; color: var(--low); font: 700 15px/1.2 var(--rounded); }
+.game-btn { height: 44px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font: 750 16px/1 var(--rounded); padding: 0 16px; }
+.game-btn[disabled] { opacity: 0.45; }
+.game-btn.small { height: 38px; font-size: 14px; padding: 0 12px; flex: none; }
+.game-btn.ghost { background: var(--raised2); color: var(--text); }
+.game-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+.game-player { display: flex; justify-content: center; align-items: baseline; gap: 8px; font: 650 15px/1.2 var(--rounded); }
+.game-link { color: var(--accent); font: 650 14px/1 var(--rounded); text-decoration: underline; }
+.game-name { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.game-name-row { display: flex; gap: 8px; }
+.game-input { flex: 1; min-width: 0; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--raised2); color: var(--text); padding: 0 10px; font: 16px var(--rounded); }
+.game-hs-box { border-top: 1px solid var(--line); padding-top: 10px; text-align: left; }
+.game-hs-title { font: 700 12px/1 var(--rounded); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.game-hs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.game-hs li { display: flex; align-items: baseline; gap: 8px; padding: 4px 6px; border-radius: 8px; font-size: 15px; }
+.game-hs li.me { background: var(--raised2); }
+.game-hs .hs-n { width: 1.6em; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.game-hs .hs-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-hs b { font-variant-numeric: tabular-nums; }

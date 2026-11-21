@@ -145,3 +145,15 @@ export interface TrackingSettings {
   mode: TrackingMode;
   active: Record<string, boolean>; // per park: wordt er nu bijgehouden?
 }
+
+/** Spelletje tijdens het wachten: hiscores (gedeeld met iedereen). */
+export const GAMES = ['balloon'] as const;
+export type GameId = (typeof GAMES)[number];
+export interface GameScore { name: string; score: number; at: string }
+export interface GameScoresResponse {
+  game: GameId;
+  top: GameScore[];
+  /** Alleen na het insturen: je plek in de lijst en je beste score onder deze naam. */
+  rank?: number;
+  best?: number;
+}

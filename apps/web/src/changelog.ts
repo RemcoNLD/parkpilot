@@ -8,6 +8,22 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.0',
+    date: '2026-11-21',
+    changes: [
+      'Spelletje tijdens het wachten: na het inchecken in een rij vraagt de app of je Ballonvlucht wilt spelen. Tik om op te stijgen en vlieg tussen de torens door. Bovenin lopen je wachttijd en de knop "Aan de beurt" mee.',
+      'Hiscores: geef je naam op en kom in de lijst met iedereen die ParkPilot gebruikt. Zonder bereik wordt je record later opgeslagen. Later spelen kan via een tik op de balk onderin.',
+    ],
+    en: [
+      'A game while you wait: after checking in to a queue, the app asks if you want to play Balloon Flight. Tap to rise and fly between the towers. Your queue time and the "My turn" button stay at the top.',
+      'High scores: enter your name and join the list with everyone who uses ParkPilot. Without a connection your best score is saved later. To play later, tap the bar at the bottom.',
+    ],
+    pt: [
+      'Um jogo enquanto espera: depois de entrar numa fila, a app pergunta se quer jogar Voo de Balão. Toque para subir e voe entre as torres. O tempo na fila e o botão "A minha vez" ficam em cima.',
+      'Melhores pontuações: indique o seu nome e entre na lista com todos os que usam o ParkPilot. Sem ligação, o seu recorde é guardado mais tarde. Para jogar mais tarde, toque na barra em baixo.',
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-11-21',
     changes: ['De app is nu ook in het Portugees. Instellingen > Weergave > Taal: Auto, NL, EN of PT. Auto kiest Portugees als dat de taal van je telefoon is.'],

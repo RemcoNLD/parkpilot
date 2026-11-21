@@ -1,4 +1,4 @@
-// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue]
+// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue|game]
 // Opent nu het instellingenscherm; pas de stappen onderaan aan voor andere schermen.
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs'), path = require('path');
@@ -20,6 +20,9 @@ const api = {
   '/api/profile': { deviceId: '00000000-0000-0000-0000-000000000000', token: 'a'.repeat(64) },
   '/api/settings/tracking': { mode: 'park-hours', active: { 'dlp-studios': true } },
   '/api/health': { ok: true, version: 'x' },
+  '/api/game/balloon/scores': { game: 'balloon', rank: 3, best: 4, top: [
+    { name: 'Ana', score: 23, at: new Date(now - 3600e3).toISOString() }, { name: 'Pieter-Jan van den Berg', score: 11, at: new Date(now - 7200e3).toISOString() },
+    { name: 'Remco', score: 4, at: new Date(now).toISOString() } ] },
   '/api/parks/dlp-studios/history/A1': { entityId: 'A1', from: new Date(now - 4 * 3600e3).toISOString(), rows: [
     { at: new Date(now - 4 * 3600e3).toISOString(), wait: 15, status: 'open' }, { at: new Date(now - 3 * 3600e3).toISOString(), wait: 30, status: 'open' },
     { at: new Date(now - 2 * 3600e3).toISOString(), wait: 50, status: 'open' }, { at: new Date(now - 3600e3).toISOString(), wait: 40, status: 'open' },
@@ -71,6 +74,25 @@ const api = {
     await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
     await page.click('.set-sec:nth-of-type(1) .set-item:nth-of-type(3) .segments button:nth-of-type(1)'); await page.waitForTimeout(300);
     console.log('na Auto:', await page.evaluate(() => document.documentElement.lang + ' / ' + localStorage.getItem('pp.lang')));
+    await browser.close();
+    return;
+  }
+  if (scenario === 'game') {
+    // Inchecken → vraag om te spelen → naam → potje → einde met hiscores.
+    const longPress = async (sel) => { const b = await page.locator(sel).first().boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up(); await page.waitForTimeout(300); };
+    await longPress('.row .row-name');
+    await page.click('.asheet-btn.primary'); await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/game-${theme}-${locale}-1-ask.png` });
+    await page.click('.asheet-btn.primary'); await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT}/game-${theme}-${locale}-2-name.png` });
+    await page.fill('.game-input', 'Remco'); await page.click('.game-btn.small'); await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/game-${theme}-${locale}-3-menu.png` });
+    await page.click('.game-card .game-btn'); 
+    for (let i = 0; i < 6; i++) { await page.waitForTimeout(330); await page.mouse.click(195, 400); }
+    await page.screenshot({ path: `${OUT}/game-${theme}-${locale}-4-play.png` });
+    await page.waitForSelector('.game-card', { timeout: 15000 }); await page.waitForTimeout(800);
+    await page.screenshot({ path: `${OUT}/game-${theme}-${locale}-5-over.png` });
+    console.log('localStorage', await page.evaluate(() => JSON.stringify({ name: localStorage.getItem('pp.gameName'), best: localStorage.getItem('pp.gameBest'), pending: localStorage.getItem('pp.gamePending') })));
     await browser.close();
     return;
   }
