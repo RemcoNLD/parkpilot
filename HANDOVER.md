@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:40** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 15:05** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:40** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.14.1` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~14:40, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.15.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~15:01 (commit f1f5bc0), nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`) én Engels (`en`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Tweetalig (sinds 0.13.0):** elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en). Nooit meer losse Nederlandse teksten in `main.ts`; zie 6.9.
 - **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
@@ -50,7 +50,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - Projectmap: `/home/claude/parkpilot`, een clone van de repo. **Bron van waarheid is de GitHub-repo.** Begin een nieuwe chat met `add_repo` (RemcoNLD/parkpilot, push) en `git clone --depth 1`.
 - **Bash had geen algemeen netwerk.** Geen `npm install`, geen `vite build`, geen `wrangler`. Wel `tsc` en Node 22 (met `node:sqlite`). Git naar GitHub loopt via een eigen proxy en werkt wel (4.1). Package-installs vereisen dat Remco netwerktoegang in zijn instellingen aanzet (werkt pas in een nieuwe chat).
 - **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
-- **Screenshots kunnen wél (ontdekt 21 nov 2026):** de sandbox had Bun (`/root/.bun/bin/bun`), Google Chrome (`/usr/bin/google-chrome`) en Playwright (`/opt/npm-tools/node_modules/playwright`). `[PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang]` bouwt de app met Bun (zonder vite/npm install), serveert hem met nep-API-antwoorden via Playwright en maakt screenshots op 390×844 (iPhone-formaat) in `/tmp/ppshot/shots/`. Scenario's: `settings` (instellingenscherm), `history` (verloop online, zonder bereik uit de cache, en na herstel), `main` (overzicht, uitklappen, detailvenster) en `lang` (taalschakelaar: EN kiezen, herladen, terug naar Auto; print de uitkomst). `PP_LANG` = taal van de nep-telefoon (standaard `nl-NL`; `de-DE` test de terugval op Engels). Pas de stappen in `tools/screenshot.cjs` aan voor andere schermen. Gebruik dit bij UI-wijzigingen en bekijk de PNG met Read. Beperkingen: Chrome, geen iOS Safari; geen echte touch/gps; nepdata.
+- **Screenshots kunnen wél (ontdekt 21 nov 2026):** de sandbox had Bun (`/root/.bun/bin/bun`), Google Chrome (`/usr/bin/google-chrome`) en Playwright (`/opt/npm-tools/node_modules/playwright`). `[PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue]` bouwt de app met Bun (zonder vite/npm install), serveert hem met nep-API-antwoorden via Playwright en maakt screenshots op 390×844 (iPhone-formaat) in `/tmp/ppshot/shots/`. Scenario's: `settings` (instellingenscherm), `history` (verloop online, zonder bereik uit de cache, en na herstel), `main` (overzicht, uitklappen, detailvenster) `lang` (taalschakelaar: EN kiezen, herladen, terug naar Auto; print de uitkomst) en `queue` (inchecken in de rij, zie 6.10). `PP_LANG` = taal van de nep-telefoon (standaard `nl-NL`; `de-DE` test de terugval op Engels). Pas de stappen in `tools/screenshot.cjs` aan voor andere schermen. Gebruik dit bij UI-wijzigingen en bekijk de PNG met Read. Beperkingen: Chrome, geen iOS Safari; geen echte touch/gps; nepdata.
 - **Gevolg:** vóór 0.12.1 is de frontend **nooit in een browser bekeken door Claude**; daarna alleen via deze screenshots. Zeg in elke oplevering wat wel en niet bekeken is ("in Chrome-screenshot gezien, niet op een iPhone").
 - Typecheck frontend: zit nu in `bash tools/test-worker.sh` (stap "typecheck app", via `tools/tsconfig.web.json` + `tools/vite-shim.d.ts`). De oude filtermethode (`tsc -p apps/web | grep ...`) verborg echte fouten omdat de ontbrekende vite-types de check verstoorden; niet meer gebruiken.
 - **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 31 × `ok` en "alles ok".** (De showprogramma-test controleert sinds 0.13.0 ook het veld `basis`.) Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
@@ -84,6 +84,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - Clone en `git push` van een branch: **werkt** (`git -c push.negotiate=true push -u origin BRANCH`).
 - Een remote branch verwijderen (`git push --delete`) en schrijven via `gh api`: **geblokkeerd** door de proxy. Claude kan dus geen branches opruimen; dat moet Remco in GitHub doen (Branches → prullenbak).
 - Rechtstreeks naar `main` pushen: **werkt** (getest 21 nov 2026, commit f2ec320).
+- **`add_repo` kan per chat mislukken** ("Unauthorized Access", gezien 21 nov 2026 rond 14:55). Dan geen schrijfrechten. In een volgende chat werkte het weer zonder dat Remco iets deed. **Let op:** code die niet gepusht is, bestaat niet meer in een nieuwe chat (de sandbox is leeg); die moet opnieuw gebouwd worden of via de zip-route naar GitHub.
 
 **Afspraak:** wijzigingen gaan rechtstreeks naar `main` (meteen live, net als vroeger met uploads); elke app-versie is zichtbaar genummerd. Bij grote of risicovolle wijzigingen eerst overleggen. Als `main` geblokkeerd blijkt: push naar een branch `claude/...` en Remco voegt de pull request samen in de GitHub-app.
 
@@ -149,7 +150,7 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - De live-route leest D1, schrijft niet.
 
 ### Frontend-state en opslag
-- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.lang` (alleen bij een vaste taalkeuze), `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`), `pp.hist.<park>` (wachttijdverloop van vandaag, zie 6.5). Alles in try/catch via een `store` helper.
+- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.lang` (alleen bij een vaste taalkeuze), `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`), `pp.hist.<park>` (wachttijdverloop van vandaag, zie 6.5), `pp.queue` (rij waar je nu in staat) en `pp.queueLog` (afgeronde rijen van vandaag), zie 6.10. Alles in try/catch via een `store` helper.
 - Service worker (`public/sw.js`): app-schil offline; `/api/*` niet bewaard. Navigatie netwerk-eerst met 5 s time-out, rest stale-while-revalidate.
 
 ---
@@ -238,6 +239,18 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 ---
 
+### 6.10 Inchecken in de rij (sinds 0.15.0)
+- Op verzoek van Remco (14:50): "Maak een tap en hold voor attracties waarmee je incheckt als je de rij in gaat. Registreer de wachtrij. Laat gebruiker kiezen welke rij. Laat dan de tijd zichtbaar lopen zodat je kunt zien of je al bijna klaar bent. Aan het eind dan vergelijken met verwachte tijd. Dus 'aan de beurt' en 'eruit' zijn de andere statussen."
+- **Lang drukken** (zelfde `withLongPress()` als kijkplekken, 0,6 s) op een attractierij in Alles én Mijn dag → keuzemenu "In welke rij sta je?": **Gewone rij · N** en, als de attractie een single-rider-rij heeft, **Single rider · N**. De verwachte tijd = de wachttijd van die rij op het moment van inchecken (leeg als dicht/onbekend: "verwachting onbekend").
+- **Eén rij tegelijk.** Lang drukken op een andere attractie terwijl je in een rij staat: "Stoppen en hier inchecken" (de oude stopt zonder resultaat). Lang drukken op dezelfde attractie opent de opties.
+- **Balk onderin** (`queueBar()`, CSS `.qbar`, vast onderin, in beide schermen): naam, rij, lopende tijd (m:ss, elke seconde bijgewerkt via `paintQueue()` zonder hele render), "verwacht N · nog ±M" of in rood "+M", voortgangsbalk (groen, rood boven de verwachting, verborgen zonder verwachting). Eén knop: **Aan de beurt**, daarna **Eruit**. Tik op de balk: Aan de beurt / Eruit / Inchecken ongedaan maken (na aan de beurt: Eruit / Toch nog in de rij / ongedaan maken). De rij in de lijst krijgt een accentstreep links (`.inq`). De voettekst krijgt extra ruimte (`.foot.qspace`) zodat de balk niets bedekt.
+- **Statussen:** in de rij → aan de beurt → eruit. Bij Eruit een melding: "Je wachtte X. Verwacht was Y: Z sneller/langer. Rit tot eruit: R." Gewacht = inchecken tot aan de beurt, in hele minuten; is aan de beurt overgeslagen, dan tot eruit (met die opmerking).
+- **Registratie:** alleen op dit toestel. Actief in `pp.queue` (blijft na afsluiten staan; de tijd loopt door omdat de starttijd bewaard is; na 12 uur vervalt hij). Afgerond in `pp.queueLog` = `{date, items}`, alleen vandaag (Parijse datum). Het detailvenster toont "Jij vandaag" per rit: tijd · rij: gewacht · verwacht N.
+- Code: blok "Inchecken in de rij" in `main.ts` (`loadQueue`, `showQueueMenu`, `chooseLine`, `checkIn`, `queueOptions`, `markTurn`, `markOut`, `queueResult`, `queueBar`, `paintQueue`); teksten `q…` in `i18n.ts`; `store.remove` toegevoegd.
+- Werkt ook in de simulatie (met verzonnen wachttijden).
+- Niet gebouwd (mogelijke vervolgstappen): delen via de koppelcode/server; echte wachttijden van gebruikers gebruiken om de bron te ijken; na Eruit automatisch afstrepen in Mijn dag; knop in het detailvenster voor wie niet lang drukt; geschiedenis van eerdere dagen.
+- Getest in Chrome-screenshots (`bash tools/screenshot.sh [light|dark] queue`, ook met `PP_LANG=en-US`): kiezen, lopen, over de verwachting, aan de beurt, resultaat, detailvenster. Niet op een iPhone: of lang drukken op een attractierij botst met scrollen, vegen of het iOS-tekstmenu is niet gecontroleerd; of iOS de timer na terugkeren uit de achtergrond meteen goed toont (zou moeten: rekent vanaf de bewaarde starttijd).
+
 ## 7. Data, bronnen en wat we weten (en niet weten)
 
 ### 7.1 ThemeParks.wiki API v1
@@ -300,6 +313,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.15.0 (21 nov 2026), door Remco te controleren:** lang drukken op een attractie (Alles en Mijn dag) → rij kiezen; balk onderin met lopende tijd; Aan de beurt / Eruit; resultaatmelding; "Jij vandaag" in het detailvenster. Botst lang drukken niet met scrollen/vegen? Bedekt de balk niets belangrijks?
 
 **0.14.1 (21 nov 2026), door Remco te controleren:** schakelaar met icoontjes, parkrij met icoon eronder (Mijn dag: past "bij <attractie>" erbij of wordt het afgekapt?).
 
@@ -393,6 +408,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - Wil de app ook in het Engels, volgens de telefoontaal met Engels als terugval, en een schakelaar in Instellingen. (21 nov 2026, letterlijk) Gevolg voor Claude: nieuwe teksten altijd in beide talen.
 - **Bij elke nieuwe app eerst vragen welke talen nodig zijn** en alles meteen vertaald opslaan (framework feature 15.3 punt 14). (21 nov 2026 14:02, letterlijk)
 - Wil zien wat er per versie veranderd is, in de app zelf. (21 nov 2026, letterlijk: "Maak ook een changelog in de app")
+- Bij "Probeer het opnieuw" na een mislukte push: opnieuw koppelen en pushen; als de lokale code weg is, die opnieuw bouwen in plaats van om de zip te vragen. (21 nov 2026, afgeleid)
 - Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
 
 ### 15.2 Wat Remco belangrijk vindt
@@ -454,6 +470,8 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 15:01 — versie 0.15.0 live:** Remco: "Probeer het opnieuw." Nieuwe chat: `add_repo` werkte nu. De lokale commit uit de vorige chat was weg, dus 0.15.0 opnieuw gebouwd volgens 6.10 en rechtstreeks naar `main` gepusht (commit f1f5bc0). 31 × ok, typechecks ok, screenshots licht/nl en donker/en bekeken. De eerder geleverde zip is daarmee overbodig.
+- **21 nov 2026, ~14:55 — versie 0.15.0 (eerste poging):** gebouwd, maar niet gepusht: `add_repo` geweigerd ("Unauthorized Access"). Geleverd als zip; commit bestond alleen lokaal.
 - **21 nov 2026, 14:40 — versie 0.14.1:** schakelaar met icoontjes en diepte; tweede rij met park + parkicoon in parkkleur in beide schermen (6.2). Screenshot-tool: nep-API heeft nu twee parken.
 - **21 nov 2026, 14:25 — versie 0.14.0:** Overzicht → "Alles", Mijn programma → "Mijn dag" (Remco koos uit vier voorstellen); kleine schakelaar linksboven op dezelfde plek in beide schermen; parkknoppen, tabbladen en chips compacter. Op Remco's verzoek (14:14) ontwerpregels vastgelegd als framework-instructies (15.4).
 - **21 nov 2026, 14:02:** Remco: meertaligheid is een framework feature; bij elke nieuwe app eerst vragen welke talen, alles meteen vertaald opslaan (15.3 punt 14).
