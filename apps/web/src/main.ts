@@ -1455,7 +1455,6 @@ function levelColor(row: { open: boolean; y: number }): string {
   return `var(--${waitLevel(row.y)})`;
 }
 
-/** Dagverloop: elke trede is gekleurd naar de wachttijd (groen is kort, rood is lang). */
 /**
  * De server slaat het verloop maar elke 5 minuten op; het getal in de app is live. Wijkt de live-stand af van het
  * laatste opgeslagen punt, dan tekenen we die stand als laatste trede tot "nu", zodat getal en grafiek kloppen.
@@ -1471,45 +1470,56 @@ function withLiveTail(data: HistoryResponse, live: LiveInfo | undefined): Histor
   return { ...data, rows: [...data.rows, { at: new Date(Math.min(at, Date.now())).toISOString(), wait: live.waitMinutes, status: live.status }] };
 }
 
+/** Openingstijden van vandaag (vroegste opening tot laatste sluiting), of null als onbekend. */
+function todayHours(): { from: number; to: number } | null {
+  const ops = state.schedule.filter((e) => e.type === 'OPERATING');
+  const list = (ops.length ? ops : state.schedule).map((e) => ({ from: Date.parse(e.opens), to: Date.parse(e.closes) }))
+    .filter((w) => Number.isFinite(w.from) && Number.isFinite(w.to) && w.to > w.from);
+  if (!list.length) return null;
+  return { from: Math.min(...list.map((w) => w.from)), to: Math.max(...list.map((w) => w.to)) };
+}
+
+/**
+ * Dagverloop van opening tot sluiting. De stippellijn (zelfde weekdag vorige weken) loopt door de hele grafiek;
+ * het verloop van vandaag vult zich van links tot nu. Geen hulplijnen. Schaal op de stippellijn, hoger als vandaag
+ * daarboven uitkomt. Openingstijden onbekend: van het eerste punt tot nu, zoals vroeger.
+ */
 function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): Node {
   const W = 300, H = 88, PAD = 6;
-  const rows = data.rows.map((r) => ({ t: Math.max(Date.parse(data.from), Date.parse(r.at)), down: r.status === 'down', open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
-  if (rows.length < 2) return h('div', { class: 'chart-note' }, T.histBuilding);
-  const from = rows[0].t;
-  // Vorige weken: trede-lijn binnen het bereik van de grafiek (begin tot nu), onderbroken waar geen waarde is.
+  const hours = todayHours();
+  const raw = data.rows.map((r) => ({ t: Date.parse(r.at), down: r.status === 'down', open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
+  const from = hours ? hours.from : Math.max(Date.parse(data.from), raw[0]?.t ?? now);
+  const to = hours ? hours.to : now;
+  const end = Math.min(now, to); // tot hier loopt het verloop van vandaag
+  // Vandaag: alleen binnen opening..nu; de laatste stand van vóór de opening telt vanaf de opening.
+  const rows: typeof raw = [];
+  for (const r of raw) {
+    if (r.t > end) break;
+    if (r.t <= from) { rows.length = 0; rows.push({ ...r, t: from }); } else rows.push(r);
+  }
   const refRows = (ref?.dates.length ? ref.rows : []).map((r) => ({ t: Date.parse(r.at), v: r.wait }));
   const refSeg: { t0: number; t1: number; v: number }[] = [];
   refRows.forEach((r, i) => {
-    const t0 = Math.max(r.t, from), t1 = Math.min(i + 1 < refRows.length ? refRows[i + 1].t : now, now);
+    const t0 = Math.max(r.t, from), t1 = Math.min(i + 1 < refRows.length ? refRows[i + 1].t : to, to);
     if (r.v !== null && t1 > t0) refSeg.push({ t0, t1, v: r.v });
   });
-  const max = Math.max(60, ...rows.map((p) => p.y), ...refSeg.map((s) => s.v));
-  const x = (t: number): number => PAD + ((t - from) / Math.max(1, now - from)) * (W - 2 * PAD);
+  if (!refSeg.length && (rows.length < 2 && !(hours && rows.length))) return h('div', { class: 'chart-note' }, T.histBuilding);
+  const peak = Math.max(10, ...refSeg.map((sg) => sg.v), ...rows.map((p) => p.y));
+  const max = Math.ceil(peak / 10) * 10;
+  const x = (t: number): number => PAD + ((t - from) / Math.max(1, to - from)) * (W - 2 * PAD);
   const y = (v: number): number => H - PAD - (v / max) * (H - 2 * PAD);
   const shapes: SVGElement[] = [];
-  for (const g of [20, 45]) {
-    if (g < max) shapes.push(svg('path', { d: `M${PAD} ${y(g).toFixed(1)}H${W - PAD}`, stroke: 'var(--line)', 'stroke-width': 1, 'stroke-dasharray': '3 4', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
-  }
   // Storingen: lichtrode zone over de hele hoogte en een gestippelde rode lijn onderin voor de duur.
   const outages: { from: number; to: number }[] = [];
   rows.forEach((r, i) => {
     if (!r.down) return;
-    const to = i + 1 < rows.length ? rows[i + 1].t : now;
+    const t1 = i + 1 < rows.length ? rows[i + 1].t : end;
     const last = outages[outages.length - 1];
-    if (last && last.to === r.t) last.to = to; else outages.push({ from: r.t, to });
+    if (last && last.to === r.t) last.to = t1; else outages.push({ from: r.t, to: t1 });
   });
   for (const o of outages) {
     const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
     shapes.push(svg('rect', { x: x0.toFixed(1), y: 0, width: (x1 - x0).toFixed(1), height: H, fill: 'var(--high)', 'fill-opacity': 0.17 }));
-  }
-  rows.forEach((r, i) => {
-    const t1 = i + 1 < rows.length ? rows[i + 1].t : now;
-    if (i > 0) shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(rows[i - 1].y).toFixed(1)}V${y(r.y).toFixed(1)}`, stroke: 'var(--muted)', 'stroke-opacity': 0.5, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
-    shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(r.y).toFixed(1)}H${x(t1).toFixed(1)}`, stroke: levelColor(r), 'stroke-width': 3.5, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
-  });
-  for (const o of outages) {
-    const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
-    shapes.push(svg('path', { d: `M${x0.toFixed(1)} ${y(0).toFixed(1)}H${x1.toFixed(1)}`, stroke: 'var(--high)', 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-dasharray': '1 6', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   }
   if (refSeg.length) {
     let d = '';
@@ -1519,14 +1529,30 @@ function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): N
     });
     shapes.push(svg('path', { class: 'ref-line', d, stroke: 'var(--text)', 'stroke-opacity': 0.55, 'stroke-width': 1.6, 'stroke-dasharray': '2 3', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   }
+  rows.forEach((r, i) => {
+    const t1 = i + 1 < rows.length ? rows[i + 1].t : end;
+    if (t1 <= r.t && i === rows.length - 1 && i > 0) return; // stand precies op het eindpunt: geen losse stip
+    if (i > 0) shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(rows[i - 1].y).toFixed(1)}V${y(r.y).toFixed(1)}`, stroke: 'var(--muted)', 'stroke-opacity': 0.5, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+    shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(r.y).toFixed(1)}H${x(t1).toFixed(1)}`, stroke: levelColor(r), 'stroke-width': 3.5, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+  });
+  for (const o of outages) {
+    const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
+    shapes.push(svg('path', { d: `M${x0.toFixed(1)} ${y(0).toFixed(1)}H${x1.toFixed(1)}`, stroke: 'var(--high)', 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-dasharray': '1 6', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+  }
   const downMin = Math.round(outages.reduce((sum, o) => sum + (o.to - o.from), 0) / 60000);
   const open = rows.filter((r) => r.open).map((r) => r.y);
-  const ticks = [0, 20, 45, max].filter((v, i, arr) => v <= max && arr.indexOf(v) === i && (v !== 45 || max - 45 >= 8) && (v !== 20 || max >= 28));
+  const ticks = [0, 20, 45, max].filter((v, i, arr) => v <= max && arr.indexOf(v) === i && (v !== 45 || max - 45 >= 8) && (v !== 20 || (max >= 28 && max - 20 >= 8)));
+  // "nu" onder de as op de plek waar het verloop van vandaag eindigt (alleen als het park open is en niet te dicht bij de randen).
+  const nowPct = ((x(end) / W) * 100);
+  const showNow = !!hours && now > from && now < to && nowPct > 14 && nowPct < 86;
   return h('div', {},
     h('div', { class: 'chartrow' },
       svg('svg', { class: 'chart', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': T.chartAria }, ...shapes),
       h('div', { class: 'yaxis', 'aria-hidden': 'true' }, ...ticks.map((v) => h('span', { style: `top:${((y(v) / H) * 100).toFixed(1)}%` }, String(v))))),
-    h('div', { class: 'chart-axis' }, h('span', {}, clock(from, tz())), h('span', {}, T.now)),
+    h('div', { class: 'chart-axis' },
+      h('span', {}, clock(from, tz())),
+      showNow ? h('span', { class: 'now-lbl', style: `left:${nowPct.toFixed(1)}%` }, T.now) : null,
+      h('span', {}, hours ? clock(to, tz()) : T.now)),
     outages.length ? h('div', { class: 'chart-note outage' }, T.outage(outages.length, dur(downMin))) : null,
     refSeg.length && ref ? h('div', { class: 'chart-note ref-note' }, h('span', { class: 'ref-swatch', 'aria-hidden': 'true' }),
       T.refWeeks(ref.dates.length, new Intl.DateTimeFormat(T.locale, { weekday: 'long', timeZone: tz() }).format(new Date(now)))) : null,

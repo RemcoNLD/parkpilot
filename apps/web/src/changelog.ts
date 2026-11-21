@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.1',
+    date: '2026-11-21',
+    changes: ['Grafiek vernieuwd: loopt van opening tot sluiting. De stippellijn van vorige weken loopt door de hele dag, het verloop van vandaag vult zich van links tot nu. Geen hulplijnen meer; de schaal past zich aan de stippellijn aan, en hoger als vandaag erboven uitkomt.'],
+    en: ['Chart redesigned: it runs from opening to closing time. The dotted line from previous weeks covers the whole day; today fills in from the left up to now. No more guide lines; the scale fits the dotted line, or higher if today goes above it.'],
+    pt: ['Gráfico renovado: vai da abertura ao fecho. A linha pontilhada das semanas anteriores cobre o dia inteiro; o dia de hoje preenche-se da esquerda até agora. Sem linhas de referência; a escala ajusta-se à linha pontilhada, ou mais alta se hoje a ultrapassar.'],
+  },
+  {
     version: '0.18.0',
     date: '2026-11-21',
     changes: [

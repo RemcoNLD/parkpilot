@@ -272,7 +272,8 @@ main { padding: 2px 0 12px; }
 .yaxis { position: relative; flex: none; width: 24px; height: 84px; }
 .yaxis span { position: absolute; left: 0; transform: translateY(-50%); font: 600 11px/1 var(--rounded); color: var(--muted); font-variant-numeric: tabular-nums; }
 .chartrow .chart { flex: 1; min-width: 0; }
-.chart-axis { margin-right: 30px; }
+.chart-axis { margin-right: 30px; position: relative; }
+.chart-axis .now-lbl { position: absolute; top: 0; transform: translateX(-50%); color: var(--text); font-weight: 600; }
 
 /* Mijn programma: kleine kop en grote cijfers */
 .phead { display: flex; align-items: center; gap: 8px; padding: 12px 16px 0; min-height: 44px; } /* zelfde plek als .hero-top, zodat de schakelaar niet verspringt */

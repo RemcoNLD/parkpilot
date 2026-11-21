@@ -16,7 +16,10 @@ const api = {
     { id: 'S1', status: 'open', waitMinutes: null, showtimes: [{ start: new Date(now + 3600e3).toISOString(), end: null }], updatedAt: null, singleRider: false, changedAt: null, changeObserved: false, prevWaitMinutes: null } ] },
   '/api/favorites': [],
   '/api/preferences/dlp-studios': { sort: 'wait', arrivalMarginMin: 15, walkingSpeedKmh: 4.5 },
-  '/api/parks/dlp-studios/schedule': { today: [], days: [] },
+  // PP_HOURS=none: openingstijden onbekend; closed: park al dicht (sluiting 1 uur geleden); anders open (nu-5u tot nu+4u).
+  '/api/parks/dlp-studios/schedule': process.env.PP_HOURS === 'none' ? { today: [], days: [] } : { today: [process.env.PP_HOURS === 'closed'
+    ? { type: 'OPERATING', opens: new Date(now - 9 * 3600e3).toISOString(), closes: new Date(now - 3600e3).toISOString() }
+    : { type: 'OPERATING', opens: new Date(now - 5 * 3600e3).toISOString(), closes: new Date(now + 4 * 3600e3).toISOString() }], days: [] },
   '/api/profile': { deviceId: '00000000-0000-0000-0000-000000000000', token: 'a'.repeat(64) },
   '/api/settings/tracking': { mode: 'park-hours', active: { 'dlp-studios': true } },
   '/api/health': { ok: true, version: 'x' },
@@ -31,7 +34,8 @@ const api = {
   '/api/parks/dlp-studios/history/A1?ref': { entityId: 'A1', date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()), dates: ['x', 'y', 'z'], rows: [
     { at: new Date(now - 5 * 3600e3).toISOString(), wait: null }, { at: new Date(now - 4 * 3600e3).toISOString(), wait: 25 },
     { at: new Date(now - 170 * 60e3).toISOString(), wait: 45 }, { at: new Date(now - 100 * 60e3).toISOString(), wait: 60 },
-    { at: new Date(now - 40 * 60e3).toISOString(), wait: 40 }, { at: new Date(now + 3600e3).toISOString(), wait: 30 } ] },
+    { at: new Date(now - 40 * 60e3).toISOString(), wait: 40 }, { at: new Date(now + 3600e3).toISOString(), wait: 30 },
+    { at: new Date(now + 2 * 3600e3).toISOString(), wait: 20 }, { at: new Date(now + 3.5 * 3600e3).toISOString(), wait: 10 }, { at: new Date(now + 4 * 3600e3).toISOString(), wait: null } ] },
   '/api/profile/recovery-code': { code: 'K7QX-M4TR-2HWN' },
   '/api/profile/redeem': { deviceId: '00000000-0000-0000-0000-000000000000', token: 'b'.repeat(64), favoriteCount: 2 },
 };
