@@ -397,7 +397,9 @@ main { padding: 2px 0 12px; }
 .srline b.low { color: var(--low); } .srline b.mid { color: var(--mid); } .srline b.high { color: var(--high); }
 .srline .srnone { font-weight: 400; color: var(--muted); font-size: 14px; }
 
-/* Mijn programma: single rider klein onder de wachttijd (alleen getal) */
-.pnumcol { display: inline-flex; flex-direction: column; align-items: flex-end; }
-.psr { font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; margin-top: -7px; position: relative; color: var(--muted); } /* -7px: in de lege ruimte onder de cijfers van de grote wachttijd (cijfers hebben geen staartjes), dus strak eronder zonder over de cijfers heen te vallen */
+/* Mijn programma: single rider klein rechtsboven de wachttijd (als een exponent), alleen getal */
+.pnumcol { display: inline-flex; flex-direction: row; align-items: flex-start; }
+.psr { font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; margin: 3px 0 0 1px; color: var(--muted); }
 .psr.low { color: var(--low); } .psr.mid { color: var(--mid); } .psr.high { color: var(--high); }
+/* Delta (▲/▼) op dezelfde basislijn als de grote wachttijd */
+.prow .pright { align-items: baseline; }
