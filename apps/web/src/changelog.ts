@@ -3,6 +3,11 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.2',
+    date: '21 nov 2026',
+    changes: ['Verloop vandaag wordt op je telefoon bewaard. Bij slecht bereik zie je het laatst opgehaalde verloop met een grijze achtergrond en het tijdstip; zodra er weer bereik is, wordt het vanzelf bijgewerkt.'],
+  },
+  {
     version: '0.12.1',
     date: '21 nov 2026',
     changes: ['Instellingen compacter: één regel per instelling in groepen, uitleg achter de (i), koppelcode en "Wat is er nieuw" inklapbaar.'],

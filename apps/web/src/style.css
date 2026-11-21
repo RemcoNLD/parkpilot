@@ -445,3 +445,8 @@ main { padding: 2px 0 12px; }
 .btn.sm { white-space: nowrap; }
 .set-more .inline-actions { margin-top: 8px; }
 .set-more .set-row { min-height: 0; padding: 2px 0 6px; }
+
+/* Wachttijdverloop uit de cache, niet actueel (sinds 0.12.2) */
+.chart-stale { margin-top: 4px; padding: 6px 8px 4px; border-radius: 10px; background: color-mix(in srgb, var(--muted) 18%, transparent); }
+.chart-stale svg { filter: grayscale(0.6); opacity: 0.8; }
+.stale-note { font-size: 12px; color: var(--muted); margin-bottom: 2px; }

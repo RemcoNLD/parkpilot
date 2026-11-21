@@ -20,15 +20,22 @@ const api = {
   '/api/profile': { deviceId: '00000000-0000-0000-0000-000000000000', token: 'a'.repeat(64) },
   '/api/settings/tracking': { mode: 'park-hours', active: { 'dlp-studios': true } },
   '/api/health': { ok: true, version: 'x' },
+  '/api/parks/dlp-studios/history/A1': { entityId: 'A1', from: new Date(now - 4 * 3600e3).toISOString(), rows: [
+    { at: new Date(now - 4 * 3600e3).toISOString(), wait: 15, status: 'open' }, { at: new Date(now - 3 * 3600e3).toISOString(), wait: 30, status: 'open' },
+    { at: new Date(now - 2 * 3600e3).toISOString(), wait: 50, status: 'open' }, { at: new Date(now - 3600e3).toISOString(), wait: 40, status: 'open' },
+    { at: new Date(now - 20 * 60e3).toISOString(), wait: 35, status: 'open' } ] },
 };
 (async () => {
   const theme = process.argv[2] || 'dark';
+  const scenario = process.argv[3] || 'settings';
+  let offlineHistory = false;
   const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome' });
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: theme });
   const page = await ctx.newPage();
   await page.route('http://pp.test/**', (route) => {
     const u = new URL(route.request().url());
     if (u.pathname.startsWith('/api/')) {
+      if (offlineHistory && u.pathname.includes('/history/')) return route.abort('internetdisconnected');
       const body = api[u.pathname];
       return route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', body: JSON.stringify(body ?? { error: 'nf' }) });
     }
@@ -39,6 +46,20 @@ const api = {
   page.on('pageerror', (e) => console.log('pageerror', e.message));
   await page.goto('http://pp.test/');
   await page.waitForTimeout(1200);
+  if (scenario === 'history') {
+    // 1) verloop ophalen (wordt bewaard), 2) herladen zonder bereik voor de historie: grijs uit de cache.
+    await page.click('.ring-btn'); await page.waitForTimeout(500);
+    await page.screenshot({ path: `${OUT}/history-${theme}-online.png` });
+    offlineHistory = true;
+    await page.reload(); await page.waitForTimeout(1200);
+    await page.click('.ring-btn'); await page.waitForTimeout(800);
+    await page.screenshot({ path: `${OUT}/history-${theme}-offline.png` });
+    offlineHistory = false; // 3) weer bereik: bij de volgende verversing wordt het verloop weer actueel
+    await page.evaluate(() => window.dispatchEvent(new Event('online'))); await page.waitForTimeout(1000);
+    await page.screenshot({ path: `${OUT}/history-${theme}-back.png` });
+    await browser.close();
+    return;
+  }
   await page.click('button[aria-label="Instellingen"]');
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/settings-${theme}.png` });

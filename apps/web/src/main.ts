@@ -36,6 +36,8 @@ type Tab = 'attractions' | 'shows' | 'favorites';
 type LocStatus = 'idle' | 'asking' | 'ok' | 'denied' | 'error';
 const POS_KEY = 'pp.pos';
 type View = 'full' | 'plan';
+/** Wachttijdverloop van één attractie. `at` = wanneer deze gegevens van de server kwamen; `ok` = laatste poging lukte. */
+type HistEntry = { at: number; data: HistoryResponse | null; ok: boolean };
 type Density = 'compact' | 'comfortable';
 const store = {
   get: (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -89,7 +91,7 @@ const state = {
   tab: 'attractions' as Tab,
   onlyOpen: false,
   expanded: new Set<string>(), // uitgeklapte rijen (verloop of showtijden)
-  hist: new Map<string, { at: number; data: HistoryResponse | 'loading' | 'error' }>(),
+  hist: new Map<string, HistEntry>(),
   view: 'plan' as View, // bij opstarten: Mijn programma, tenzij dat leeg is (zie loadPark)
   viewDecided: false,
   refreshing: false,
@@ -414,14 +416,77 @@ function toggleExpand(entity: EntityInfo): void {
   render();
 }
 
-async function loadHistory(entityId: string): Promise<void> {
-  const cur = state.hist.get(entityId);
-  if (cur && (cur.data === 'loading' || (cur.data !== 'error' && Date.now() - cur.at < 60_000))) return;
-  if (sim.on) return;
-  state.hist.set(entityId, { at: Date.now(), data: 'loading' });
-  try { state.hist.set(entityId, { at: Date.now(), data: await fetchHistoryToday(state.parkId, entityId) }); }
-  catch { state.hist.set(entityId, { at: Date.now(), data: 'error' }); }
-  render();
+// ---- Wachttijdverloop: in het geheugen én op het toestel bewaard ------------------------------
+// Bij slecht bereik toont de app het laatst opgehaalde verloop (grijs, "niet actueel") en haalt het later
+// vanzelf opnieuw op zodra verversen weer lukt. Alleen van vandaag (Parijse datum), per park.
+
+const HIST_FRESH_MS = 60_000;      // niet vaker ophalen dan eens per minuut
+const HIST_CURRENT_MS = 10 * 60_000; // ouder dan dit = niet actueel (grijs), ook als het ophalen toen lukte
+const histKey = (): string => `pp.hist.${state.parkId}`;
+const histLoads = new Map<string, Promise<void>>();
+
+function storedHist(): Record<string, { at: number; data: HistoryResponse }> {
+  try {
+    const v = JSON.parse(store.get(histKey()) ?? 'null') as { date: string; items: Record<string, { at: number; data: HistoryResponse }> } | null;
+    return v && v.date === todayStr() ? v.items : {};
+  } catch { return {}; }
+}
+
+function saveHist(id: string, at: number, data: HistoryResponse): void {
+  const items = storedHist();
+  items[id] = { at, data };
+  store.set(histKey(), JSON.stringify({ date: todayStr(), items }));
+}
+
+function histEntry(id: string): HistEntry | undefined {
+  let cur = state.hist.get(id);
+  if (!cur) {
+    const saved = storedHist()[id];
+    if (saved) { cur = { at: saved.at, data: saved.data, ok: false }; state.hist.set(id, cur); }
+  }
+  return cur;
+}
+
+const histCurrent = (e: HistEntry | undefined): boolean => !!e && e.ok && Date.now() - e.at < HIST_CURRENT_MS;
+
+function loadHistory(entityId: string): Promise<void> {
+  if (sim.on) return Promise.resolve();
+  const running = histLoads.get(entityId);
+  if (running) return running;
+  const cur = histEntry(entityId);
+  if (cur?.ok && Date.now() - cur.at < HIST_FRESH_MS) return Promise.resolve();
+  const parkId = state.parkId;
+  const p = (async () => {
+    try {
+      const data = await fetchHistoryToday(parkId, entityId);
+      if (parkId !== state.parkId) return;
+      const at = Date.now();
+      state.hist.set(entityId, { at, data, ok: true });
+      saveHist(entityId, at, data);
+    } catch {
+      // Oude gegevens blijven staan, gemarkeerd als niet actueel.
+      const e = histEntry(entityId);
+      state.hist.set(entityId, e ? { ...e, ok: false } : { at: 0, data: null, ok: false });
+    } finally {
+      histLoads.delete(entityId);
+    }
+    render();
+  })();
+  histLoads.set(entityId, p);
+  return p;
+}
+
+/** Grafiek van het verloop, of een melding. Niet actueel = grijze achtergrond met het tijdstip van de gegevens. */
+function historyNode(entity: EntityInfo): Node {
+  if (sim.on) return sparkline(simulateHistory(entity.id), Date.now());
+  const e = histEntry(entity.id);
+  if (!e?.data) {
+    return h('div', { class: 'chart-note' }, histLoads.has(entity.id) || !e ? 'Verloop laden…' : 'Verloop is nu niet beschikbaar. ParkPilot probeert het later opnieuw.');
+  }
+  const chart = sparkline(withLiveTail(e.data, state.live.get(entity.id)), Date.now());
+  if (histCurrent(e)) return chart;
+  const note = histLoads.has(entity.id) ? `Bijwerken… (gegevens van ${clock(e.at, tz())})` : `Niet actueel · gegevens van ${clock(e.at, tz())}`;
+  return h('div', { class: 'chart-stale' }, h('div', { class: 'stale-note' }, note), chart);
 }
 
 /** Het paneel dat onder een rij uitklapt: verloop van de wachttijd, of de showtijden van vandaag. */
@@ -431,12 +496,7 @@ function expandPanel(entity: EntityInfo): HTMLElement | null {
     const strip = showStrip(state.live.get(entity.id));
     return h('div', { class: 'expand' }, h('div', { class: 'section-title tight' }, 'Vandaag'), strip ?? h('p', { class: 'caveat' }, 'Voor vandaag zijn geen tijden bekend.'));
   }
-  const hist = state.hist.get(entity.id);
-  let inner: Node;
-  if (sim.on) inner = sparkline(simulateHistory(entity.id), Date.now());
-  else if (!hist || hist.data === 'loading') inner = h('div', { class: 'chart-note' }, 'Verloop laden…');
-  else if (hist.data === 'error') inner = h('div', { class: 'chart-note' }, 'Verloop is nu niet beschikbaar.');
-  else inner = sparkline(withLiveTail(hist.data, state.live.get(entity.id)), Date.now());
+  const inner = historyNode(entity);
   return h('div', { class: 'expand' }, singleRiderLine(state.live.get(entity.id)), h('div', { class: 'section-title tight' }, 'Verloop vandaag'), inner);
 }
 
@@ -1257,11 +1317,11 @@ function openDetail(entity: EntityInfo): void {
 
   const chartBox = h('div', {});
   if (entity.type === 'attraction') {
-    chartBox.append(h('div', { class: 'chart-note' }, 'Verloop laden…'));
-    const now = Date.now();
-    (sim.on ? Promise.resolve(simulateHistory(entity.id)) : fetchHistoryToday(state.parkId, entity.id))
-      .then((data) => chartBox.replaceChildren(sparkline(sim.on ? data : withLiveTail(data, state.live.get(entity.id)), now)))
-      .catch(() => chartBox.replaceChildren(h('div', { class: 'chart-note' }, 'Verloop is nu niet beschikbaar.')));
+    // Meteen het bewaarde verloop (grijs als niet actueel), daarna bijwerken zodra het ophalen klaar is.
+    const paint = (): void => { if (chartBox.isConnected || !chartBox.hasChildNodes()) chartBox.replaceChildren(historyNode(entity)); };
+    const p = loadHistory(entity.id);
+    paint();
+    void p.then(paint);
   }
 
   let times: Node | null = null;
@@ -1416,7 +1476,10 @@ async function refreshLive(force = false): Promise<void> {
     state.error = null; state.fromCache = false;
     saveCache();
     applySimulation();
-    for (const id of state.expanded) if (state.entities.find((e) => e.id === id)?.type === 'attraction') void loadHistory(id);
+    // Weer bereik: open grafieken en eerder niet-actuele verlopen bijwerken.
+    const retry = new Set([...state.expanded].filter((id) => state.entities.find((e) => e.id === id)?.type === 'attraction'));
+    for (const [id, e] of state.hist) if (!e.ok) retry.add(id);
+    for (const id of retry) void loadHistory(id);
   } catch { state.error = 'Verversen mislukt,'; }
   await refreshPositionQuietly();
   render();
