@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 15:05** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:15** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,9 +14,9 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 15:05** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.15.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~15:01 (commit f1f5bc0), nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
-- **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`) én Engels (`en`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
-- **Tweetalig (sinds 0.13.0):** elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en). Nooit meer losse Nederlandse teksten in `main.ts`; zie 6.9.
+- **Versie in de code:** `0.16.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:15, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`), Engels (`en`) én Portugees (`pt`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
+- **Meertalig:** Nederlands, Engels (sinds 0.13.0) en Portugees (sinds 0.16.0). Elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en + pt). Nooit losse teksten in `main.ts`; nieuwe teksten altijd in alle drie de talen; zie 6.9.
 - **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -115,8 +115,8 @@ parkpilot/
 │       ├─ api.ts, dom.ts, format.ts, geo.ts, logic.ts, theme.ts
 │       ├─ icons.ts, art.ts (park-skyline), kindart.ts (illustraties detailvenster)
 │       ├─ info.ts   omschrijvingen/lengtes/gebied/jaar
-│       ├─ i18n.ts   alle teksten (nl + en), taalkeuze en -detectie (6.9)
-│       ├─ changelog.ts  versiegeschiedenis voor "Wat is er nieuw" (nl + en)
+│       ├─ i18n.ts   alle teksten (nl + en + pt), taalkeuze en -detectie (6.9)
+│       ├─ changelog.ts  versiegeschiedenis voor "Wat is er nieuw" (nl + en + pt)
 │       ├─ sim.ts    simulatiestand (verzonnen data)
 │       └─ style.css
 └─ tools/  test-worker.sh, worker-test.cjs, screenshot.sh, screenshot.cjs, tsconfig.worker.json, tsconfig.test.json, tsconfig.web.json, cf-shim.d.ts, vite-shim.d.ts
@@ -229,13 +229,13 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 ### 6.9 Taal (sinds 0.13.0)
 - Op verzoek van Remco (13:51): "Voeg Engelse taal toe. Volg de taalinstelling op de telefoon. Als eigen taal niet beschikbaar is dan terugvallen op Engels. Elke keer laden checken en aanpassen als een taal dan wel beschikbaar is. Met een switcher in de instellingen."
-- Talen: Nederlands en Engels. **Auto** (standaard): bij elke start kijkt de app naar `navigator.languages` (volgorde van de telefoon) en kiest de eerste taal die er is; anders Engels. De gevonden taal wordt **niet** bewaard, dus komt er later een taal bij, dan wordt die vanzelf gekozen. Verandert de telefoontaal terwijl de app openstaat (`languagechange`), dan volgt de app meteen.
-- Instellingen > Weergave > **Taal**: Auto / NL / EN. Een vaste keuze staat in `pp.lang`; Auto verwijdert die sleutel. Bij wisselen opent het instellingenscherm opnieuw in de nieuwe taal. De (i) toont welke taal Auto nu kiest.
-- Techniek: `apps/web/src/i18n.ts`. Woordenboek `nl` is de bron; `en` heeft type `Dict` (= `typeof nl`), dus TypeScript weigert een ontbrekende of extra sleutel. Gebruik: `T.sleutel` of `T.functie(waarde)` (in `main.ts` geïmporteerd als `T`, omdat `t` daar al lokaal gebruikt wordt). `export let t` is een live binding: na `applyLang()` zien alle modules de nieuwe taal; `render()` bouwt alles opnieuw op. **Een taal toevoegen:** woordenboek erbij in `DICTS` en `LANG_NAMES`, Engelse teksten in `info.ts` en `changelog.ts` aanvullen (die vallen anders terug op Engels).
+- Talen: Nederlands, Engels en (sinds 0.16.0) **Portugees** (Europees, `pt-PT`; ook gekozen bij een Braziliaanse telefoon, `pt-BR`, want de detectie kijkt alleen naar het deel vóór het streepje). **Auto** (standaard): bij elke start kijkt de app naar `navigator.languages` (volgorde van de telefoon) en kiest de eerste taal die er is; anders Engels. De gevonden taal wordt **niet** bewaard, dus komt er later een taal bij, dan wordt die vanzelf gekozen. Verandert de telefoontaal terwijl de app openstaat (`languagechange`), dan volgt de app meteen.
+- Instellingen > Weergave > **Taal**: Auto / NL / EN / PT. Een vaste keuze staat in `pp.lang`; Auto verwijdert die sleutel. Bij wisselen opent het instellingenscherm opnieuw in de nieuwe taal. De (i) toont welke taal Auto nu kiest.
+- Techniek: `apps/web/src/i18n.ts`. Woordenboek `nl` is de bron; `en` heeft type `Dict` (= `typeof nl`), dus TypeScript weigert een ontbrekende of extra sleutel. Gebruik: `T.sleutel` of `T.functie(waarde)` (in `main.ts` geïmporteerd als `T`, omdat `t` daar al lokaal gebruikt wordt). `export let t` is een live binding: na `applyLang()` zien alle modules de nieuwe taal; `render()` bouwt alles opnieuw op. **Een taal toevoegen** (zo gedaan voor Portugees): woordenboek erbij in `DICTS` en `LANG_NAMES` (type `Dict`, dus TypeScript dwingt alle sleutels af); in `info.ts` elk tuple een element langer (`Text3` = `[nl, en, pt]`, plus `LANG_INDEX` en de lengtematen in `HEIGHT`; TypeScript dwingt ook hier alles af); in `changelog.ts` een veld per taal (`pt`) bij elke versie (`changesFor` pakt `c[lang]`, anders Engels). De taalschakelaar in Instellingen groeit vanzelf mee (knop per taal, hoofdletters van de code).
 - Ook vertaald: tijden (`clock`, 24-uurs `en-GB`), datums, decimaalteken (`dec1`: 1,2 km / 1.2 km), duur (`dur`: "2 u 5 min" / "2 h 5 min"), soorten attracties (`kindName()`; de Nederlandse soortnaam blijft intern de sleutel voor iconen en illustraties), omschrijvingen en tips in `info.ts` (`[nl, en]` per regel; lengtematen via `heightText()`), changelog.
 - **Niet vertaald:** namen van attracties/shows/gebieden (komen zo uit de bron), `manifest.webmanifest` (beschrijving blijft Nederlands; kan per toestel niet verschillen), foutmeldingen die al op het scherm staan blijven in de oude taal tot de volgende verversing.
-- Engelse teksten zijn door Claude vertaald, niet door een moedertaalspreker nagekeken. Britse spelling (favourite, colour).
-- Getest in Chrome-screenshots met telefoontaal nl-NL, en-US en de-DE (→ Engels), en de schakelaar (EN kiezen, herladen onthoudt, terug naar Auto). Niet op een iPhone.
+- Engelse en Portugese teksten zijn door Claude vertaald, niet door een moedertaalspreker nagekeken. Engels: Britse spelling (favourite, colour). Portugees: Europees ("Definições", "telemóvel", "ecrã", "espetáculos"), aanspreekvorm u-achtig (3e persoon, "Toque em…"). Bewust korter gehouden omdat het niet paste: "Antecedência" (op tijd bij show) en "mínima" (kortste wachttijd-tegel). "Dark ride" en "Single rider" onvertaald, zoals in het park.
+- Getest in Chrome-screenshots met telefoontaal nl-NL, en-US en de-DE (→ Engels), en de schakelaar (EN kiezen, herladen onthoudt, terug naar Auto). Portugees (0.16.0): `PP_LANG=pt-PT`, instellingen, Alles, Mijn dag, inchecken en detailvenster, licht en donker. Niet op een iPhone.
 
 ---
 
@@ -313,6 +313,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.16.0 (21 nov 2026), door Remco te controleren:** Instellingen > Taal > PT zet alles in het Portugees (ook omschrijvingen en Wat is er nieuw); past alles op zijn iPhone? Europees of Braziliaans Portugees gewenst? Een moedertaalspreker zou de teksten moeten nalezen.
 
 **0.15.0 (21 nov 2026), door Remco te controleren:** lang drukken op een attractie (Alles en Mijn dag) → rij kiezen; balk onderin met lopende tijd; Aan de beurt / Eruit; resultaatmelding; "Jij vandaag" in het detailvenster. Botst lang drukken niet met scrollen/vegen? Bedekt de balk niets belangrijks?
 
@@ -470,6 +472,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 16:15 — versie 0.16.0:** Remco: "Lees handover en voeg Portugees toe." Portugees (pt-PT) als derde taal: woordenboek in `i18n.ts`, alle omschrijvingen/tips in `info.ts` (tuples nu `[nl, en, pt]`), alle changelog-versies. Twee labels ingekort na screenshots (afgekapt). 31 × ok, typechecks ok. Gekozen voor Europees Portugees zonder het te vragen; gemeld aan Remco.
 - **21 nov 2026, 15:01 — versie 0.15.0 live:** Remco: "Probeer het opnieuw." Nieuwe chat: `add_repo` werkte nu. De lokale commit uit de vorige chat was weg, dus 0.15.0 opnieuw gebouwd volgens 6.10 en rechtstreeks naar `main` gepusht (commit f1f5bc0). 31 × ok, typechecks ok, screenshots licht/nl en donker/en bekeken. De eerder geleverde zip is daarmee overbodig.
 - **21 nov 2026, ~14:55 — versie 0.15.0 (eerste poging):** gebouwd, maar niet gepusht: `add_repo` geweigerd ("Unauthorized Access"). Geleverd als zip; commit bestond alleen lokaal.
 - **21 nov 2026, 14:40 — versie 0.14.1:** schakelaar met icoontjes en diepte; tweede rij met park + parkicoon in parkkleur in beide schermen (6.2). Screenshot-tool: nep-API heeft nu twee parken.
