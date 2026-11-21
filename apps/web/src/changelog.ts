@@ -3,6 +3,11 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.11.1',
+    date: '21 nov 2026',
+    changes: ['Mijn programma: het single-rider-getal staat strakker onder de wachttijd.'],
+  },
+  {
     version: '0.11.0',
     date: '21 nov 2026',
     changes: ['Mijn programma: de single-rider-wachttijd staat klein onder de gewone wachttijd, als de bron er een geeft.'],

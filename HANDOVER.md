@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:55** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:58** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:55** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.11.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:55, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.11.1` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:58, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -170,7 +170,7 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - Alleen favorieten. **Shows bovenaan** (Wachttijd/Naam); bij **Afstand** alles door elkaar.
 - **Shows inklappen (sinds 0.7.0):** knopje "Shows" naast de sorteerschakelaar (alleen als je shows volgt) of tik op de kop "Shows ▾". Ingeklapt staat er één tikbare regel "Shows (N) ▸" bovenaan, ook bij Afstand. Onthouden in localStorage `pp.planShows`. Op een smal scherm mag de bronleeftijd naar een tweede regel.
 - **Attractierij:** naam, afstand/looptijd eronder, rechts wachttijd **groot, alleen getal**, ▲ rood / ▼ groen met verschil.
-- **Single rider (sinds 0.11.0):** klein getal (16 px, vet, niveaukleur) rechts onder de grote wachttijd. **Geen label** (Remco: "Het is wel duidelijk. Dus alleen getallen."). Alleen als de bron een getal geeft, de attractie open is en het park open. Grote wachttijd blijft even groot. Klasse `.pnumcol`/`.psr`.
+- **Single rider (sinds 0.11.0):** klein getal (16 px, vet, niveaukleur) rechts onder de grote wachttijd. **Geen label** (Remco: "Het is wel duidelijk. Dus alleen getallen."). Alleen als de bron een getal geeft, de attractie open is en het park open. Grote wachttijd blijft even groot. Klasse `.pnumcol`/`.psr`. Sinds 0.11.1 strakker: `margin-top: -7px`, zodat het in de lege ruimte onder de cijfers valt (op verzoek "strakker, deels overlappend mag als het leesbaar blijft"). Nog strakker (-10px of meer) gaat de cijfers echt raken; alleen doen als Remco dat na een screenshot wil.
 - **Afgelopen shows** (geen tijden meer vandaag) blijven staan: gedimd, "–" en "geen shows meer vandaag", onderaan de shows (bij Wachttijd). Shows die niet meer in de bron staan, worden niet getoond. Remco vroeg 21 nov 2026 of afgelopen shows weggaan; voorstel om ze in te klappen ligt bij hem.
 - **Showrij:** eerstvolgende tijd groot links, naam en "over 14 min" plus vertrektijd, rechts "daarna". Uitklappen toont alle tijden (geweest grijs, eerstvolgende onderstreept, "NU"-streepje).
 - **Afstand-sortering:** groot afstandsblok vooraan ("150 m" + "2 min lopen"); bij shows starttijd groot aan het eind.
@@ -387,6 +387,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:58 — versie 0.11.1:** single-rider-getal strakker onder de wachttijd (-7px).
 - **21 nov 2026, 11:55 — versie 0.11.0:** single-rider-wachttijd klein onder de gewone wachttijd in Mijn programma, zonder label.
 - **21 nov 2026, 11:45 — versie 0.10.1:** grafiek sluit aan op het live-getal (`withLiveTail`). Remco vroeg om een "minor update"; uitgevoerd als 0.10.1 (patch), zie 15.1.
 - **21 nov 2026, 11:40:** Remco vraagt waarom de grafiek achterloopt op het getal; uitgelegd (cron elke 5 min), oplossing voorgesteld, niet gebouwd. Tijden in dit logboek gecorrigeerd naar de echte berichttijden.

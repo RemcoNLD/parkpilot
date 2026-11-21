@@ -399,5 +399,5 @@ main { padding: 2px 0 12px; }
 
 /* Mijn programma: single rider klein onder de wachttijd (alleen getal) */
 .pnumcol { display: inline-flex; flex-direction: column; align-items: flex-end; }
-.psr { font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; margin-top: 3px; color: var(--muted); }
+.psr { font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; margin-top: -7px; position: relative; color: var(--muted); } /* -7px: in de lege ruimte onder de cijfers van de grote wachttijd (cijfers hebben geen staartjes), dus strak eronder zonder over de cijfers heen te vallen */
 .psr.low { color: var(--low); } .psr.mid { color: var(--mid); } .psr.high { color: var(--high); }
