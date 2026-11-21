@@ -1,0 +1,349 @@
+# ParkPilot: overdrachtsdocument
+
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 09:00** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+
+**Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
+
+---
+
+## 1. In het kort
+
+**ParkPilot** is een mobile-first PWA (iPhone, "Zet op beginscherm") voor Disneyland Paris, technisch uitbreidbaar naar andere parken. Je volgt favoriete attracties en shows, ziet live wachttijden, storingen, showtijden en afstanden, en bouwt een persoonlijk dagprogramma.
+
+- **Eigenaar/gebruiker:** Remco (GitHub: `RemcoNLD`). Nederlandstalig. Gebruikt de app zelf, en hooguit mensen die hij kent.
+- **Live:** https://parkpilot.remco-dv.workers.dev
+- **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
+- **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
+- **Versie in de code:** `0.5.0` (`packages/shared/src/version.ts` en `package.json`). **Op 21 nov 2026 bevestigde Remco: "Versie 0.5.0 is in orde."** Volgende app-levering wordt `0.6.0`.
+- **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
+- **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
+
+---
+
+## 2. Hoe Remco werkt, en wat hij van Claude verwacht
+
+Dit is het belangrijkste hoofdstuk voor een nieuwe chat. De groeiende, volledige lijst staat in **hoofdstuk 15**; hier de kern.
+
+- **Taal:** altijd Nederlands, direct en zonder omhaal. Geen lange recaps.
+- **Kritisch zijn:** Remco zei letterlijk: "Wees kritisch als ik vragen stel want ik kan het niet altijd helemaal goed inschatten." Als een idee weinig oplevert, zeg dat eerlijk (voorbeeld: de geforceerde verversknop levert hooguit een halve minuut op omdat de bron zelf minuten oud is). Verzin niets: noem wat je niet kon controleren.
+- **Hij kan niet met een terminal werken.** Hij wil geen commando's uitvoeren.
+- **Hij werkt vanaf zijn telefoon.** Claude commit zelf naar GitHub (4.1); Remco vraagt, kijkt in de live app en keurt goed. Alleen als de koppeling niet werkt geldt de oude zip-route:
+  1. Claude levert een **volledige `parkpilot.zip`**.
+  2. Remco pakt die uit en sleept de mappen/bestanden naar de GitHub web-UI (Add file → Upload files).
+  3. Cloudflare bouwt automatisch. Hij kijkt of de build "Ready" is.
+  - Mapstructuur telt (eerder ontbrak `apps/web/index.html` of stonden bestanden in de root). Verwijderde/hernoemde bestanden verwijdert upload niet.
+- **Hij werkt met screenshots** (vaak van een smal desktopvenster of telefoon) en beschrijft in korte zinnen wat hij wil. Interpreteer royaal, maar bouw niet meer dan gevraagd.
+- **Versienummer:** altijd in de app zichtbaar (kop + voet + instellingen). Verhoog het bij elke app-levering, zodat hij kan controleren welke versie live staat.
+- **Wat hij mooi/niet mooi vindt:** zie hoofdstuk 10 en 15. Lees die vóór je UI aanpast.
+- Zijn tooncheck-vragen ("Is dat een idee?") zijn echte vragen. Eerst beantwoorden, pas bouwen als hij dat duidelijk vraagt ("Niet uitvoeren" betekent echt niet uitvoeren).
+- **Dit document altijd bijwerken** (zie de vaste afspraak bovenaan).
+
+---
+
+## 3. Werkomgeving van Claude (sandbox) en beperkingen
+
+Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controleer het):
+
+- Projectmap: `/home/claude/parkpilot`, een clone van de repo. **Bron van waarheid is de GitHub-repo.** Begin een nieuwe chat met `add_repo` (RemcoNLD/parkpilot, push) en `git clone --depth 1`.
+- **Bash had geen algemeen netwerk.** Geen `npm install`, geen `vite build`, geen `wrangler`. Wel `tsc` en Node 22 (met `node:sqlite`). Git naar GitHub loopt via een eigen proxy en werkt wel (4.1). Package-installs vereisen dat Remco netwerktoegang in zijn instellingen aanzet (werkt pas in een nieuwe chat).
+- **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
+- **Gevolg:** de frontend is wel getypecheckt maar **nooit gebouwd of in een browser uitgeprobeerd door Claude**. Zeg dat eerlijk in elke oplevering ("niet op een telefoon bekeken").
+- Typecheck frontend: `tsc -p apps/web 2>&1 | grep -E "^apps|^packages" | grep -vE "vite|style.css"`.
+- **Worker typecheck + test:** `bash tools/test-worker.sh` (typecheck met Cloudflare-typeshim, testharnas met `node:sqlite` als nep-D1 en nep-`fetch`; verwacht 24 × `ok`). **Let op (21 nov 2026): de map `tools/` staat niet in de GitHub-repo** (nooit geüpload) en de oude sandbox is weg. De tests moeten dus opnieuw worden gemaakt voordat ze weer te draaien zijn. Zie 11.
+- Gebruikte ontwerpconventie: geen framework; DOM-helpers `h()` en `svg()` in `apps/web/src/dom.ts`.
+- Dit document staat in het claude.ai-project én als `HANDOVER.md` in de repo. Houd beide gelijk; het projectdocument is leidend als ze verschillen.
+
+---
+
+## 4. Deploy-pipeline en bekende valkuilen
+
+- Cloudflare Worker `parkpilot` is gekoppeld aan de GitHub-repo via **Workers Builds**.
+  - Build command: `npm run build` (= `vite build apps/web`).
+  - Deploy command: `npm run deploy:cloudflare` (= `wrangler deploy && wrangler d1 migrations apply DB --remote`).
+  - Root directory: repo-root. `package.json` moet in de root van de repo staan.
+- D1 wordt automatisch aangemaakt door wrangler (binding `DB` zonder `database_id`). Migraties in `worker/migrations/` draaien bij elke deploy (0001 t/m 0004).
+- `wrangler.toml`: `[assets]` met `run_worker_first = ["/api/*"]` en `not_found_handling = "single-page-application"`; cron `*/5 * * * *`.
+- Gezien in het verleden:
+  - "package.json not found": bestanden stonden in een submap van de repo.
+  - "Missing script deploy:cloudflare": oude `package.json`. "Retry build" bouwt dezelfde commit, dus zinloos; er moet een nieuwe commit komen.
+  - "Could not resolve entry module apps/web/index.html": `index.html` ontbrak.
+  - github.dev werkte niet.
+
+### 4.1 Claude commit zelf (actief sinds 21 nov 2026)
+**Hoe het is gekoppeld (route die werkte):**
+1. Remco opende claude.ai/code en verbond GitHub (niet via "Add custom connector", dat is de verkeerde plek).
+2. Daarna moest de **Claude GitHub App** nog op de repo worden geïnstalleerd: https://github.com/apps/claude/installations/select_target → RemcoNLD → parkpilot. Zonder die app kan Claude alleen lezen.
+3. In de chat: `add_repo` (owner RemcoNLD, repo parkpilot, access push), dan `git clone --depth 1 https://github.com/RemcoNLD/parkpilot /home/claude/parkpilot`.
+
+**Werkt / werkt niet (getest 21 nov 2026):**
+- Clone en `git push` van een branch: **werkt** (`git -c push.negotiate=true push -u origin BRANCH`).
+- Een remote branch verwijderen (`git push --delete`) en schrijven via `gh api`: **geblokkeerd** door de proxy. Claude kan dus geen branches opruimen; dat moet Remco in GitHub doen (Branches → prullenbak).
+- Rechtstreeks naar `main` pushen: wordt getest met de commit die dit document toevoegt. Zie logboek voor de uitkomst.
+
+**Afspraak:** wijzigingen gaan rechtstreeks naar `main` (meteen live, net als vroeger met uploads); elke app-versie is zichtbaar genummerd. Bij grote of risicovolle wijzigingen eerst overleggen. Als `main` geblokkeerd blijkt: push naar een branch `claude/...` en Remco voegt de pull request samen in de GitHub-app.
+
+---
+
+## 5. Architectuur en bestandskaart
+
+```
+parkpilot/
+├─ package.json, wrangler.toml, README.md, HANDOVER.md
+├─ packages/shared/src/
+│   ├─ index.ts        gedeelde types en DEFAULT_PREFERENCES, TrackingMode
+│   └─ version.ts      APP_VERSION
+├─ worker/
+│   ├─ migrations/     0001_init … 0004_app_settings.sql
+│   └─ src/
+│       ├─ index.ts        router (fetch + scheduled)
+│       ├─ parks.ts        parkconfiguratie (dlp-disneyland, dlp-studios)
+│       ├─ themeparks.ts   upstream-client, ID-resolutie, getEntities/getLive/getSchedule
+│       ├─ tracker.ts      wachttijd-historie, tracking-modus, cron (trackAll)
+│       ├─ shows.ts        showtijden bewaren + programma per dag + verwachting
+│       ├─ auth.ts, recovery.ts, util.ts
+├─ apps/web/
+│   ├─ index.html, vite.config.ts, tsconfig.json
+│   ├─ public/ manifest.webmanifest, sw.js, iconen
+│   └─ src/
+│       ├─ main.ts   (≈1300 regels) state, render, alle schermen
+│       ├─ api.ts, dom.ts, format.ts, geo.ts, logic.ts, theme.ts
+│       ├─ icons.ts, art.ts (park-skyline), kindart.ts (illustraties detailvenster)
+│       ├─ info.ts   omschrijvingen/lengtes/gebied/jaar
+│       ├─ sim.ts    simulatiestand (verzonnen data)
+│       └─ style.css
+└─ tools/  (ONTBREEKT in repo, zie 3) test-worker.sh, worker-test.cjs, tsconfig.*.json, cf-shim.d.ts
+```
+
+**Restanten in de repo-root (21 nov 2026):** `dom.ts`, `format.ts`, `index.ts`, `index (1).ts`, `info.ts`, `main.ts`, `parks.ts`, `style.css`, `themeparks.ts`, `tracker.ts`. Oude losse uploads, niet gebruikt door de build. Opruimen kan Claude nu zelf doen (na akkoord Remco). Geen `.gitignore` in de repo gezien.
+
+### Worker
+- `GET /api/health` → `{ok, version}`
+- `GET /api/parks`, `GET /api/parks/:id/entities`
+- `GET /api/parks/:id/live[?fresh=1]`: live data, verrijkt met "gewijzigd"-gegevens uit D1. Alleen lezen. `fresh=1` slaat de ThemeParks-cache over (max 1x per 10 s per park per isolate).
+- `GET /api/parks/:id/schedule`: openingstijden vandaag + komende dagen.
+- `GET /api/parks/:id/shows?date=JJJJ-MM-DD` (vandaag t/m +13 dagen): programma per dag, tijden gemerkt `bron` of `verwacht`.
+- `GET /api/parks/:id/history/:entityId?since=today|hours=N`: wachttijdverloop uit `wait_log`.
+- `POST /api/profile`, `/api/profile/redeem`, `/api/profile/recovery-code`.
+- `GET/PUT/DELETE /api/favorites/...`, `GET/PUT /api/preferences/:parkId`.
+- `GET/PUT /api/settings/tracking`: `off | park-hours | always`, server-breed.
+- `scheduled()` draait `trackAll` elke 5 minuten.
+
+### Database (D1)
+`profiles`, `devices`, `favorites`, `preferences`, `rate_limits` (0001) · `wait_state`, `wait_log` (0002, 7 dagen) · `show_seen` (0003, 60 dagen) · `app_settings` (0004).
+
+### Authenticatie (anoniem)
+- Geen account. `POST /api/profile` geeft `deviceId.token`, bewaard in localStorage. Bearer-token, SHA-256-hashes in D1.
+- **Koppelcode** laat hetzelfde profiel op meerdere toestellen werken. Eigen codes 4 tot 24 tekens; `409 code_taken` als bezet; "sterke" code is 12 tekens. Rate limit via D1. Zwakke codes zijn te raden: bewust geaccepteerd voor persoonlijk gebruik.
+
+### Tracking (kostenbewust, zie hoofdstuk 8)
+- Alleen de **cron** schrijft naar `wait_state`/`wait_log`, volgens de tracking-modus (`off`; `park-hours` = 30 min voor opening tot 30 min na sluiting; `always`).
+- Showtijden elk uur in `show_seen`.
+- De live-route leest D1, schrijft niet.
+
+### Frontend-state en opslag
+- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`). Alles in try/catch via een `store` helper.
+- Service worker (`public/sw.js`): app-schil offline; `/api/*` niet bewaard. Navigatie netwerk-eerst met 5 s time-out, rest stale-while-revalidate.
+
+---
+
+## 6. Wat de app nu doet (gewenst gedrag, per scherm)
+
+### 6.1 Opstarten
+- Standaard park: **Disney Adventure World** (`dlp-studios`). Alleen een handmatige parkkeuze wordt onthouden.
+- Start in **Mijn programma** als er favorieten zijn, anders in het **Overzicht**. Niet onthouden.
+- Thema volgt het systeem met een wisselknop. Tekstgrootte "Compact"/"Comfortabel" (knop "Aa", ~20% groter via CSS `zoom`) wordt onthouden.
+
+### 6.2 Overzicht
+- Kop met parknaam, open/dicht-status, skyline-art, drie tegels:
+  - **Storingstegel (links):** drie grote getallen, **geen labels**: groen = open, rood = storing, grijs = onderhoud. Park dicht: open = 0, storing = "–". Tik opent de **storingspagina** (Storing / Onderhoud / Tijdelijk dicht met duur, "al minstens …" als het al liep vóór de meting). **Knippert rood** bij iets nieuws sinds het laatste bezoek.
+  - Midden en rechts: gemiddelde en kortste wachttijd, **zonder "min"**.
+- Segmentknop **Overzicht | Mijn programma**, tabs Attracties / Shows / Volgend, sorteerchips (Wachttijd, Afstand, Naam), filter "Alleen open" (houdt rekening met gesloten park). Shows-tab heeft een **dagkeuze** (zie 7.3).
+- Rij: ring met wachttijd (<20 groen, <45 oranje, anders rood), naam, soortregel, afstand/looptijd, bronleeftijd. Storing = rood uitroepteken zonder ring; onderhoud = grijze moersleutel zonder ring; park dicht = gedimd met maantje.
+- **Tik op wachttijd/showtijd** klapt de rij uit. **Tik op de naam** opent het detailvenster.
+- **Geen omschrijvingen in lijsten.**
+
+### 6.3 Mijn programma
+- Kleine kop: "‹ Overzicht", park en "bij <dichtstbijzijnde attractie binnen 400 m>", ↻ en instellingen. Compacte sorteerschakelaar en bronleeftijd rechts (rood als niet vers; offline-melding).
+- Alleen favorieten. **Shows bovenaan** (Wachttijd/Naam); bij **Afstand** alles door elkaar.
+- **Attractierij:** naam, afstand/looptijd eronder, rechts wachttijd **groot, alleen getal**, ▲ rood / ▼ groen met verschil.
+- **Showrij:** eerstvolgende tijd groot links, naam en "over 14 min" plus vertrektijd, rechts "daarna". Uitklappen toont alle tijden (geweest grijs, eerstvolgende onderstreept, "NU"-streepje).
+- **Afstand-sortering:** groot afstandsblok vooraan ("150 m" + "2 min lopen"); bij shows starttijd groot aan het eind.
+- Ververst elke minuut (Overzicht: 2 min), alleen zichtbaar + online. ↻ forceert.
+
+### 6.4 Detailvenster
+Illustratie per soort (eigen SVG's), grote wachttijd/status, grafiek "Verloop vandaag" (schaal **rechts**, 0/20/45/max), feiten, omschrijving (min. lengte alleen waar bevestigd, tip, gebied, openingsjaar), showtijden, favoriet-knop.
+
+### 6.5 Grafiek
+Trapjes in niveaukleur, grijs bij dicht/onderhoud, **storingen als lichtrode zone + gestippelde rode lijn onderin**, "Storing: N keer, samen X". Resolutie ~5 min. Minder dan twee punten: "wordt opgebouwd".
+
+### 6.6 Instellingen
+Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving".
+
+### 6.7 Simulatiestand
+Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, verzonnen wachttijden die elke 5 min verschuiven, enkele storingen/onderhoud, showtijden per 45 min, verzonnen dagverloop. Oranje balk "SIMULATIE" met Stop. Echte cache blijft; programma voor morgen blijft echt.
+
+---
+
+## 7. Data, bronnen en wat we weten (en niet weten)
+
+### 7.1 ThemeParks.wiki API v1
+- In gebruik: `/destinations`, `/entity/{id}/children`, `/entity/{id}/live`, `/entity/{id}/schedule`.
+- Live: status (OPERATING/DOWN/CLOSED/REFURBISHMENT), `queue.STANDBY.waitTime`, SINGLE_RIDER, `showtimes`, `lastUpdated`.
+- **Geen wijzigingstijd van de wachttijd** in de bron; daarom de eigen tracker (5 min nauwkeurig).
+- **Showtijden:** lijken alleen voor vandaag te komen; toekomst **niet bevestigd**. App toont voor andere dagen **verwachte** tijden (zelfde weekdag vorige week of laatst geziene dag), gemarkeerd. Nog te onderzoeken: `/entity/{showId}/schedule`.
+- Bronleeftijd meestal 2 tot 5 min; geforceerd verversen maakt de bron niet verser.
+
+### 7.2 Parken
+`dlp-disneyland` ("Disneyland Park") en `dlp-studios` ("Disney Adventure World", herkend via `/walt disney studios|disney adventure world/i`). Europe/Paris.
+
+### 7.3 Showprogramma per dag
+`buildShowDay` combineert bron-tijden met verwachte tijden uit `show_seen` (30 dagen).
+
+### 7.4 Omschrijvingen en feiten (`apps/web/src/info.ts`)
+- Eigen teksten, gekoppeld op naam. **Nooit feiten verzinnen.** Lengtematen alleen uit bronnen (tarifs.org, dlptips.com): Big Thunder 102 cm, Star Tours 102, Space Mountain 120, Indiana Jones 140, Crush's Coaster 107, Tower of Terror 102, RC Racer 120, Flight Force 120, Autopia en Parachute Drop 81 cm met volwassene/132 cm alleen. **Niet bevestigd:** Rock 'n' Roller Coaster, Raiponce Tangled Spin, Frozen Ever After ("geen minimum (verwacht)").
+- Gebied (demagieexpert.nl) en openingsjaar in `FACTS`.
+- **Afbeeldingen:** bewust geen foto's; eigen SVG's. Opties: eigen foto's of gecontroleerde Wikimedia Commons-bestanden.
+
+---
+
+## 8. Kostenontwerp (Cloudflare gratis laag)
+
+"Laagste kosten maar nog acceptabel gebruik": alleen de cron schrijft naar D1, rijen alleen bij wijziging; "alleen overdag" standaard; zuinig verversen; upstream-cache (bestemmingen 24 u, entiteiten 6 u, live 30 s, schedule 30 min). Ruim onder de gratis limieten bij persoonlijk gebruik.
+
+---
+
+## 9. Beveiliging en privacy
+
+- Locatie alleen wanneer nodig, verlaat het toestel niet. Geen tracking of analyse.
+- "Geschiedenis bijhouden" is server-breed met alleen een geldig profiel; bij breder delen een beheerder/geheim toevoegen.
+- Korte koppelcodes: rate limiting beperkt brute force, sluit het niet uit.
+
+---
+
+## 10. Bewuste ontwerpbeslissingen en dingen die Remco afkeurde
+
+1. **Geen omschrijvingen in lijsten of rijen.**
+2. **Wachttijden alleen als getal, nooit "min".** "min" mag bij looptijd en "over 14 min".
+3. **Storing = alleen rood uitroepteken, onderhoud = alleen grijze moersleutel**, zonder ring of driehoek.
+4. **Storingstegel: alleen drie getallen, geen labels**, groen/rood/grijs.
+5. **Pijltjes:** ▲ rood = langer, ▼ groen = korter.
+6. **Grafiek:** schaal rechts; storingen als lichtrode zone + gestippelde rode lijn.
+7. **Mijn programma:** kleine kop, compact sorteren, shows bovenaan bij Wachttijd, afstand groot vooraan bij Afstand, tijden niet dubbel.
+8. **Uitklappen in de rij** bij tikken op wachttijd/showtijd.
+9. **Niets verzinnen:** liever "niet bekend"/"verwacht"; aannames zichtbaar gelabeld.
+10. Standaard **Adventure World**.
+11. **Simulatiestand** voor tests buiten het park, met niet alles gesloten.
+
+---
+
+## 11. Openstaande punten en bekende risico's
+
+**Bevestigd door Remco op 21 nov 2026:** "Versie 0.5.0 is in orde." De laatste reeks wijzigingen staat live. Niet per onderdeel nagevraagd.
+
+**Nieuw gevonden (21 nov 2026):**
+- **`tools/` ontbreekt in de repo**, dus geen worker-tests. Opnieuw opbouwen (typeshim + nep-D1-harnas) voordat er serieuze worker-wijzigingen komen.
+- **Oude losse bestanden in de repo-root** (zie 5). Opruimen met akkoord.
+- **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
+
+**Niet gecontroleerd door Claude (geen browser):**
+- **Service worker** niet getest op een echte iPhone (oude versie blijft hangen? bijwerken na deploy?). Controleren bij 0.6.0.
+- **Cron** en "alleen overdag" alleen met nepomgeving getest. Controle: detailvenster na een paar uur, of Cloudflare → Workers → parkpilot → Triggers.
+- Migraties 0003/0004 alleen lokaal getest.
+- **Showprogramma voor morgen** werkt pas na dagen historie.
+- Deel van de **omschrijvingen/lengtes** uit eigen kennis; drempels 20/45 zijn een eigen keuze.
+- CSS `zoom` voor "Comfortabel" visueel niet gecontroleerd.
+- Oude CSS-regels (`.pchips`, `.ptime`/`.pwait`) opruimen.
+- `main.ts` (~1300 regels) splitsen; alleen met akkoord. Kost Remco nu geen uploadwerk meer.
+
+---
+
+## 12. Aanbevolen start van een nieuwe chat
+
+1. Lees dit document volledig, vooral 2, 4.1, 15 en het logboek (16).
+2. `add_repo` RemcoNLD/parkpilot (push), `git clone --depth 1`. Werkt schrijven niet: Remco moet de Claude GitHub App installeren (4.1).
+3. Frontend-typecheck draaien; worker-tests zodra `tools/` weer bestaat.
+4. Verhoog bij de eerstvolgende app-levering het versienummer (`version.ts` en `package.json`).
+5. Werk na elke stap dit document bij (project én repo).
+
+**Voorbeeld-startprompt voor een nieuwe chat:**
+
+> Ik werk aan ParkPilot, een PWA voor Disneyland Paris (repo RemcoNLD/parkpilot, live op parkpilot.remco-dv.workers.dev). Lees eerst het overdrachtsdocument in dit project volledig. Ik heb geen terminal en werk vanaf mijn telefoon; koppel de repo en commit zelf naar GitHub. Wees kritisch en eerlijk, zeg wat je niet hebt kunnen controleren, en werk het overdrachtsdocument altijd bij. We gaan verder met: [onderwerp].
+
+---
+
+## 13. Backlog (nog niet gebouwd)
+
+1. **Vertrekmeldingen/Web Push** (fase 2): VAPID-sleutels als Worker-secrets, abonnementen in D1, tijdige verzending (fijnere cron of Durable Object/queue). iOS alleen als beginscherm-PWA (16.4+). Kosten en betrouwbaarheid eerst bespreken.
+2. **Looproutes** met OpenStreetMap in plaats van hemelsbreed × 1,3.
+3. **Efteling en andere parken.** ThemeParks.wiki lijkt het te dekken, niet geverifieerd. Alternatief Queue-Times.com ("Powered by Queue-Times.com"). Eerst een controle in de app of het park wordt gevonden.
+4. **Echte foto's** met correcte licentie of eigen foto's.
+5. **Toekomstige showtijden** via schedule-endpoints.
+6. **Wachttijdhistorie uitbreiden** (gisteren / zelfde weekdag vorige week).
+7. Kleurdrempels, meer omschrijvingen, CSS opruimen, `main.ts` splitsen.
+8. Beveiliging verscherpen bij breder delen.
+9. **Framework-features losmaken** (15.3) als herbruikbare modules. Alleen op verzoek.
+10. **`tools/` (tests) herstellen** en repo-root opruimen.
+
+---
+
+## 14. Handige referentie
+
+- Frontendfuncties in `main.ts`: `render()`, `listNodes()`, `renderRow()`, `renderShowCard()`, `statusRing()`, `planNodes()`/`planShow()`/`planAttraction()`/`planHeader()`, `expandPanel()`, `sparkline()`, `openDetail()`, `openIssues()`, `openSettings()`, `refreshLive()`/`forceRefresh()`, `applySimulation()`, `parkStatus()`/`parkStats()`.
+- Thema's: CSS-custom-properties met `data-theme` × `data-park` in `style.css`. iOS-statusbalk via `.statusbar`-div (black-translucent).
+- Tijdzone-hulp Worker: `localDateStr`, `localTimeStr`, `zonedEpochMs`, `addDays`, `startOfLocalDaySec` in `worker/src/util.ts`.
+- `h()` in `dom.ts`: `aria-*` met `true/false` worden strings "true"/"false".
+
+---
+
+## 15. Remco: werkwijze, voorkeuren en framework-features (groeit mee)
+
+Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco. Bij elk punt: datum en of hij het letterlijk zei of dat het is afgeleid.
+
+### 15.1 Hoe Remco werkt
+- Nederlands, kort, direct. Geen lange samenvattingen. (letterlijk/vast)
+- Geen terminal, geen commando's. (letterlijk)
+- Werkt vanaf zijn **telefoon**; Claude commit zelf via de GitHub-koppeling. (21 nov 2026, letterlijk)
+- Stuurt screenshots en korte zinnen. (afgeleid)
+- Een vraag is een vraag: eerst antwoorden, pas bouwen als hij dat zegt. (letterlijk)
+- Controleert zelf in de live app; daarom altijd een zichtbaar, opgehoogd versienummer. (letterlijk)
+- **Het overdrachtsdocument moet altijd actueel zijn**, met alles wat Claude over hem leert in een aparte sectie (dit hoofdstuk). (21 nov 2026, letterlijk)
+- Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
+
+### 15.2 Wat Remco belangrijk vindt
+- **Eerlijkheid boven gemak:** kritisch, niets verzinnen, benoemen wat niet gecontroleerd is. (letterlijk)
+- **Geen verzonnen data in de app:** aannames zichtbaar labelen. (afgeleid)
+- **Lage kosten** bij acceptabel gebruik. (letterlijk)
+- **Rustige, compacte UI:** getallen boven labels, geen overbodige tekst. (afgeleid)
+- **Kleurlogica:** groen = goed, rood = fout. (letterlijk)
+- **Privacy:** geen accounts, geen analytics, locatie op het toestel. (afgeleid)
+- **Testbaar zonder echte situatie:** simulatie-/demostand. (letterlijk)
+
+### 15.3 Framework-features (horen in elke app)
+**Letterlijk door Remco genoemd** staat erbij; de rest is afgeleid uit ParkPilot en moet hij nog bevestigen.
+
+1. **Licht/donker-schakelaar, op de ParkPilot-manier.** *(Letterlijk door Remco genoemd als framework feature, 21 nov 2026.)*
+   - Volgt standaard het systeem (`prefers-color-scheme`); één wisselknop in de kop, plus keuze in Instellingen.
+   - Alleen een handmatige keuze wordt bewaard (localStorage `<app>.theme`); zonder keuze blijft het systeem leidend.
+   - Eén attribuut op het root-element (`data-theme="light|dark"`); alle kleuren als CSS custom properties per thema. Tweede attribuut (bij ParkPilot `data-park`) voor een accent per context.
+   - iOS-PWA: statusbalk `black-translucent` met eigen `.statusbar`-div.
+   - Code: `apps/web/src/theme.ts` + `style.css`. **Nog te controleren:** thema vóór eerste render (geen witte flits) en meeveranderende `<meta name="theme-color">`.
+2. **Zichtbaar versienummer** op drie plekken, uit één bron, ook via `/api/health`; elke levering ophogen. *(Letterlijk gewenst; framework-status afgeleid.)*
+3. **Tekstgrootte Compact/Comfortabel** ("Aa", ~20%, onthouden). *(Afgeleid.)*
+4. **Mobile-first PWA** met offline app-schil. *(Afgeleid.)*
+5. **`store`-helper** voor localStorage met try/catch en app-prefix. *(Afgeleid.)*
+6. **Anoniem profiel + koppelcode** voor meerdere toestellen. *(Afgeleid.)*
+7. **Versheid en offline zichtbaar.** *(Afgeleid.)*
+8. **Zuinig verversen** (zichtbaar + online, plus ↻). *(Afgeleid.)*
+9. **Simulatie-/demostand** met gekleurde balk en Stop. *(Afgeleid.)*
+10. **Instellingenscherm** als vaste plek voor voorkeuren. *(Afgeleid.)*
+
+---
+
+## 16. Logboek
+
+- **21 nov 2026, ochtend:** overdrachtsdocument opgesteld (einde vorige bouwsessie).
+- **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
+- **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
+- **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude (test van rechtstreeks pushen naar `main`; app ongewijzigd, versie blijft 0.5.0).
+
+*Einde van het overdrachtsdocument.*
