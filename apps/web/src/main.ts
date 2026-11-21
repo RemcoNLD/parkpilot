@@ -632,6 +632,8 @@ function planAttraction(entity: EntityInfo): HTMLElement {
   } else if (closed) label = 'dicht';
   const t = closed ? null : trendDelta(live);
   const dist = byDist ? null : distText(entity);
+  // Single rider klein onder de wachttijd: alleen een getal, alleen als de bron er een geeft en de attractie open is.
+  const sr = !closed && live?.status === 'open' && typeof live.singleRiderWait === 'number' ? live.singleRiderWait : null;
   return h('div', { class: 'rowwrap' },
     h('div', { class: 'prow' },
       byDist ? distBlock(entity) : null,
@@ -640,7 +642,9 @@ function planAttraction(entity: EntityInfo): HTMLElement {
         dist ? h('div', { class: 'psub' }, dist) : null),
       ringToggle(entity, h('span', { class: 'pright' },
         t ? h('span', { class: `trend ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null,
-        h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}` }, label)), 'ptoggle')),
+        h('span', { class: 'pnumcol' },
+          h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}` }, label),
+          sr !== null ? h('span', { class: `psr ${waitLevel(sr)}`, 'aria-label': `single rider ${sr}` }, String(sr)) : null)), 'ptoggle')),
     expandPanel(entity));
 }
 

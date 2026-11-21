@@ -396,3 +396,8 @@ main { padding: 2px 0 12px; }
 .srline b { font: 800 26px/1 var(--rounded); font-variant-numeric: tabular-nums; color: var(--text); }
 .srline b.low { color: var(--low); } .srline b.mid { color: var(--mid); } .srline b.high { color: var(--high); }
 .srline .srnone { font-weight: 400; color: var(--muted); font-size: 14px; }
+
+/* Mijn programma: single rider klein onder de wachttijd (alleen getal) */
+.pnumcol { display: inline-flex; flex-direction: column; align-items: flex-end; }
+.psr { font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; margin-top: 3px; color: var(--muted); }
+.psr.low { color: var(--low); } .psr.mid { color: var(--mid); } .psr.high { color: var(--high); }
