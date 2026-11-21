@@ -23,6 +23,11 @@ export interface EntityInfo {
   type: EntityType;
   name: string;
   location: LatLng | null;
+  /** Waar de locatie vandaan komt: de bron, of een kijkplek die een gebruiker ter plekke opsloeg (sinds 0.12.0). */
+  locationSource?: 'source' | 'user' | null;
+  /** Alleen bij een kijkplek van een gebruiker: gps-nauwkeurigheid in meters en wanneer opgeslagen. */
+  locationAccuracy?: number | null;
+  locationUpdatedAt?: string | null;
 }
 
 export interface EntitiesResponse {

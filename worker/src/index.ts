@@ -22,6 +22,20 @@ import { APP_VERSION } from '../../packages/shared/src/version';
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SORTS: SortMode[] = ['distance', 'wait', 'name'];
 
+type UserLocRow = { entity_id: string; lat: number; lng: number; accuracy_m: number | null; updated_at: number };
+const userLoc = (u: UserLocRow) => ({
+  location: { lat: u.lat, lng: u.lng },
+  locationSource: 'user' as const,
+  locationAccuracy: u.accuracy_m,
+  locationUpdatedAt: new Date(u.updated_at * 1000).toISOString(),
+});
+
+function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const r = Math.PI / 180;
+  const h = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lng - a.lng) * r) / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
+}
+
 async function readBody(req: Request): Promise<Record<string, unknown> | null> {
   try {
     const body = await req.json();
@@ -57,9 +71,16 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     if (!park) return errorJson(404, 'unknown_park');
     if (c === 'entities') {
       const data = await getEntities(park);
-      return data
-        ? json(data, 200, { 'cache-control': 'public, max-age=3600' })
-        : errorJson(502, 'park_not_found_upstream');
+      if (!data) return errorJson(502, 'park_not_found_upstream');
+      // Kijkplekken van gebruikers invullen bij shows zonder locatie in de bron. Kort cachen, zodat een nieuwe plek snel bij iedereen staat.
+      const rows = await env.DB.prepare('SELECT entity_id, lat, lng, accuracy_m, updated_at FROM user_locations WHERE park_id = ?')
+        .bind(park.id).all<UserLocRow>().catch(() => ({ results: [] as UserLocRow[] }));
+      const byId = new Map(rows.results.map((r) => [r.entity_id, r]));
+      const entities = data.entities.map((e) => {
+        const u = byId.get(e.id);
+        return u && !e.location ? { ...e, ...userLoc(u) } : e;
+      });
+      return json({ ...data, entities }, 200, { 'cache-control': 'public, max-age=120' });
     }
     if (c === 'live') {
       const force = url.searchParams.get('fresh') === '1';
@@ -200,6 +221,43 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       }
     }
     return errorJson(404, 'not_found');
+  }
+
+  // ---- Kijkplek van een show (gedeeld met iedereen) -----------------------------------------
+  if (a === 'locations' && b && c && ID_PATTERN.test(c)) {
+    const park = findPark(b);
+    if (!park) return errorJson(404, 'unknown_park');
+    const data = await getEntities(park);
+    const entity = data?.entities.find((e) => e.id === c);
+    if (!entity) return errorJson(404, 'unknown_entity');
+    // Alleen shows waarvoor de bron zelf geen locatie heeft; een bronlocatie overschrijven we niet.
+    if (entity.type !== 'show' || entity.location) return errorJson(409, 'has_source_location');
+    if (!(await allowAttempt(env, `loc:${auth.profileId}`, 30))) return errorJson(429, 'rate_limited');
+    if (method === 'PUT') {
+      const body = await readBody(req);
+      const lat = body?.lat, lng = body?.lng, acc = body?.accuracy;
+      // Bestaande plek alleen vervangen als de app expliciet bevestigt (replace: true); anders 409 met de huidige plek.
+      if (body?.replace !== true) {
+        const cur = await env.DB.prepare('SELECT entity_id, lat, lng, accuracy_m, updated_at FROM user_locations WHERE park_id = ? AND entity_id = ?')
+          .bind(park.id, c).first<UserLocRow>();
+        if (cur) return json({ error: 'location_exists', current: userLoc(cur) }, 409);
+      }
+      if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) return errorJson(400, 'invalid_location');
+      // Binnen 3 km van het park: voorkomt een plek die per ongeluk thuis wordt opgeslagen.
+      if (haversine(park.center, { lat, lng }) > 3000) return errorJson(400, 'too_far_from_park');
+      const accuracy = typeof acc === 'number' && Number.isFinite(acc) && acc >= 0 ? Math.round(acc) : null;
+      await env.DB.prepare(
+        'INSERT INTO user_locations (park_id, entity_id, lat, lng, accuracy_m, profile_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ' +
+          'ON CONFLICT(park_id, entity_id) DO UPDATE SET lat = excluded.lat, lng = excluded.lng, accuracy_m = excluded.accuracy_m, ' +
+          'profile_id = excluded.profile_id, updated_at = excluded.updated_at',
+      ).bind(park.id, c, lat, lng, accuracy, auth.profileId, nowSec()).run();
+      return json({ ok: true, ...userLoc({ entity_id: c, lat, lng, accuracy_m: accuracy, updated_at: nowSec() }) });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM user_locations WHERE park_id = ? AND entity_id = ?').bind(park.id, c).run();
+      return json({ ok: true });
+    }
+    return errorJson(405, 'method_not_allowed');
   }
 
   if (a === 'settings' && b === 'tracking') {

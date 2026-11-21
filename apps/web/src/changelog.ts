@@ -3,6 +3,14 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.0',
+    date: '21 nov 2026',
+    changes: [
+      'Kijkplek vastleggen: houd een show zonder locatie ingedrukt als je op de beste plek staat. De app meet je plek, toont hoe nauwkeurig de gps is en vraagt om bevestiging.',
+      'De kijkplek geldt voor alle gebruikers. Staat er al een plek, dan zie je de nauwkeurigheid van beide en kies je vervangen of verwijderen.',
+    ],
+  },
+  {
     version: '0.11.5',
     date: '21 nov 2026',
     changes: ['Mijn programma: het verschil (▲/▼) staat nu rechts van de wachttijd, onder het single-rider-getal. Daardoor meer ruimte voor de naam.'],

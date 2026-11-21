@@ -16,13 +16,13 @@ import {
 import { APP_VERSION } from '../../../packages/shared/src/version';
 import { CHANGELOG } from './changelog';
 import {
-  ApiError, createRecoveryCode, deleteFavorite, ensureProfile, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday,
+  ApiError, createRecoveryCode, deleteFavorite, deleteShowLocation, ensureProfile, putShowLocation, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday,
   fetchLive, fetchParks, fetchPreferences, fetchSchedule, fetchShowDay, fetchTracking, saveTracking, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
 } from './api';
 import { parkArt } from './art';
 import { h, svg } from './dom';
 import { agoLabel, clock, waitLevel } from './format';
-import { GeoError, formatDistance, getPosition, haversineMeters, hasGeoPermission, walkMinutes } from './geo';
+import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMeters, hasGeoPermission, walkMinutes } from './geo';
 import { icon, iconForKind } from './icons';
 import { blurbFor } from './info';
 import { kindArt } from './kindart';
@@ -467,14 +467,14 @@ function renderRow(entity: EntityInfo): HTMLElement {
   if (d !== null) extra.push(`${formatDistance(d)}, ${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`);
   const meta = entity.type === 'attraction' && parkStatus().open !== false ? metaLine(live) : null;
   return h('div', { class: 'rowwrap' },
-    h('div', { class: 'row' },
+    withLongPress(entity, h('div', { class: 'row' },
       ringToggle(entity, statusRing(entity, live)),
       h('button', { class: 'row-open', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
         h('div', { class: 'row-main' },
           h('div', { class: 'row-name' }, entity.name),
           kindLine(entity, extra),
           meta)),
-      heartButton(entity)),
+      heartButton(entity))),
     expandPanel(entity));
 }
 
@@ -501,7 +501,7 @@ function renderShowCard(entity: EntityInfo): HTMLElement {
     note = !live ? 'Tijden laden…' : live.showtimes.length ? 'Geen shows meer vandaag.' : 'Voor vandaag zijn geen tijden bekend.';
   }
   const dep = next !== null ? departure(entity, next) : null;
-  return h('div', { class: 'showwrap' }, h('div', { class: 'showcard' },
+  return h('div', { class: 'showwrap' }, withLongPress(entity, h('div', { class: 'showcard' },
     ringToggle(entity, whenNode, 'when-btn'),
     h('button', { class: 'showcard-open', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
       h('div', { class: 'showcard-main' },
@@ -509,7 +509,7 @@ function renderShowCard(entity: EntityInfo): HTMLElement {
         kindLine(entity, later.length ? [`daarna ${later.map((t) => clock(t, tz())).join(', ')}`] : []),
         note ? h('div', { class: 'row-meta' }, note) : null,
         dep ? h('div', { class: 'depart' }, icon('pin', 14), `${dep.text} (${dep.walk} min lopen)`) : null)),
-    heartButton(entity)), expandPanel(entity));
+    heartButton(entity))), expandPanel(entity));
 }
 
 function byNextStart(a: EntityInfo, b: EntityInfo): number {
@@ -609,14 +609,14 @@ function planShow(entity: EntityInfo): HTMLElement {
   const sub = [next !== null ? untilLabel(next) : live ? 'geen shows meer vandaag' : 'tijden laden…', byDist ? null : distText(entity), dep?.text ?? null].filter(Boolean).join(' · ');
   const later = after !== null ? h('div', { class: 'plater' }, h('small', {}, 'daarna'), h('span', {}, clock(after, tz()))) : null;
   return h('div', { class: 'rowwrap' },
-    h('div', { class: `prow show${next === null ? ' none' : ''}` },
+    withLongPress(entity, h('div', { class: `prow show${next === null ? ' none' : ''}` },
       byDist ? distBlock(entity) : ringToggle(entity, h('span', { class: 'pbig' }, nextText), 'ptoggle'),
       h('button', { class: 'pmain', 'aria-label': `${entity.name}, details`, onclick: () => openDetail(entity) },
         h('div', { class: 'pname' }, entity.name),
         h('div', { class: 'psub' }, sub)),
       byDist
         ? h('div', { class: 'pend' }, ringToggle(entity, h('span', { class: `pnumcol${planLayout.side ? ' gutter' : ''}` }, h('span', { class: 'pbig tm' }, nextText)), 'ptoggle'), later)
-        : later),
+        : later)),
     expandPanel(entity));
 }
 
@@ -692,7 +692,7 @@ function setDone(id: string, done: boolean): void {
 }
 
 /** Keuzemenu onderin het scherm. Tikken naast het menu of op de laatste knop sluit het. */
-function actionSheet(title: string, sub: string | null, options: { label: string; kind?: 'primary' | 'danger' | 'cancel'; run?: () => void }[]): void {
+function actionSheet(title: string, sub: string | null, options: { label: string; kind?: 'primary' | 'danger' | 'cancel'; run?: () => void }[]): () => void {
   const overlay = h('div', { class: 'asheet-bg', role: 'dialog', 'aria-label': title });
   const close = (): void => overlay.remove();
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
@@ -700,6 +700,7 @@ function actionSheet(title: string, sub: string | null, options: { label: string
     h('div', { class: 'asheet-title' }, h('b', {}, title), sub ? h('span', {}, sub) : null),
     ...options.map((o) => h('button', { class: `asheet-btn ${o.kind ?? ''}`.trim(), onclick: () => { close(); o.run?.(); } }, o.label))));
   document.body.append(overlay);
+  return close;
 }
 
 function confirmDone(entity: EntityInfo): void {
@@ -783,6 +784,132 @@ function withSwipe(wrap: HTMLElement, entity: EntityInfo): HTMLElement {
   row.addEventListener('pointerup', end);
   row.addEventListener('pointercancel', (e) => { if (e.pointerId === pointer) reset(); });
   return wrap;
+}
+
+// ---- Kijkplek van een show vastleggen (lang drukken) -----------------------------------------
+// Voor shows zonder locatie in de bron. De plek gaat naar de server en geldt voor alle gebruikers.
+
+/** Mag je voor deze show een kijkplek vastleggen? Alleen als de bron geen locatie heeft. */
+const canSetSpot = (e: EntityInfo): boolean =>
+  e.type === 'show' && (!e.location || e.locationSource === 'user');
+
+const LONG_PRESS_MS = 600;
+
+/** Lang drukken (0,6 s stil houden) op een showrij opent het kijkplek-menu. Bewegen of vegen annuleert. */
+function withLongPress(entity: EntityInfo, el: HTMLElement): HTMLElement {
+  if (!canSetSpot(entity)) return el;
+  el.classList.add('lp');
+  let timer = 0, sx = 0, sy = 0, pid = -1, suppressUntil = 0;
+  const cancel = (): void => { clearTimeout(timer); timer = 0; pid = -1; el.classList.remove('lp-hold'); };
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    sx = e.clientX; sy = e.clientY; pid = e.pointerId;
+    el.classList.add('lp-hold');
+    timer = window.setTimeout(() => {
+      timer = 0; el.classList.remove('lp-hold');
+      suppressUntil = Date.now() + 700; // de tik die op het loslaten volgt niet ook laten tellen
+      void showSpotMenu(entity);
+    }, LONG_PRESS_MS);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId === pid && timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel();
+  });
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  el.addEventListener('click', (e) => { if (Date.now() < suppressUntil) { e.stopPropagation(); e.preventDefault(); } }, { capture: true });
+  return el;
+}
+
+const accText = (m: number | null | undefined): string => (typeof m === 'number' ? `±${Math.round(m)} m` : 'nauwkeurigheid onbekend');
+
+/** Lang drukken: eerst je plek meten, dan altijd bevestigen (met de gps-nauwkeurigheid; bij een bestaande plek van allebei). */
+async function showSpotMenu(entity: EntityInfo): Promise<void> {
+  if (sim.on) {
+    actionSheet(entity.name, 'In de simulatie is je locatie verzonnen, dus een kijkplek opslaan kan nu niet.', [{ label: 'Oké', kind: 'cancel' }]);
+    return;
+  }
+  let cancelled = false;
+  const closeWait = actionSheet(`Kijkplek ${entity.name}`, 'Je plek bepalen…', [{ label: 'Annuleren', kind: 'cancel', run: () => { cancelled = true; } }]);
+  const waitSheet = [...document.querySelectorAll('.asheet-bg')].pop() ?? null;
+  let pos: { lat: number; lng: number; accuracy: number | null };
+  try { pos = await getPrecisePosition(); }
+  catch (err) {
+    if (waitSheet && !waitSheet.isConnected) cancelled = true;
+    closeWait();
+    if (cancelled) return;
+    const denied = err instanceof GeoError && err.code === 'denied';
+    actionSheet('Locatie niet gevonden', denied ? 'ParkPilot mag je locatie niet gebruiken. Zet dit aan in de instellingen van je iPhone.' : 'Je locatie kon niet worden bepaald. Probeer het zo nog eens.', [{ label: 'Oké', kind: 'cancel' }]);
+    return;
+  }
+  if (waitSheet && !waitSheet.isConnected) cancelled = true; // naast het menu getikt = ook annuleren
+  closeWait();
+  if (cancelled) return;
+  state.pos = { lat: pos.lat, lng: pos.lng }; state.loc = 'ok'; storePos();
+  confirmSpot(entity, pos);
+}
+
+function confirmSpot(entity: EntityInfo, pos: { lat: number; lng: number; accuracy: number | null }): void {
+  const cur = state.entities.find((e) => e.id === entity.id) ?? entity;
+  const weak = pos.accuracy !== null && pos.accuracy > SPOT_ACCURACY_WARN_M
+    ? ' Dat is vrij onnauwkeurig; even wachten en opnieuw proberen geeft vaak een betere plek.' : '';
+  if (cur.location && cur.locationSource === 'user') {
+    const apart = Math.round(haversineMeters(cur.location, pos));
+    const when = cur.locationUpdatedAt ? `, vastgelegd ${agoLabel(cur.locationUpdatedAt)}` : '';
+    actionSheet(`Kijkplek ${cur.name} vervangen?`,
+      `Er is al een kijkplek (${accText(cur.locationAccuracy)}${when}). Je huidige plek: ${accText(pos.accuracy)}, ${apart} m daarvandaan.${weak} De plek geldt voor alle gebruikers.`, [
+        { label: 'Vervangen door mijn plek', kind: 'primary', run: () => void saveSpot(cur, pos, true) },
+        { label: 'Kijkplek verwijderen', kind: 'danger', run: () => void removeSpot(cur) },
+        { label: 'Annuleren', kind: 'cancel' },
+      ]);
+    return;
+  }
+  actionSheet(`Kijkplek ${cur.name} opslaan?`,
+    `Je huidige plek wordt de locatie van deze show, voor alle gebruikers. Nauwkeurigheid: ${accText(pos.accuracy)}.${weak}`, [
+      { label: 'Opslaan op mijn plek', kind: 'primary', run: () => void saveSpot(cur, pos, false) },
+      { label: 'Annuleren', kind: 'cancel' },
+    ]);
+}
+
+function setEntityLocation(id: string, patch: Pick<EntityInfo, 'location' | 'locationSource' | 'locationAccuracy' | 'locationUpdatedAt'>): void {
+  state.entities = state.entities.map((e) => (e.id === id ? { ...e, ...patch } : e));
+  saveCache();
+  render();
+}
+
+const SPOT_ACCURACY_WARN_M = 40;
+
+async function saveSpot(entity: EntityInfo, pos: { lat: number; lng: number; accuracy: number | null }, replace: boolean): Promise<void> {
+  try {
+    await putShowLocation(state.parkId, entity.id, pos.lat, pos.lng, pos.accuracy, replace);
+    setEntityLocation(entity.id, { location: { lat: pos.lat, lng: pos.lng }, locationSource: 'user', locationAccuracy: pos.accuracy === null ? null : Math.round(pos.accuracy), locationUpdatedAt: new Date().toISOString() });
+    actionSheet('Kijkplek opgeslagen', `${entity.name} staat nu op deze plek (${accText(pos.accuracy)}), ook voor andere gebruikers.`, [{ label: 'Oké', kind: 'cancel' }]);
+  } catch (err) {
+    const code = err instanceof ApiError ? err.code : '';
+    if (code === 'location_exists' && err instanceof ApiError) {
+      // Iemand anders legde intussen een plek vast: die tonen en opnieuw om bevestiging vragen.
+      const c = err.data?.current as Partial<EntityInfo> | undefined;
+      if (c?.location) {
+        setEntityLocation(entity.id, { location: c.location, locationSource: 'user', locationAccuracy: c.locationAccuracy ?? null, locationUpdatedAt: c.locationUpdatedAt ?? null });
+        confirmSpot(entity, pos);
+        return;
+      }
+    }
+    const msg = code === 'too_far_from_park' ? 'Je bent te ver van het park. Een kijkplek kun je alleen in het park opslaan.'
+      : code === 'has_source_location' ? 'Deze show heeft al een locatie uit de bron.'
+      : code === 'rate_limited' ? 'Te veel pogingen achter elkaar. Probeer het later nog eens.'
+      : 'Opslaan lukte niet. Controleer je verbinding en probeer het nog eens.';
+    actionSheet('Niet opgeslagen', msg, [{ label: 'Oké', kind: 'cancel' }]);
+  }
+}
+
+async function removeSpot(entity: EntityInfo): Promise<void> {
+  try {
+    await deleteShowLocation(state.parkId, entity.id);
+    setEntityLocation(entity.id, { location: null, locationSource: null, locationAccuracy: null, locationUpdatedAt: null });
+  } catch {
+    actionSheet('Niet verwijderd', 'Verwijderen lukte niet. Controleer je verbinding en probeer het nog eens.', [{ label: 'Oké', kind: 'cancel' }]);
+  }
 }
 
 /** Uitlijning in Mijn programma: alle grote getallen en pijltjes staan recht onder elkaar. */
@@ -1117,6 +1244,9 @@ function openDetail(entity: EntityInfo): void {
       const dep = departure(entity, next);
       if (dep) addFact('Vertrek', `${dep.text} (${dep.walk} min lopen, ${state.prefs.arrivalMarginMin} min eerder aanwezig)`);
     }
+  }
+  if (entity.type === 'show' && canSetSpot(entity)) {
+    addFact('Kijkplek', entity.location ? `door een bezoeker vastgelegd, ${accText(entity.locationAccuracy)}${entity.locationUpdatedAt ? `, ${agoLabel(entity.locationUpdatedAt)}` : ''} (lang drukken op de show om te wijzigen)` : 'niet bekend. Sta je op de beste plek? Houd de show in de lijst ingedrukt om hem op te slaan.');
   }
   const d = distanceOf(entity, state.pos);
   if (d !== null) addFact('Afstand', `${formatDistance(d)}, ${walkMinutes(d, state.prefs.walkingSpeedKmh)} min lopen`);

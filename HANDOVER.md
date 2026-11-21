@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 12:20** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 13:10** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 12:20** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.11.5` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~12:20, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.12.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~13:10, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -50,7 +50,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
 - **Gevolg:** de frontend is wel getypecheckt maar **nooit gebouwd of in een browser uitgeprobeerd door Claude**. Zeg dat eerlijk in elke oplevering ("niet op een telefoon bekeken").
 - Typecheck frontend: zit nu in `bash tools/test-worker.sh` (stap "typecheck app", via `tools/tsconfig.web.json` + `tools/vite-shim.d.ts`). De oude filtermethode (`tsc -p apps/web | grep ...`) verborg echte fouten omdat de ontbrekende vite-types de check verstoorden; niet meer gebruiken.
-- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 28 × `ok` en "alles ok".** Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
+- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 31 × `ok` en "alles ok".** Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
 - tsc in de sandbox was versie 7 (Go-versie): `moduleResolution: node` bestaat daar niet meer; de test-tsconfig laat die optie daarom weg.
 - Gebruikte ontwerpconventie: geen framework; DOM-helpers `h()` en `svg()` in `apps/web/src/dom.ts`.
 - Dit document staat in het claude.ai-project én als `HANDOVER.md` in de repo. Houd beide gelijk; het projectdocument is leidend als ze verschillen.
@@ -63,7 +63,7 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
   - Build command: `npm run build` (= `vite build apps/web`).
   - Deploy command: `npm run deploy:cloudflare` (= `wrangler deploy && wrangler d1 migrations apply DB --remote`).
   - Root directory: repo-root. `package.json` moet in de root van de repo staan.
-- D1 wordt automatisch aangemaakt door wrangler (binding `DB` zonder `database_id`). Migraties in `worker/migrations/` draaien bij elke deploy (0001 t/m 0004).
+- D1 wordt automatisch aangemaakt door wrangler (binding `DB` zonder `database_id`). Migraties in `worker/migrations/` draaien bij elke deploy (0001 t/m 0005).
 - `wrangler.toml`: `[assets]` met `run_worker_first = ["/api/*"]` en `not_found_handling = "single-page-application"`; cron `*/5 * * * *`.
 - Gezien in het verleden:
   - "package.json not found": bestanden stonden in een submap van de repo.
@@ -95,7 +95,7 @@ parkpilot/
 │   ├─ index.ts        gedeelde types en DEFAULT_PREFERENCES, TrackingMode
 │   └─ version.ts      APP_VERSION
 ├─ worker/
-│   ├─ migrations/     0001_init … 0004_app_settings.sql
+│   ├─ migrations/     0001_init … 0005_show_locations.sql
 │   └─ src/
 │       ├─ index.ts        router (fetch + scheduled)
 │       ├─ parks.ts        parkconfiguratie (dlp-disneyland, dlp-studios)
@@ -121,18 +121,19 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 
 ### Worker
 - `GET /api/health` → `{ok, version}`
-- `GET /api/parks`, `GET /api/parks/:id/entities`
+- `GET /api/parks`, `GET /api/parks/:id/entities` (vult kijkplekken van gebruikers in bij shows zonder bronlocatie: `locationSource: 'user'`, `locationAccuracy`, `locationUpdatedAt`; cache 120 s, was 3600)
 - `GET /api/parks/:id/live[?fresh=1]`: live data, verrijkt met "gewijzigd"-gegevens uit D1. Alleen lezen. `fresh=1` slaat de ThemeParks-cache over (max 1x per 10 s per park per isolate).
 - `GET /api/parks/:id/schedule`: openingstijden vandaag + komende dagen.
 - `GET /api/parks/:id/shows?date=JJJJ-MM-DD` (vandaag t/m +13 dagen): programma per dag, tijden gemerkt `bron` of `verwacht`.
 - `GET /api/parks/:id/history/:entityId?since=today|hours=N`: wachttijdverloop uit `wait_log`.
 - `POST /api/profile`, `/api/profile/redeem`, `/api/profile/recovery-code`.
 - `GET/PUT/DELETE /api/favorites/...`, `GET/PUT /api/preferences/:parkId`.
+- `PUT/DELETE /api/locations/:parkId/:entityId` (profiel nodig): kijkplek van een show opslaan/verwijderen, zie 6.8. PUT met `{lat, lng, accuracy, replace}`; bestaat er al een plek en is `replace` niet `true`, dan `409 location_exists` met `current`. Alleen shows zonder bronlocatie (`409 has_source_location`), binnen 3 km van het parkcentrum (`400 too_far_from_park`), 30 per uur per profiel.
 - `GET/PUT /api/settings/tracking`: `off | park-hours | always`, server-breed.
 - `scheduled()` draait `trackAll` elke 5 minuten.
 
 ### Database (D1)
-`profiles`, `devices`, `favorites`, `preferences`, `rate_limits` (0001) · `wait_state`, `wait_log` (0002, 7 dagen) · `show_seen` (0003, 60 dagen) · `app_settings` (0004).
+`profiles`, `devices`, `favorites`, `preferences`, `rate_limits` (0001) · `wait_state`, `wait_log` (0002, 7 dagen) · `show_seen` (0003, 60 dagen) · `app_settings` (0004) · `user_locations` (0005: kijkplekken, één per show, met `accuracy_m`, `profile_id`, `updated_at`).
 
 ### Authenticatie (anoniem)
 - Geen account. `POST /api/profile` geeft `deviceId.token`, bewaard in localStorage. Bearer-token, SHA-256-hashes in D1.
@@ -204,6 +205,15 @@ Trapjes in niveaukleur, grijs bij dicht/onderhoud, **storingen als lichtrode zon
 ### 6.6 Instellingen
 Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`. Daaronder een inklapbaar **"Wat is er nieuw"** (sinds 0.7.0) uit `changelog.ts`; versies vóór 0.6.0 zijn samengevat uit dit document (0.5.0 en "Eerder"), zonder datum omdat die niet bekend is.
 
+### 6.8 Kijkplek van een show vastleggen (sinds 0.12.0)
+- Voor shows **zonder locatie in de bron** (dan geen afstand, vertrektijd of navigatie). Remco legt ter plekke de beste kijkplek vast; die geldt **voor alle gebruikers** (server, tabel `user_locations`).
+- **Lang drukken** (0,6 s stil, `withLongPress()` in `main.ts`) op de showrij in Overzicht (lijst en showkaart) en Mijn programma. Bewegen >10 px annuleert, dus scrollen en vegen blijven werken. Alleen bij shows waar `canSetSpot()` geldt (show, geen bronlocatie). Rij licht op tijdens het vasthouden (`.lp-hold`).
+- Flow: menu "Je plek bepalen…" (Annuleren) → verse gps-meting (`getPrecisePosition()`, `maximumAge: 0`, met nauwkeurigheid) → **altijd bevestigen** met de nauwkeurigheid (±N m); boven 40 m de tip om even te wachten. **Bestaat er al een plek** (Remco, 12:58: "Vraag wel even bevestiging als er al een locatie is"): de bevestiging toont de nauwkeurigheid van de oude én de nieuwe plek, hoe lang geleden de oude is vastgelegd en de afstand ertussen; keuzes Vervangen / Kijkplek verwijderen / Annuleren. De server dwingt dit af (`replace: true` nodig); legt iemand anders intussen een plek vast, dan toont de app die en vraagt opnieuw.
+- Detailvenster: feit "Kijkplek" (niet bekend + uitleg dat je de show kunt indrukken, of: door een bezoeker vastgelegd, ±N m, wanneer).
+- Bronlocaties worden nooit overschreven. Iedereen met een profiel kan een plek wijzigen of verwijderen (geen beheerder); prima voor persoonlijk gebruik, bij breder delen beperken.
+- Niet in de simulatiestand (verzonnen locatie). De gemeten plek wordt ook je eigen positie.
+- Andere gebruikers zien een nieuwe plek pas als hun app de entiteiten opnieuw laadt (bij openen/parkwissel; cache max. 2 min).
+
 ### 6.7 Simulatiestand
 Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, verzonnen wachttijden die elke 5 min verschuiven, enkele storingen/onderhoud, showtijden per 45 min, verzonnen dagverloop. Oranje balk "SIMULATIE" met Stop. Echte cache blijft; programma voor morgen blijft echt.
 
@@ -272,6 +282,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
 
+**0.12.0 (21 nov 2026), door Remco te controleren:** lang drukken op een show zonder locatie (botst het niet met scrollen/vegen of het iOS-tekstmenu?), gps-nauwkeurigheid in de bevestiging, vervangen-bevestiging met beide nauwkeurigheden, afstand/vertrektijd verschijnt daarna. Niet op een telefoon bekeken door Claude.
+
 **0.11.1:** single-rider-getallen zichtbaar op screenshot van Remco (werkt).
 
 **0.9.0:** door Remco bevestigd ("Werkt", 21 nov 2026 11:31).
@@ -301,7 +313,7 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 
 1. Lees dit document volledig, vooral 2, 4.1, 15 en het logboek (16).
 2. `add_repo` RemcoNLD/parkpilot (push), `git clone --depth 1`. Werkt schrijven niet: Remco moet de Claude GitHub App installeren (4.1).
-3. `bash tools/test-worker.sh` (28 × ok) en de frontend-typecheck draaien.
+3. `bash tools/test-worker.sh` (31 × ok) en de frontend-typecheck draaien.
 4. Verhoog bij de eerstvolgende app-levering het versienummer (`version.ts` en `package.json`).
 5. Werk na elke stap dit document bij (project én repo).
 
@@ -348,6 +360,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **Het overdrachtsdocument moet altijd actueel zijn**, met alles wat Claude over hem leert in een aparte sectie (dit hoofdstuk). (21 nov 2026, letterlijk)
 - Batterij en privacy wegen zwaar: geen gps die blijft lopen. (21 nov 2026, afgeleid uit verzoek "locatie eenmalig, daarna gps uit")
 - **Versienummers:** kleine verbetering of reparatie = laatste cijfer omhoog (0.10.0 → 0.10.1); nieuwe functie = middelste cijfer (0.10.x → 0.11.0). Remco noemde een kleine aanpassing een "minor update"; Claude koos 0.10.1 en meldde dat. Bij twijfel: zo houden tenzij hij anders zegt. (21 nov 2026)
+- Bij iets wat een bestaande (gedeelde) waarde overschrijft: eerst bevestiging vragen, met de gegevens om te kunnen kiezen (bij kijkplekken: nauwkeurigheid van oud én nieuw). (21 nov 2026, letterlijk: "Vraag wel even bevestiging als er al een locatie is")
 - Wil zien wat er per versie veranderd is, in de app zelf. (21 nov 2026, letterlijk: "Maak ook een changelog in de app")
 - Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
 
@@ -391,6 +404,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 13:10 — versie 0.12.0:** kijkplek van shows zonder bronlocatie vastleggen door lang drukken, gedeeld voor alle gebruikers (6.8). Op Remco's aanvulling: altijd bevestigen met gps-nauwkeurigheid, bij een bestaande plek van beide. Migratie 0005, 3 nieuwe tests (31 × ok).
 - **21 nov 2026, 12:20 — versie 0.11.5:** verschil (▲/▼) onder de single-rider-badge, rechts van de wachttijd.
 - **21 nov 2026, 12:16 — versie 0.11.4:** wachttijd attracties groter (54 px), single rider in witte badge.
 - **21 nov 2026, 12:12 — versie 0.11.3:** alles in Mijn programma lijnt verticaal uit (vaste strook voor single rider, gelijke breedte grote getallen).

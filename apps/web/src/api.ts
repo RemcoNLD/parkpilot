@@ -1,6 +1,7 @@
 import type {
   Credentials,
   EntitiesResponse,
+  EntityInfo,
   EntityType,
   FavoriteDto,
   HistoryResponse,
@@ -17,7 +18,7 @@ import type {
 const CRED_KEY = 'pp.creds';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string) {
+  constructor(public status: number, public code: string, public data: Record<string, unknown> | null = null) {
     super(`${status} ${code}`);
   }
 }
@@ -51,8 +52,8 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true, ret
     return request<T>(path, init, auth, false);
   }
   if (!res.ok) {
-    const code = await res.json().then((j: { error?: string }) => j.error ?? 'error').catch(() => 'error');
-    throw new ApiError(res.status, code);
+    const body = await res.json().catch(() => null) as Record<string, unknown> | null;
+    throw new ApiError(res.status, typeof body?.error === 'string' ? body.error : 'error', body);
   }
   return (await res.json()) as T;
 }
@@ -92,3 +93,9 @@ export const fetchShowDay = (parkId: string, date: string) => request<ShowDayRes
 export const fetchTracking = () => request<TrackingSettings>('/api/settings/tracking');
 export const saveTracking = (mode: TrackingMode) =>
   request<TrackingSettings>('/api/settings/tracking', { method: 'PUT', body: JSON.stringify({ mode }) });
+
+/** Kijkplek van een show opslaan of verwijderen (gedeeld met alle gebruikers). */
+export const putShowLocation = (parkId: string, entityId: string, lat: number, lng: number, accuracy: number | null, replace: boolean) =>
+  request<Partial<EntityInfo>>(`/api/locations/${parkId}/${entityId}`, { method: 'PUT', body: JSON.stringify({ lat, lng, accuracy, replace }) });
+export const deleteShowLocation = (parkId: string, entityId: string) =>
+  request(`/api/locations/${parkId}/${entityId}`, { method: 'DELETE' });

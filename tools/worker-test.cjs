@@ -277,6 +277,32 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     eq((await call('GET', 'parks/dlp-studios/shows?date=gisteren')).status, 400, 'onzin');
   });
 
+  await test('kijkplek: show zonder locatie opslaan, iedereen ziet hem', async () => {
+    eq((await call('PUT', 'locations/dlp-studios/S1', { body: { lat: 48.8685, lng: 2.7801 } })).status, 401, 'zonder profiel');
+    const r = await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 48.8685, lng: 2.7801, accuracy: 12.4 } });
+    eq(r.status, 200, 'opslaan');
+    const s1 = (await call('GET', 'parks/dlp-studios/entities')).data.entities.find((e) => e.id === 'S1');
+    eq([s1.location, s1.locationSource, s1.locationAccuracy], [{ lat: 48.8685, lng: 2.7801 }, 'user', 12], 'zichtbaar zonder profiel, met nauwkeurigheid');
+  });
+  await test('kijkplek: ander profiel mag bijwerken en verwijderen', async () => {
+    const r = await call('PUT', 'locations/dlp-studios/S1', { token: tokB, body: { lat: 48.869, lng: 2.781 } });
+    eq([r.status, r.data.error, r.data.current.locationAccuracy], [409, 'location_exists', 12], 'zonder bevestiging geweigerd');
+    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokB, body: { lat: 48.869, lng: 2.781, accuracy: 8, replace: true } })).status, 200, 'met bevestiging vervangen');
+    eq(env.DB.raw.prepare('SELECT lat, accuracy_m FROM user_locations').get(), { lat: 48.869, accuracy_m: 8 }, 'nieuwe plek');
+    eq(count('user_locations'), 1, 'één plek per show');
+    eq((await call('DELETE', 'locations/dlp-studios/S1', { token: tokB })).status, 200, 'verwijderen');
+    const s1 = (await call('GET', 'parks/dlp-studios/entities')).data.entities.find((e) => e.id === 'S1');
+    eq([s1.location, s1.locationSource], [null, null], 'weer zonder locatie');
+  });
+  await test('kijkplek: geweigerd voor attractie, bronlocatie, ver weg, onzin', async () => {
+    eq((await call('PUT', 'locations/dlp-studios/A1', { token: tokA, body: { lat: 48.8685, lng: 2.7801 } })).status, 409, 'attractie');
+    eq((await call('PUT', 'locations/dlp-studios/A2', { token: tokA, body: { lat: 48.8685, lng: 2.7801 } })).status, 409, 'bronlocatie');
+    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 52.37, lng: 4.89 } })).status, 400, 'Amsterdam');
+    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 'x' } })).status, 400, 'onzin');
+    eq((await call('PUT', 'locations/dlp-studios/ZZ', { token: tokA, body: { lat: 48.8685, lng: 2.7801 } })).status, 404, 'onbekend');
+    eq(count('user_locations'), 0, 'niets opgeslagen');
+  });
+
   console.log(failed ? `\n${failed} test(s) mislukt` : '\nalles ok');
   process.exit(failed ? 1 : 0);
 })();

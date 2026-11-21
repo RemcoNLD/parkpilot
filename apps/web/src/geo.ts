@@ -43,6 +43,18 @@ export function getPosition(): Promise<LatLng> {
   });
 }
 
+/** Verse, zo nauwkeurig mogelijke positie (geen bewaarde waarde), met nauwkeurigheid in meters. Voor het opslaan van een kijkplek. */
+export function getPrecisePosition(): Promise<LatLng & { accuracy: number | null }> {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) return reject(new GeoError('unsupported'));
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Number.isFinite(p.coords.accuracy) ? p.coords.accuracy : null }),
+      (e) => reject(new GeoError(e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable')),
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
+    );
+  });
+}
+
 /** Controleert zonder te vragen of de gebruiker al toestemming heeft gegeven. */
 export async function hasGeoPermission(): Promise<boolean> {
   try {

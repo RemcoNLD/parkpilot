@@ -410,3 +410,7 @@ main { padding: 2px 0 12px; }
 /* Vaste, donkere niveaukleuren: goed leesbaar op wit, ook in het donkere thema */
 .psr.low { color: #0f7d57; } .psr.mid { color: #94600a; } .psr.high { color: #c9301f; }
 .pnumcol .ptr { position: absolute; bottom: 3px; left: calc(100% - 38px); padding-left: 2px; font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Lang drukken op een show zonder bronlocatie (kijkplek vastleggen, sinds 0.12.0) */
+.lp { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.lp.lp-hold { transition: background-color .5s ease .15s; background-color: color-mix(in srgb, currentColor 8%, transparent); }

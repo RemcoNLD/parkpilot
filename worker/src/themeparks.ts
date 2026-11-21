@@ -108,6 +108,7 @@ export async function getEntities(cfg: ParkConfig): Promise<EntitiesResponse | n
       type,
       name: c.name,
       location: typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : null,
+      locationSource: typeof lat === 'number' && typeof lng === 'number' ? 'source' : null,
     });
   }
   entities.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
