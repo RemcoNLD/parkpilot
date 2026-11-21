@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 13:10** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 13:25** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 13:10** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.12.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~13:10, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.12.1` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~13:25, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -48,7 +48,8 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - Projectmap: `/home/claude/parkpilot`, een clone van de repo. **Bron van waarheid is de GitHub-repo.** Begin een nieuwe chat met `add_repo` (RemcoNLD/parkpilot, push) en `git clone --depth 1`.
 - **Bash had geen algemeen netwerk.** Geen `npm install`, geen `vite build`, geen `wrangler`. Wel `tsc` en Node 22 (met `node:sqlite`). Git naar GitHub loopt via een eigen proxy en werkt wel (4.1). Package-installs vereisen dat Remco netwerktoegang in zijn instellingen aanzet (werkt pas in een nieuwe chat).
 - **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
-- **Gevolg:** de frontend is wel getypecheckt maar **nooit gebouwd of in een browser uitgeprobeerd door Claude**. Zeg dat eerlijk in elke oplevering ("niet op een telefoon bekeken").
+- **Screenshots kunnen wél (ontdekt 21 nov 2026):** de sandbox had Bun (`/root/.bun/bin/bun`), Google Chrome (`/usr/bin/google-chrome`) en Playwright (`/opt/npm-tools/node_modules/playwright`). `bash tools/screenshot.sh [dark|light]` bouwt de app met Bun (zonder vite/npm install), serveert hem met nep-API-antwoorden via Playwright en maakt screenshots op 390×844 (iPhone-formaat) in `/tmp/ppshot/shots/`. Nu ingesteld op het instellingenscherm; pas de stappen in `tools/screenshot.cjs` aan voor andere schermen. Gebruik dit bij UI-wijzigingen en bekijk de PNG met Read. Beperkingen: Chrome, geen iOS Safari; geen echte touch/gps; nepdata.
+- **Gevolg:** vóór 0.12.1 is de frontend **nooit in een browser bekeken door Claude**; daarna alleen via deze screenshots. Zeg in elke oplevering wat wel en niet bekeken is ("in Chrome-screenshot gezien, niet op een iPhone").
 - Typecheck frontend: zit nu in `bash tools/test-worker.sh` (stap "typecheck app", via `tools/tsconfig.web.json` + `tools/vite-shim.d.ts`). De oude filtermethode (`tsc -p apps/web | grep ...`) verborg echte fouten omdat de ontbrekende vite-types de check verstoorden; niet meer gebruiken.
 - **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 31 × `ok` en "alles ok".** Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
 - tsc in de sandbox was versie 7 (Go-versie): `moduleResolution: node` bestaat daar niet meer; de test-tsconfig laat die optie daarom weg.
@@ -114,7 +115,7 @@ parkpilot/
 │       ├─ changelog.ts  versiegeschiedenis voor "Wat is er nieuw"
 │       ├─ sim.ts    simulatiestand (verzonnen data)
 │       └─ style.css
-└─ tools/  test-worker.sh, worker-test.cjs, tsconfig.worker.json, tsconfig.test.json, tsconfig.web.json, cf-shim.d.ts, vite-shim.d.ts
+└─ tools/  test-worker.sh, worker-test.cjs, screenshot.sh, screenshot.cjs, tsconfig.worker.json, tsconfig.test.json, tsconfig.web.json, cf-shim.d.ts, vite-shim.d.ts
 ```
 
 De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste uploads) zijn op 21 nov 2026 verwijderd; ze werden niet door de build gebruikt. `.gitignore` toegevoegd (node_modules, dist, .wrangler, .test-build).
@@ -203,7 +204,9 @@ Trapjes in niveaukleur, grijs bij dicht/onderhoud, **storingen als lichtrode zon
 - **Bekende vertraging** (gezien door Remco 21 nov 2026, screenshot Cars ROAD TRIP: 30 ▼20, grafiek eindigt op 50): het getal en het pijltje komen uit de live-route (bron vs. laatst opgeslagen staat, direct); de grafiek uit `wait_log`, dat alleen de cron elke 5 min schrijft, plus 60 s cache in de app (`loadHistory`) en 30 s HTTP-cache. De grafiek kon dus tot ~6 min achterlopen. **Opgelost in 0.10.1:** `withLiveTail()` in `main.ts` voegt de actuele live-stand als laatste punt toe als die afwijkt van het laatste opgeslagen punt (tijdstip = `changedAt` van de live-route, anders nu). Alleen in de app, geen extra schrijfacties. Geldt voor uitklappen en detailvenster, niet in de simulatie.
 
 ### 6.6 Instellingen
-Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`. Daaronder een inklapbaar **"Wat is er nieuw"** (sinds 0.7.0) uit `changelog.ts`; versies vóór 0.6.0 zijn samengevat uit dit document (0.5.0 en "Eerder"), zonder datum omdat die niet bekend is.
+**Opbouw sinds 0.12.1 (compact, op verzoek van Remco: "Maak het instellingscherm compacter. Omschrijvingen mogen achter een expand of (I)"):** groepen in iOS-stijl (`row()`/`group()` in `openSettings()`, CSS `.set-*`), één regel per instelling met label links en keuze rechts; uitleg achter een ronde **(i)**-knop (`.info-btn`, klapt `p.set-info` open). Groepen: Weergave (Thema Auto/Licht/Donker, Tekst Normaal/Groot) · Shows en lopen (Op tijd bij show, Looptempo Rustig/Normaal/Vlot, Locatie "eenmalig per start") · Server en testen (Geschiedenis Uit/Overdag/Altijd, Simulatie Uit/Aan, "Ik sta bij" alleen zichtbaar als simulatie aan staat) · Meerdere toestellen (inklapbaar "Koppelcode": invoer + knop op één regel) · Over (Omschrijvingen "Kopieer (N)", "Versie X" + "Zoek update", inklapbaar "Wat is er nieuw"). Bekeken via Chrome-screenshot (licht en donker), niet op een iPhone.
+
+Oorspronkelijke inhoud (labels inmiddels korter): Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`. Daaronder een inklapbaar **"Wat is er nieuw"** (sinds 0.7.0) uit `changelog.ts`; versies vóór 0.6.0 zijn samengevat uit dit document (0.5.0 en "Eerder"), zonder datum omdat die niet bekend is.
 
 ### 6.8 Kijkplek van een show vastleggen (sinds 0.12.0)
 - Voor shows **zonder locatie in de bron** (dan geen afstand, vertrektijd of navigatie). Remco legt ter plekke de beste kijkplek vast; die geldt **voor alle gebruikers** (server, tabel `user_locations`).
@@ -281,6 +284,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.12.1 (21 nov 2026), door Remco te controleren:** compact instellingenscherm op zijn iPhone (past alles op één regel, ook met tekstgrootte Groot?).
 
 **0.12.0 (21 nov 2026), door Remco te controleren:** lang drukken op een show zonder locatie (botst het niet met scrollen/vegen of het iOS-tekstmenu?), gps-nauwkeurigheid in de bevestiging, vervangen-bevestiging met beide nauwkeurigheden, afstand/vertrektijd verschijnt daarna. Niet op een telefoon bekeken door Claude.
 
@@ -369,6 +374,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **Geen verzonnen data in de app:** aannames zichtbaar labelen. (afgeleid)
 - **Lage kosten** bij acceptabel gebruik. (letterlijk)
 - **Rustige, compacte UI:** getallen boven labels, geen overbodige tekst. (afgeleid; bevestigd 21 nov 2026 bij single rider: "Geen label. Het is wel duidelijk. Dus alleen getallen.")
+- **Uitleg niet standaard in beeld:** omschrijvingen achter een (i) of uitklapper, zodat schermen compact blijven. (21 nov 2026, letterlijk: "Omschrijvingen mogen achter een expand of (I)")
 - **Kleurlogica:** groen = goed, rood = fout. (letterlijk)
 - **Alles verticaal netjes uitgelijnd:** getallen, pijltjes en kolommen recht onder elkaar, ook als sommige rijen extra informatie hebben. Reserveer liever vaste ruimte dan dat iets verspringt. (21 nov 2026, letterlijk: "alles moet verticaal altijd netjes uitlijnen")
 - **Privacy:** geen accounts, geen analytics, locatie op het toestel. (afgeleid)
@@ -404,6 +410,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 13:25 — versie 0.12.1:** instellingenscherm compact (groepen, één regel per instelling, uitleg achter (i), koppelcode inklapbaar). Ontdekt dat Claude de app met Bun + Chrome kan bouwen en screenshotten: `tools/screenshot.sh` (zie 3).
 - **21 nov 2026, 13:10 — versie 0.12.0:** kijkplek van shows zonder bronlocatie vastleggen door lang drukken, gedeeld voor alle gebruikers (6.8). Op Remco's aanvulling: altijd bevestigen met gps-nauwkeurigheid, bij een bestaande plek van beide. Migratie 0005, 3 nieuwe tests (31 × ok).
 - **21 nov 2026, 12:20 — versie 0.11.5:** verschil (▲/▼) onder de single-rider-badge, rechts van de wachttijd.
 - **21 nov 2026, 12:16 — versie 0.11.4:** wachttijd attracties groter (54 px), single rider in witte badge.

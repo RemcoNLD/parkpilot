@@ -1459,11 +1459,11 @@ function openSettings(): void {
 
   // Versie + update zoeken
   const update = mkMsg();
-  const updateBtn = h('button', { class: 'btn secondary', onclick: () => void checkForUpdate(updateBtn as HTMLButtonElement, update.say) },
-    `Versie ${APP_VERSION} · zoek update`) as HTMLButtonElement;
+  const updateBtn = h('button', { class: 'btn secondary sm', onclick: () => void checkForUpdate(updateBtn as HTMLButtonElement, update.say) },
+    'Zoek update') as HTMLButtonElement;
 
   // Thema
-  const themeLabels: [ThemePref, string][] = [['auto', 'Automatisch'], ['light', 'Licht'], ['dark', 'Donker']];
+  const themeLabels: [ThemePref, string][] = [['auto', 'Auto'], ['light', 'Licht'], ['dark', 'Donker']];
   const themeBox = h('div', { class: 'segments', role: 'group', 'aria-label': 'Thema' });
   const paintTheme = (): void => {
     themeBox.replaceChildren(...themeLabels.map(([v, t]) =>
@@ -1471,7 +1471,7 @@ function openSettings(): void {
   };
   paintTheme();
 
-  const densLabels: [Density, string][] = [['compact', 'Compact'], ['comfortable', 'Comfortabel (grotere tekst)']];
+  const densLabels: [Density, string][] = [['compact', 'Normaal'], ['comfortable', 'Groot']];
   const densBox = h('div', { class: 'segments', role: 'group', 'aria-label': 'Tekstgrootte' });
   const paintDens = (): void => {
     densBox.replaceChildren(...densLabels.map(([v, t]) =>
@@ -1482,7 +1482,7 @@ function openSettings(): void {
   // Geschiedenis bijhouden (server)
   const trackMsg = mkMsg();
   const trackBox = h('div', { class: 'segments', role: 'group', 'aria-label': 'Geschiedenis bijhouden' });
-  const trackLabels: [TrackingMode, string][] = [['off', 'Uit'], ['park-hours', 'Alleen overdag'], ['always', 'Altijd']];
+  const trackLabels: [TrackingMode, string][] = [['off', 'Uit'], ['park-hours', 'Overdag'], ['always', 'Altijd']];
   let trackMode: TrackingMode | null = null;
   const paintTrack = (): void => {
     trackBox.replaceChildren(...trackLabels.map(([v, t]) =>
@@ -1499,7 +1499,7 @@ function openSettings(): void {
 
   // Simulatie
   const simSpots = state.entities.filter((e) => e.location);
-  const simSelect = h('select', { class: 'select', 'aria-label': 'Simulatielocatie', onchange: (ev: Event) => void setSim(true, (ev.target as HTMLSelectElement).value) },
+  const simSelect = h('select', { class: 'select sm', 'aria-label': 'Simulatielocatie', onchange: (ev: Event) => void setSim(true, (ev.target as HTMLSelectElement).value) },
     h('option', { value: '' }, 'Midden in het park'),
     ...[...simSpots].sort((a, b) => a.name.localeCompare(b.name, 'nl')).map((e) => h('option', { value: e.id, selected: e.id === sim.spot }, e.name)));
   const simBox = h('div', { class: 'segments', role: 'group', 'aria-label': 'Simulatie' });
@@ -1512,16 +1512,16 @@ function openSettings(): void {
 
   // Shows
   const marginOptions = [0, 5, 10, 15, 20, 30, 45, 60];
-  const speeds: [number, string][] = [[3.5, 'Rustig (3,5 km/u)'], [4.5, 'Normaal (4,5 km/u)'], [5.5, 'Vlot (5,5 km/u)']];
-  const marginSelect = h('select', { class: 'select', onchange: (ev: Event) => { state.prefs.arrivalMarginMin = Number((ev.target as HTMLSelectElement).value); void persistPrefs(); render(); } },
-    ...marginOptions.map((m) => h('option', { value: m, selected: m === state.prefs.arrivalMarginMin }, m === 0 ? 'Op het moment zelf' : `${m} minuten`)));
-  const speedSelect = h('select', { class: 'select', onchange: (ev: Event) => { state.prefs.walkingSpeedKmh = Number((ev.target as HTMLSelectElement).value); void persistPrefs(); render(); } },
+  const speeds: [number, string][] = [[3.5, 'Rustig'], [4.5, 'Normaal'], [5.5, 'Vlot']];
+  const marginSelect = h('select', { class: 'select sm', 'aria-label': 'Op tijd bij show', onchange: (ev: Event) => { state.prefs.arrivalMarginMin = Number((ev.target as HTMLSelectElement).value); void persistPrefs(); render(); } },
+    ...marginOptions.map((m) => h('option', { value: m, selected: m === state.prefs.arrivalMarginMin }, m === 0 ? 'Precies op tijd' : `${m} min eerder`)));
+  const speedSelect = h('select', { class: 'select sm', 'aria-label': 'Looptempo', onchange: (ev: Event) => { state.prefs.walkingSpeedKmh = Number((ev.target as HTMLSelectElement).value); void persistPrefs(); render(); } },
     ...speeds.map(([v, t]) => h('option', { value: v, selected: v === state.prefs.walkingSpeedKmh }, t)));
 
   // Eigen koppelcode
   const custom = mkMsg();
   const customInput = h('input', { class: 'input', type: 'text', placeholder: 'bijv. 1234', autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: false, 'aria-label': 'Eigen koppelcode', maxlength: 24 });
-  const saveCustom = h('button', { class: 'btn' }, 'Bewaar mijn code');
+  const saveCustom = h('button', { class: 'btn sm' }, 'Bewaar');
   saveCustom.addEventListener('click', async () => {
     const value = customInput.value.trim();
     if (value.replace(/[^A-Za-z0-9]/g, '').length < 4) return custom.say('Gebruik minimaal 4 letters of cijfers.', 'err');
@@ -1539,7 +1539,7 @@ function openSettings(): void {
 
   // Sterke code
   const strongBox = h('div');
-  const strongBtn = h('button', { class: 'btn secondary' }, 'Maak een sterke code');
+  const strongBtn = h('button', { class: 'btn secondary sm' }, 'Of maak een sterke code');
   strongBtn.addEventListener('click', async () => {
     strongBtn.setAttribute('disabled', '');
     try {
@@ -1556,7 +1556,7 @@ function openSettings(): void {
   // Terughalen
   const restore = mkMsg();
   const input = h('input', { class: 'input', type: 'text', placeholder: 'Je koppelcode', autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: false, 'aria-label': 'Koppelcode', maxlength: 24 });
-  const restoreBtn = h('button', { class: 'btn secondary' }, 'Lijst terughalen');
+  const restoreBtn = h('button', { class: 'btn secondary sm' }, 'Haal op');
   restoreBtn.addEventListener('click', async () => {
     const code = input.value.trim();
     if (!code) return restore.say('Vul eerst je koppelcode in.', 'err');
@@ -1578,48 +1578,62 @@ function openSettings(): void {
 
   // Omschrijvingen die nog ontbreken
   const missing = state.entities.filter((e) => !blurbFor(e.name));
-  const copyMissing = h('button', { class: 'btn secondary' }, `Kopieer lijst zonder omschrijving (${missing.length})`);
+  const copyMissing = h('button', { class: 'btn secondary sm' }, `Kopieer (${missing.length})`);
   copyMissing.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(`${currentPark()?.name}\n${missing.map((e) => `${e.type === 'show' ? 'Show' : 'Attractie'}: ${e.name}`).join('\n')}`); copyMissing.textContent = 'Gekopieerd'; }
     catch { copyMissing.textContent = 'Kopiëren lukt niet'; }
   });
 
+  // Compacte opbouw: één regel per instelling, uitleg achter (i).
+  const row = (label: string, control: Node | null, info?: string): HTMLElement => {
+    const infoEl = info ? h('p', { class: 'set-info', hidden: true }, info) : null;
+    const btn = info ? h('button', { class: 'info-btn', 'aria-label': `Uitleg ${label}`, 'aria-expanded': false, onclick: () => {
+      const open = infoEl!.hidden; infoEl!.hidden = !open; btn!.setAttribute('aria-expanded', String(open));
+    } }, 'i') : null;
+    return h('div', { class: 'set-item' },
+      h('div', { class: 'set-row' }, h('span', { class: 'set-label' }, label, btn), control),
+      infoEl);
+  };
+  const group = (title: string, ...items: (Node | null)[]): HTMLElement =>
+    h('section', { class: 'set-sec' }, h('h3', {}, title), h('div', { class: 'set-group' }, ...items));
+  const simRow = row('Ik sta bij', simSelect);
+  const paintSimRow = (): void => { simRow.hidden = !sim.on; };
+  paintSimRow();
+  simBox.addEventListener('click', () => setTimeout(paintSimRow, 0));
+
   sheet.append(
     h('div', { class: 'sheet-head' }, h('h2', {}, 'Instellingen'), h('button', { class: 'icon-btn', 'aria-label': 'Sluiten', onclick: close }, '✕')),
-    h('h3', {}, 'Thema'), themeBox,
-    h('h3', {}, 'Tekstgrootte'), densBox,
-    h('h3', {}, 'Geschiedenis bijhouden'),
-    h('p', {}, 'De server onthoudt wachttijden (voor de daggrafiek en de pijltjes) en showtijden (voor de verwachting van morgen). Met "Alleen overdag" gebeurt dat rond de openingstijden van het park, een half uur ervoor en erna. Deze instelling geldt voor de hele server, dus ook voor iedereen die jouw installatie gebruikt.'),
-    trackBox, trackMsg.el,
-    h('h3', {}, 'Simulatie (om te testen)'),
-    h('p', {}, 'Doet alsof je in het park staat: het park is open, je locatie staat bij de gekozen plek en de wachttijden en showtijden zijn verzonnen (ze verschuiven elke 5 minuten, zodat je pijltjes ziet). Er wordt niets opgeslagen of verstuurd. Bovenin de app zie je een balk zolang dit aan staat.'),
-    simBox,
-    h('label', { class: 'field' }, h('span', {}, 'Ik sta bij'), simSelect),
-    h('h3', {}, 'Shows'),
-    h('label', { class: 'field' }, h('span', {}, 'Ik wil zo ver van tevoren bij een show zijn'), marginSelect,
-      h('div', { class: 'hint' }, 'Hiermee toont ParkPilot bij shows die je volgt wanneer je moet vertrekken, zodra je locatie bekend is. Een melding hierover komt in een volgende versie.')),
-    h('label', { class: 'field' }, h('span', {}, 'Looptempo'), speedSelect),
-    h('h3', {}, 'Locatie'),
-    h('p', {}, 'ParkPilot gebruikt je locatie alleen voor afstanden en vertrektijden, en alleen nadat je daar zelf om vraagt. De locatie wordt één keer bepaald als je de app opent; daarna gaat de gps weer uit. Tik op ↻ om je locatie bij te werken als je verder bent gelopen. Je locatie wordt niet naar de server gestuurd.'),
-    h('h3', {}, 'Je lijstje op meerdere toestellen'),
-    h('p', {}, 'Kies een eigen code, bijvoorbeeld 1234. Vul je die op een ander toestel in, dan zie en wijzig je daar hetzelfde lijstje. Alle toestellen met de code delen één lijst. Let op: een korte code is makkelijk te raden. Je lijstje bevat alleen favorieten en voorkeuren, maar kies liever 6 of meer tekens als je dat liever niet deelt. De app op je beginscherm heeft op iPhone eigen opslag, los van Safari.'),
-    customInput,
-    h('div', { class: 'inline-actions' }, saveCustom, strongBtn),
-    custom.el, strongBox,
-    h('h3', {}, 'Heb je al een code?'),
-    input,
-    h('div', { class: 'inline-actions' }, restoreBtn),
-    restore.el,
-    h('h3', {}, 'Omschrijvingen'),
-    h('p', {}, 'De omschrijvingen zijn door ParkPilot zelf geschreven, want ThemeParks.wiki levert ze niet. Mist er een? Kopieer de lijst en stuur hem door, dan worden ze aangevuld.'),
-    copyMissing,
-    h('h3', {}, 'Versie'),
-    updateBtn, update.el,
-    h('details', { class: 'changelog' },
-      h('summary', {}, 'Wat is er nieuw'),
-      ...CHANGELOG.map((c) => h('div', { class: 'cl-entry' },
-        h('div', { class: 'cl-head' }, h('b', {}, c.version === 'Eerder' ? 'Eerder' : `Versie ${c.version}`), c.date ? h('span', {}, c.date) : null),
-        h('ul', {}, ...c.changes.map((t) => h('li', {}, t)))))));
+    group('Weergave',
+      row('Thema', themeBox),
+      row('Tekst', densBox, 'Groot maakt alle tekst ongeveer 20% groter.')),
+    group('Shows en lopen',
+      row('Op tijd bij show', marginSelect, 'Hoe ver van tevoren je bij een show wilt zijn. ParkPilot toont daarmee bij shows die je volgt wanneer je moet vertrekken, zodra je locatie bekend is. Een melding hierover komt in een volgende versie.'),
+      row('Looptempo', speedSelect),
+      row('Locatie', h('span', { class: 'set-value' }, 'eenmalig per start'), 'ParkPilot gebruikt je locatie alleen voor afstanden en vertrektijden, en alleen nadat je daar zelf om vraagt. De locatie wordt één keer bepaald als je de app opent; daarna gaat de gps weer uit. Tik op ↻ om je locatie bij te werken als je verder bent gelopen. Je locatie wordt niet naar de server gestuurd (alleen als je zelf een kijkplek van een show opslaat).')),
+    group('Server en testen',
+      row('Geschiedenis', trackBox, 'De server onthoudt wachttijden (voor de daggrafiek en de pijltjes) en showtijden (voor de verwachting van morgen). Overdag = rond de openingstijden van het park, een half uur ervoor en erna. Geldt voor de hele server, dus voor iedereen die deze installatie gebruikt.'),
+      trackMsg.el,
+      row('Simulatie', simBox, 'Doet alsof je in het park staat: het park is open, je locatie staat bij de gekozen plek en de wachttijden en showtijden zijn verzonnen (ze verschuiven elke 5 minuten, zodat je pijltjes ziet). Er wordt niets opgeslagen of verstuurd. Bovenin de app zie je een balk zolang dit aan staat.'),
+      simRow),
+    group('Meerdere toestellen',
+      h('details', { class: 'set-more' },
+        h('summary', {}, 'Koppelcode'),
+        row('Eigen code', null, 'Met dezelfde code zie en wijzig je op elk toestel hetzelfde lijstje. Een korte code (zoals 1234) is makkelijk te raden; het lijstje bevat alleen favorieten en voorkeuren, maar kies liever 6 of meer tekens. Een sterke code is 12 tekens, wordt één keer getoond en vervangt je vorige code. De app op je beginscherm heeft op iPhone eigen opslag, los van Safari.'),
+        h('div', { class: 'code-line' }, customInput, saveCustom),
+        h('div', { class: 'inline-actions' }, strongBtn),
+        custom.el, strongBox,
+        h('div', { class: 'set-sub' }, 'Heb je al een code?'),
+        h('div', { class: 'code-line' }, input, restoreBtn),
+        restore.el)),
+    group('Over',
+      row('Omschrijvingen', copyMissing, 'De omschrijvingen zijn door ParkPilot zelf geschreven, want ThemeParks.wiki levert ze niet. Mist er een? Kopieer de lijst en stuur hem door, dan worden ze aangevuld.'),
+      row(`Versie ${APP_VERSION}`, updateBtn),
+      update.el,
+      h('details', { class: 'set-more' },
+        h('summary', {}, 'Wat is er nieuw'),
+        ...CHANGELOG.map((c) => h('div', { class: 'cl-entry' },
+          h('div', { class: 'cl-head' }, h('b', {}, c.version === 'Eerder' ? 'Eerder' : `Versie ${c.version}`), c.date ? h('span', {}, c.date) : null),
+          h('ul', {}, ...c.changes.map((t) => h('li', {}, t))))))));
   document.body.append(sheet);
 }
 

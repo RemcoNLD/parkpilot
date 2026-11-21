@@ -414,3 +414,34 @@ main { padding: 2px 0 12px; }
 /* Lang drukken op een show zonder bronlocatie (kijkplek vastleggen, sinds 0.12.0) */
 .lp { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .lp.lp-hold { transition: background-color .5s ease .15s; background-color: color-mix(in srgb, currentColor 8%, transparent); }
+
+/* Instellingen compact (sinds 0.12.1): groepen met één regel per instelling, uitleg achter (i) */
+.set-sec h3 { margin: 18px 0 6px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.set-group { background: var(--raised); border: 1px solid var(--line); border-radius: 14px; padding: 2px 12px; }
+.set-item + .set-item, .set-group > .msg + .set-item, .set-group > .set-item + details, .set-group > .msg + details { border-top: 1px solid var(--line); }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 6px 0; }
+.set-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.set-row > .segments { flex: 0 1 62%; padding: 2px; border-radius: 10px; background: var(--bg); }
+.set-row > .segments button { padding: 6px 4px; border-radius: 8px; font-size: 14px; }
+.set-value { color: var(--muted); font-size: 14px; }
+.info-btn { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--muted); color: var(--muted); font: italic 700 12px/1 Georgia, serif; display: inline-grid; place-items: center; padding: 0; }
+.info-btn[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.sheet p.set-info { margin: 0 0 10px; font-size: 14px; }
+.select.sm { width: auto; max-width: 60%; padding: 7px 10px; font-size: 15px; border-radius: 10px; background: var(--bg); }
+.btn.sm { padding: 7px 12px; font-size: 14px; border-radius: 10px; }
+.set-group .msg { margin: 0 0 8px; }
+.set-group .msg:empty { display: none; }
+.set-more { padding: 4px 0; }
+.set-more > summary { cursor: pointer; font-weight: 600; min-height: 38px; display: flex; align-items: center; list-style: none; }
+.set-more > summary::-webkit-details-marker { display: none; }
+.set-more > summary::after { content: '▸'; margin-left: auto; color: var(--muted); }
+.set-more[open] > summary::after { content: '▾'; }
+.set-more[open] { padding-bottom: 12px; }
+.sheet p.set-note { margin: 0 0 10px; font-size: 14px; }
+.set-sub { margin: 16px 0 8px; font-weight: 600; }
+.sheet .sheet-head h2 { margin-bottom: 4px; }
+.code-line { display: flex; gap: 8px; align-items: stretch; }
+.code-line .input { flex: 1; min-width: 0; padding: 8px 10px; font-size: 17px; border-radius: 10px; }
+.btn.sm { white-space: nowrap; }
+.set-more .inline-actions { margin-top: 8px; }
+.set-more .set-row { min-height: 0; padding: 2px 0 6px; }

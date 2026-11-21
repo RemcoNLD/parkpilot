@@ -3,6 +3,11 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.1',
+    date: '21 nov 2026',
+    changes: ['Instellingen compacter: één regel per instelling in groepen, uitleg achter de (i), koppelcode en "Wat is er nieuw" inklapbaar.'],
+  },
+  {
     version: '0.12.0',
     date: '21 nov 2026',
     changes: [
