@@ -4,6 +4,7 @@ import {
   type EntityInfo,
   type HistoryResponse,
   type WeekRefResponse,
+  type IncidentsResponse,
   type LatLng,
   type LiveInfo,
   type ParkInfo,
@@ -18,7 +19,7 @@ import {
 import { APP_VERSION } from '../../../packages/shared/src/version';
 import { CHANGELOG, changelogDate, changesFor } from './changelog';
 import {
-  ApiError, createRecoveryCode, deleteFavorite, deleteShowLocation, ensureProfile, putShowLocation, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday, fetchWeekRef,
+  ApiError, createRecoveryCode, deleteFavorite, deleteShowLocation, ensureProfile, putShowLocation, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday, fetchIncidents, fetchWeekRef,
   fetchLive, fetchParks, fetchPreferences, fetchSchedule, fetchShowDay, fetchTracking, saveTracking, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
 } from './api';
 import { parkArt, parkIcon } from './art';
@@ -31,7 +32,7 @@ import { blurbFor } from './info';
 import { kindArt } from './kindart';
 import { openHelp, openTour, tourWanted } from './onboarding';
 import { gameAskOn, openGame, setGameAsk } from './game';
-import { simulateHistory, simulateLive, simulateSchedule } from './sim';
+import { simulateHistory, simulateIncidents, simulateLive, simulateSchedule } from './sim';
 import { distanceOf, nextStartMs, sortEntities } from './logic';
 import { applyTheme, effectiveTheme, getPref, setPref, watchSystemTheme, type ThemePref } from './theme';
 
@@ -270,6 +271,143 @@ function sinceText(l: LiveInfo): string {
   return l.changeObserved ? T.forSpan(span) : T.atLeast(span);
 }
 
+// ---- Storingen van vandaag (storingspagina, sinds 0.20.0) -------------------------------------
+// Opgehaald bij het openen van de storingspagina; bewaard per park voor vandaag, zodat je bij slecht bereik
+// de laatste stand ziet (grijs met tijdstip), net als bij het verloop in de grafiek.
+
+type IncEntry = { at: number; ok: boolean; data: IncidentsResponse | null };
+const incMem = new Map<string, IncEntry>();
+const incKey = (parkId: string): string => `pp.inc.${parkId}`;
+
+function incEntry(parkId = state.parkId): IncEntry | null {
+  const m = incMem.get(parkId);
+  if (m) return m;
+  try {
+    const v = JSON.parse(store.get(incKey(parkId)) ?? 'null') as { date: string; at: number; data: IncidentsResponse } | null;
+    if (v && v.date === todayStr()) {
+      const e = { at: v.at, ok: true, data: v.data };
+      incMem.set(parkId, e);
+      return e;
+    }
+  } catch { /* kapotte opslag: negeren */ }
+  return null;
+}
+
+async function loadIncidents(): Promise<void> {
+  const parkId = state.parkId;
+  const cur = incEntry(parkId);
+  if (cur?.ok && Date.now() - cur.at < 60_000) return; // hooguit eens per minuut
+  try {
+    const data = await fetchIncidents(parkId);
+    const at = Date.now();
+    incMem.set(parkId, { at, ok: true, data });
+    store.set(incKey(parkId), JSON.stringify({ date: todayStr(), at, data }));
+  } catch {
+    incMem.set(parkId, { at: cur?.at ?? 0, ok: false, data: cur?.data ?? null });
+  }
+}
+
+/** Tijdlijn van de storingen van vandaag: samenvatting, as van opening tot sluiting, per attractie een balk. */
+function incidentsNode(close: () => void): HTMLElement {
+  const now = Date.now();
+  const entry: IncEntry | null = sim.on ? { at: now, ok: true, data: simulateIncidents(state.entities, now) } : incEntry();
+  const box = h('div', { class: 'inc' });
+  if (!entry?.data) {
+    box.append(h('p', { class: 'inc-msg' }, entry && !entry.ok ? T.incOffline : T.incLoading));
+    return box;
+  }
+  const stale = !entry.ok || now - entry.at > 10 * 60_000;
+  if (stale) box.classList.add('stale');
+  const byId = new Map(state.entities.map((e) => [e.id, e]));
+  // Alleen wat binnen de openingstijden valt telt (een "storing" terwijl het park dicht is, is geen storing).
+  const hours = todayHours();
+  const items = entry.data.incidents
+    .filter((i) => byId.has(i.entityId))
+    .map((i) => {
+      const s0 = Date.parse(i.start);
+      const e0 = i.end ? Date.parse(i.end) : Math.max(now, s0);
+      const s = hours ? Math.max(s0, hours.from) : s0;
+      const e = hours ? Math.min(e0, Math.max(hours.to, s)) : e0;
+      return { ...i, s, e, cut: !i.startKnown || s > s0, min: Math.max(1, Math.round((e - s) / 60000)) };
+    })
+    .filter((x) => !hours || x.e > hours.from);
+  if (!items.length) {
+    box.append(h('p', { class: 'inc-msg' }, T.incNone));
+    if (stale) box.append(h('p', { class: 'inc-stale' }, T.histStale(clock(entry.at, tz()))));
+    return box;
+  }
+
+  // Per attractie groeperen; lopende storingen eerst, daarna de langste totale duur.
+  const groups = new Map<string, typeof items>();
+  for (const it of items) groups.set(it.entityId, [...(groups.get(it.entityId) ?? []), it]);
+  const rows = [...groups.entries()].map(([id, list]) => ({
+    e: byId.get(id) as EntityInfo,
+    list,
+    total: list.reduce((n, x) => n + x.min, 0),
+    live: list.some((x) => x.end === null),
+  })).sort((a, b) => Number(b.live) - Number(a.live) || b.total - a.total);
+  const totalMin = rows.reduce((n, r) => n + r.total, 0);
+  const longest = items.reduce((a, b) => (b.min > a.min ? b : a));
+
+  // Bereik van de as: openingstijden van vandaag (zonder openingstijden: eerste storing tot nu).
+  const firstKnown = Math.min(...items.map((x) => (x.startKnown ? x.s : x.e)));
+  let from = hours ? hours.from : firstKnown;
+  let to = Math.max(hours?.to ?? now, ...items.map((x) => x.e));
+  if (!hours) to = Math.max(to, now);
+  if (to - from < 2 * 3600_000) { const mid = (from + to) / 2; from = mid - 3600_000; to = mid + 3600_000; }
+  const pct = (t: number): number => ((Math.min(to, Math.max(from, t)) - from) / (to - from)) * 100;
+  const nowPct = now > from && now < to ? pct(now) : null;
+
+  // As: hele uren, labels om de 1 tot 4 uur zodat er hooguit 5 passen.
+  const spanH = (to - from) / 3600_000;
+  const step = spanH <= 5 ? 1 : spanH <= 10 ? 2 : spanH <= 16 ? 3 : 4;
+  const ticks: Node[] = [];
+  const firstHour = Math.ceil(from / 3600_000) * 3600_000;
+  for (let t = firstHour; t <= to; t += 3600_000) {
+    const hourOfDay = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: tz() }).format(new Date(t)));
+    const label = hourOfDay % step === 0;
+    const x = pct(t);
+    ticks.push(h('span', { class: `inc-tick${label ? ' lbl' : ''}`, style: `left:${x}%` }));
+    // Geen label te dicht bij "nu" (dat staat er al), aan de randen niet half buiten beeld.
+    if (label && (nowPct === null || Math.abs(x - nowPct) > 9)) {
+      ticks.push(h('span', { class: `inc-lbl${x < 6 ? ' l' : x > 94 ? ' r' : ''}`, style: `left:${x}%` }, clock(t, tz())));
+    }
+  }
+
+  const stat = (n: string, label: string, cls = ''): Node =>
+    h('div', { class: `inc-stat ${cls}${n.length > 6 ? ' long' : ''}` }, h('b', {}, n), h('span', {}, label));
+  const totalText = dur(totalMin);
+  box.append(
+    h('div', { class: 'inc-stats' },
+      stat(String(items.length), T.incStatN, 'bad'),
+      stat(String(rows.length), T.incStatRides),
+      stat(totalText, T.incStatTotal)),
+    h('p', { class: 'inc-longest' }, T.incLongest(byId.get(longest.entityId)?.name ?? '', dur(longest.min))),
+    h('div', { class: 'inc-axis', 'aria-hidden': 'true' }, ...ticks, ...(nowPct !== null ? [h('span', { class: 'inc-nowlbl', style: `left:${nowPct}%` }, T.now)] : [])),
+  );
+
+  for (const r of rows) {
+    const segs = r.list.map((x) => {
+      const left = pct(x.startKnown || hours ? x.s : from);
+      const width = Math.max(1.6, pct(x.e) - left);
+      return h('span', { class: `inc-seg${x.end === null ? ' live' : ''}${x.cut ? ' cut' : ''}`, style: `left:${left}%;width:${width}%` });
+    });
+    const chips = r.list.map((x) => h('span', { class: `inc-chip${x.end === null ? ' live' : ''}` },
+      `${x.startKnown || hours ? clock(x.s, tz()) : T.incEarlier}–${x.end ? clock(x.e, tz()) : T.now}`,
+      h('small', {}, ` · ${dur(x.min)}`)));
+    box.append(h('button', { class: `inc-row${r.live ? ' live' : ''}`, onclick: () => { close(); openDetail(r.e); } },
+      h('div', { class: 'inc-top' },
+        h('span', { class: 'inc-name' }, r.e.name),
+        r.live ? h('span', { class: 'inc-badge' }, h('i', {}), T.incOngoing) : null,
+        h('span', { class: 'inc-sum' }, T.incTimes(r.list.length, dur(r.total)))),
+      h('div', { class: 'inc-track' }, ...segs, ...(nowPct !== null ? [h('span', { class: 'inc-now', style: `left:${nowPct}%` })] : [])),
+      h('div', { class: 'inc-chips' }, ...chips)));
+  }
+  if (stale) box.append(h('p', { class: 'inc-stale' }, T.histStale(clock(entry.at, tz()))));
+  box.append(h('p', { class: 'hint' }, T.incHint));
+  return box;
+}
+
 function openIssues(): void {
   const lists = issueLists();
   rememberIssues();
@@ -283,14 +421,25 @@ function openIssues(): void {
       h('div', { class: 'row-name' }, e.name),
       h('div', { class: 'issue-since' }, sinceText(l)))) : [h('p', {}, empty)]),
   ];
+  let inc = incidentsNode(close);
   sheet.append(
     h('div', { class: 'sheet-head' }, h('h2', {}, T.issuesTitle), h('button', { class: 'icon-btn', 'aria-label': T.close, onclick: close }, '✕')),
     ...(parkClosed ? [h('p', {}, T.issuesParkClosed)] : []),
     ...(parkClosed ? [] : section(T.secDown, 'bad', lists.down, T.noDown)),
+    h('h3', { class: 'issue-title inc-title' }, T.incTitle),
+    inc,
     ...section(T.secRefurb, 'mid', lists.refurb, T.noRefurb),
     ...(parkClosed ? [] : section(T.secClosed, 'muted', lists.closedNow, T.noClosed)),
     h('p', { class: 'hint' }, T.issuesHint));
   document.body.append(sheet);
+  if (!sim.on) {
+    void loadIncidents().then(() => {
+      if (!sheet.isConnected) return;
+      const next = incidentsNode(close);
+      inc.replaceWith(next);
+      inc = next;
+    });
+  }
 }
 
 function changedText(live: LiveInfo | undefined): string {

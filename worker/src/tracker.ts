@@ -1,9 +1,9 @@
-import { TRACKING_MODES, isSourceStale, type LiveInfo, type LiveResponse, type TrackingMode, type WeekRefResponse } from '../../packages/shared/src/index';
+import { TRACKING_MODES, isSourceStale, type LiveInfo, type LiveResponse, type TrackingMode, type WeekRefResponse, type IncidentsResponse } from '../../packages/shared/src/index';
 import type { Env } from './auth';
 import { PARKS, type ParkConfig } from './parks';
 import { hasShowHistory, recordShowtimes } from './shows';
 import { getLive, getSchedule } from './themeparks';
-import { addDays, localDateStr, nowSec, zonedEpochMs } from './util';
+import { addDays, localDateStr, nowSec, startOfLocalDaySec, zonedEpochMs } from './util';
 
 /**
  * ThemeParks.wiki geeft alleen de actuele stand. Hier houden we zelf bij wanneer die voor het laatst veranderde.
@@ -187,4 +187,38 @@ export async function buildWeekRef(env: Env, park: ParkConfig, entityId: string,
     rows.push({ at: new Date(zonedEpochMs(today, hhmm, tz)).toISOString(), wait: v });
   }
   return { entityId, date: today, dates, rows: dates.length ? rows : [] };
+}
+
+/**
+ * Storingen van vandaag voor het hele park: aaneengesloten periodes met status `down` in wait_log.
+ * Eén leesquery voor de dag plus één voor de stand vlak voor middernacht. `stale` breekt een storing niet af
+ * (komt alleen voor bij open + wachttijd, dus in de praktijk niet tijdens een storing).
+ */
+export async function buildIncidents(env: Env, park: ParkConfig, nowMs = Date.now()): Promise<IncidentsResponse> {
+  const start = startOfLocalDaySec(park.timezone, nowMs);
+  type Row = { entity_id: string; at: number; status: string };
+  const [day, before] = await Promise.all([
+    env.DB.prepare('SELECT entity_id, at, status FROM wait_log WHERE park_id = ? AND at >= ? ORDER BY entity_id, at')
+      .bind(park.id, start).all<Row>(),
+    // Laatste stand van gisteren per attractie (alleen als die een storing was, telt het mee).
+    env.DB.prepare(
+      'SELECT entity_id, status, MAX(at) AS at FROM wait_log WHERE park_id = ? AND at < ? AND at >= ? GROUP BY entity_id',
+    ).bind(park.id, start, start - 2 * 86400).all<Row>(),
+  ]);
+  const open = new Map<string, { start: number; known: boolean }>();
+  for (const r of before.results) if (r.status === 'down') open.set(r.entity_id, { start, known: false });
+  const incidents: IncidentsResponse['incidents'] = [];
+  const close = (id: string, end: number | null): void => {
+    const o = open.get(id);
+    if (!o) return;
+    open.delete(id);
+    incidents.push({ entityId: id, start: iso(o.start), end: end === null ? null : iso(end), startKnown: o.known });
+  };
+  for (const r of day.results) {
+    if (r.status === 'down') { if (!open.has(r.entity_id)) open.set(r.entity_id, { start: r.at, known: true }); }
+    else if (r.status !== 'stale') close(r.entity_id, r.at);
+  }
+  for (const id of [...open.keys()]) close(id, null);
+  incidents.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  return { date: localDateStr(park.timezone, nowMs), from: iso(start), incidents };
 }

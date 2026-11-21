@@ -18,7 +18,7 @@ import { PARKS, findPark } from './parks';
 import { generateRecoveryCode, hashRecoveryCode, normalizeRecoveryCode } from './recovery';
 import { UpstreamError, getEntities, getLive, getSchedule, resolveParkIds } from './themeparks';
 import { buildShowDay } from './shows';
-import { buildWeekRef, getTrackingMode, loadStates, setTrackingMode, track, trackAll, trackingActive } from './tracker';
+import { buildIncidents, buildWeekRef, getTrackingMode, loadStates, setTrackingMode, track, trackAll, trackingActive } from './tracker';
 import { addDays, errorJson, json, localDateStr, nowSec, startOfLocalDaySec } from './util';
 import { APP_VERSION } from '../../packages/shared/src/version';
 
@@ -123,6 +123,10 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
       return data
         ? json(data, 200, { 'cache-control': 'public, max-age=600' })
         : errorJson(502, 'park_not_found_upstream');
+    }
+    if (c === 'incidents') {
+      // Storingen van vandaag (storingspagina). Alleen lezen; de cron schrijft elke 5 min, dus kort cachen volstaat.
+      return json(await buildIncidents(env, park), 200, { 'cache-control': 'public, max-age=60' });
     }
     if (c === 'history' && parts[3] && ID_PATTERN.test(parts[3]) && url.searchParams.get('ref') === 'weeks') {
       // Stippellijn: zelfde weekdag in de voorgaande weken. Verandert niet tijdens de dag, dus ruim cachen.

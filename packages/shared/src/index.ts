@@ -162,6 +162,16 @@ export interface WeekRefResponse {
   rows: { at: string; wait: number | null }[];
 }
 
+/**
+ * Storingen van vandaag (sinds 0.20.0): per attractie de periodes met status `down` volgens wait_log.
+ * `end: null` = loopt nog. `startKnown: false` = de storing liep al bij het begin van de dag.
+ */
+export interface IncidentsResponse {
+  date: string; // parkdatum
+  from: string; // begin van de dag (ISO)
+  incidents: { entityId: string; start: string; end: string | null; startKnown: boolean }[];
+}
+
 /** Wanneer de server wachttijden en showtijden bijhoudt: nooit, alleen rond de openingstijden van het park, of altijd. */
 export type TrackingMode = 'off' | 'park-hours' | 'always';
 export const TRACKING_MODES: TrackingMode[] = ['off', 'park-hours', 'always'];

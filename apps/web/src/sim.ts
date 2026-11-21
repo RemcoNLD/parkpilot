@@ -1,4 +1,4 @@
-import type { EntityInfo, HistoryResponse, LiveInfo, ScheduleEntry } from '../../../packages/shared/src/index';
+import type { EntityInfo, HistoryResponse, IncidentsResponse, LiveInfo, ScheduleEntry } from '../../../packages/shared/src/index';
 
 /** Testgegevens voor de simulatiestand. Alles hier is verzonnen en wordt in de app duidelijk als simulatie getoond. */
 
@@ -62,4 +62,23 @@ export function simulateHistory(entityId: string, now = Date.now()): HistoryResp
     prev = key;
   }
   return { entityId, from: new Date(start * 300_000).toISOString(), rows };
+}
+
+/** Verzonnen storingen van vandaag, afgeleid uit het verzonnen dagverloop (zelfde storingen als in de grafieken). */
+export function simulateIncidents(entities: EntityInfo[], now = Date.now()): IncidentsResponse {
+  const incidents: IncidentsResponse['incidents'] = [];
+  let from = now;
+  for (const e of entities) {
+    if (e.type !== 'attraction') continue;
+    const hist = simulateHistory(e.id, now);
+    from = Math.min(from, Date.parse(hist.from));
+    let start: string | null = null;
+    for (const r of hist.rows) {
+      if (r.status === 'down') start ??= r.at;
+      else if (start) { incidents.push({ entityId: e.id, start, end: r.at, startKnown: true }); start = null; }
+    }
+    if (start) incidents.push({ entityId: e.id, start, end: null, startKnown: true });
+  }
+  incidents.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  return { date: '', from: new Date(from).toISOString(), incidents };
 }

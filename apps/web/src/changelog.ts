@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.0',
+    date: '2026-11-21',
+    changes: ['Storingspagina: nieuw blok "Vandaag" met alle storingen van vandaag op een tijdlijn van opening tot sluiting. Per attractie hoe laat en hoe lang, bovenaan het aantal storingen, attracties en de totale duur. Een storing die nog loopt is gestreept. Tik op een attractie voor het verloop.'],
+    en: ['Breakdowns page: new "Today" section with all of today’s breakdowns on a timeline from opening to closing. For each ride when and for how long, with the number of breakdowns, rides and the total time at the top. A breakdown that is still going on is striped. Tap a ride for its timeline.'],
+    pt: ['Página de avarias: nova secção "Hoje" com todas as avarias de hoje numa linha do tempo da abertura ao fecho. Para cada atração a que horas e durante quanto tempo, com o número de avarias, atrações e a duração total no topo. Uma avaria ainda em curso aparece às riscas. Toque numa atração para ver o histórico.'],
+  },
+  {
     version: '0.19.0',
     date: '2026-11-21',
     changes: [

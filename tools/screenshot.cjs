@@ -75,6 +75,11 @@ if (RICH) {
     '/api/parks/dlp-studios/history/A7?ref': { entityId: 'A7', date: '', dates: ['a', 'b'], rows: [
       ['00:00', null], ['09:35', 5], ['10:30', 15], ['12:00', 20], ['15:00', 15], ['18:00', 10], ['20:30', 5], ['21:00', null]].map(([h, w]) => ({ at: t(h), wait: w })) },
   });
+  // Storingen van vandaag (storingspagina, 0.20.0); A8 loopt nog (zie live), Z9 bestaat niet (wordt overgeslagen).
+  const inc = (id, a, b, known = true) => ({ entityId: id, start: t(a), end: b ? t(b) : null, startKnown: known });
+  api['/api/parks/dlp-studios/incidents'] = { date: '', from: t('00:00'), incidents: [
+    inc('A3', '00:00', '09:50', false), inc('A1', '10:12', '10:31'), inc('A6', '11:15', '12:05'), inc('A1', '12:02', '12:20'),
+    inc('Z9', '12:30', '12:40'), inc('A8', '13:30', null), inc('A5', '13:41', '13:52') ] };
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(now));
   api['/api/parks/dlp-studios/history/A1?ref'].date = today; api['/api/parks/dlp-studios/history/A7?ref'].date = today;
 }
@@ -261,6 +266,16 @@ if (RICH) {
     await page.evaluate(() => document.querySelector('.sheet')?.remove());
     await page.click('.vswitch button:nth-of-type(2)'); await page.waitForTimeout(400);
     await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-5-plan-head.png` });
+    await browser.close();
+    return;
+  }
+  if (scenario === 'issues') {
+    if (await page.$('.stat.issues') === null) { await page.click('.vswitch button:nth-of-type(1)'); await page.waitForTimeout(500); }
+    await page.click('.stat.issues'); await page.waitForTimeout(700);
+    await page.screenshot({ path: `${OUT}/issues-${theme}-${locale}.png` });
+    await page.evaluate(() => document.querySelector('.sheet').scrollTo(0, 420));
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/issues-${theme}-${locale}-2.png` });
     await browser.close();
     return;
   }

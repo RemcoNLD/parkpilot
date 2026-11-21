@@ -296,6 +296,26 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     eq(byTime, { '00:00': null, '10:00': 25, '11:00': 35, '12:00': 30, '13:00': null }, 'gemiddelde per tijd');
     if (!r.data.rows.every((x) => localDateStr(TZ, Date.parse(x.at)) === today)) throw new Error('tijden niet op vandaag');
   });
+  await test('storingen vandaag: periodes per attractie, lopend, al bezig vóór middernacht', async () => {
+    const ins = env.DB.raw.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)');
+    const at = (d, t) => Math.floor(zonedEpochMs(d, t, TZ) / 1000);
+    const y = addDays(today, -1);
+    ins.run('dlp-studios', 'X1', at(today, '00:01'), 20, 'open');
+    ins.run('dlp-studios', 'X1', at(today, '00:05'), null, 'down');
+    ins.run('dlp-studios', 'X1', at(today, '00:10'), null, 'down'); // dubbele regel: zelfde storing
+    ins.run('dlp-studios', 'X1', at(today, '00:30'), 15, 'open');
+    ins.run('dlp-studios', 'X1', at(today, '00:40'), null, 'down'); // loopt nog
+    ins.run('dlp-studios', 'X2', at(y, '22:00'), null, 'down');      // al bezig gisteren
+    ins.run('dlp-studios', 'X2', at(today, '00:20'), null, 'closed');
+    ins.run('dlp-studios', 'X3', at(y, '21:00'), null, 'down');
+    ins.run('dlp-studios', 'X3', at(y, '22:00'), 10, 'open');        // gisteren al voorbij: telt niet
+    const r = await call('GET', 'parks/dlp-studios/incidents');
+    eq(r.status, 200, 'status');
+    const mine = r.data.incidents.filter((i) => i.entityId.startsWith('X'))
+      .map((i) => [i.entityId, i.start === r.data.from ? 'begin' : new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(i.start)), i.end && new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(i.end)), i.startKnown]);
+    eq(mine, [['X2', 'begin', '00:20', false], ['X1', '00:05', '00:30', true], ['X1', '00:40', null, true]], 'periodes');
+    env.DB.raw.exec("DELETE FROM wait_log WHERE entity_id IN ('X1', 'X2', 'X3')");
+  });
   await test('cron bewaart verloop 29 dagen (voor de vergelijking met vorige weken)', async () => {
     const ins = env.DB.raw.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)');
     const n = Math.floor(Date.now() / 1000);

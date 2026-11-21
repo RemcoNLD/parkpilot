@@ -14,6 +14,7 @@ import type {
   ScheduleResponse,
   TrackingMode,
   WeekRefResponse,
+  IncidentsResponse,
   TrackingSettings,
   ShowDayResponse,
 } from '../../../packages/shared/src/index';
@@ -93,6 +94,9 @@ export const fetchHistoryToday = (parkId: string, entityId: string) =>
 /** Zelfde weekdag in de voorgaande weken (stippellijn in de grafiek). */
 export const fetchWeekRef = (parkId: string, entityId: string) =>
   request<WeekRefResponse>(`/api/parks/${parkId}/history/${entityId}?ref=weeks`, {}, false);
+
+/** Storingen van vandaag voor het hele park (storingspagina, sinds 0.20.0). */
+export const fetchIncidents = (parkId: string) => request<IncidentsResponse>(`/api/parks/${parkId}/incidents`, {}, false);
 
 export const fetchHealth = () => request<{ ok: boolean; version?: string }>('/api/health', {}, false);
 export const fetchShowDay = (parkId: string, date: string) => request<ShowDayResponse>(`/api/parks/${parkId}/shows?date=${date}`, {}, false);
