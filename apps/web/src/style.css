@@ -350,3 +350,21 @@ main { padding: 2px 0 12px; }
 .ring-in.bang { font: 800 46px/1 var(--rounded); }
 .big .ring-in.bang { font-size: 68px; }
 .big .ring.bare .ico { width: 52px; height: 52px; }
+
+/* Mijn programma: shows inklappen */
+.pleft { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pchip { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--raised); font: 650 12.5px/1.3 var(--rounded); color: var(--muted); }
+.pchip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.ptoggle { display: block; text-align: left; width: calc(100% - 32px); }
+
+/* Instellingen: wat is er nieuw */
+.changelog { margin-top: 14px; }
+.changelog summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.cl-entry { margin-top: 10px; }
+.cl-head { display: flex; gap: 8px; align-items: baseline; }
+.cl-head span { color: var(--muted); font-size: 13px; }
+.cl-entry ul { margin: 4px 0 0; padding-left: 18px; }
+.cl-entry li { margin: 2px 0; font-size: 14px; }
+/* Smal scherm: bronleeftijd mag naar een tweede regel als sorteren + Shows niet passen */
+.pbar { flex-wrap: wrap; row-gap: 4px; }
+.pbar .pfresh { margin-left: auto; }

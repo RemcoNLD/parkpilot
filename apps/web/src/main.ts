@@ -14,6 +14,7 @@ import {
   type TrackingMode,
 } from '../../../packages/shared/src/index';
 import { APP_VERSION } from '../../../packages/shared/src/version';
+import { CHANGELOG } from './changelog';
 import {
   ApiError, createRecoveryCode, deleteFavorite, ensureProfile, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday,
   fetchLive, fetchParks, fetchPreferences, fetchSchedule, fetchShowDay, fetchTracking, saveTracking, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
@@ -99,7 +100,14 @@ const state = {
   error: null as string | null,
   fromCache: false,
   serverVersion: null as string | null,
+  planShowsHidden: store.get('pp.planShows') === 'hidden', // Mijn programma: shows ingeklapt (onthouden)
 };
+
+function togglePlanShows(): void {
+  state.planShowsHidden = !state.planShowsHidden;
+  store.set('pp.planShows', state.planShowsHidden ? 'hidden' : 'shown');
+  render();
+}
 
 const root = document.getElementById('app') as HTMLElement;
 const currentPark = (): ParkInfo | undefined => state.parks.find((p) => p.id === state.parkId);
@@ -646,14 +654,20 @@ function planNodes(): Node[] {
   const favs = state.entities.filter((e) => state.favorites.has(e.id));
   const ctx = { sort: state.prefs.sort, live: state.live, pos: state.pos };
   const render1 = (e: EntityInfo): HTMLElement => (e.type === 'show' ? planShow(e) : planAttraction(e));
-  // Op afstand: shows en attracties door elkaar, de dichtstbijzijnde bovenaan.
-  if (state.prefs.sort === 'distance') return sortEntities(favs, ctx).map(render1);
-  // Anders blijven de shows bovenaan, op starttijd (of naam), en daaronder de attracties.
   const showList = favs.filter((e) => e.type === 'show');
+  const hidden = state.planShowsHidden && showList.length > 0;
+  // Ingeklapt: één tikbare regel in plaats van de shows.
+  const showsTitle = (): HTMLElement => h('button', { class: 'ptitle ptoggle', 'aria-expanded': !hidden, onclick: togglePlanShows },
+    hidden ? `Shows (${showList.length}) ▸` : 'Shows ▾');
+  // Op afstand: shows en attracties door elkaar, de dichtstbijzijnde bovenaan.
+  if (state.prefs.sort === 'distance') {
+    return hidden ? [showsTitle(), ...sortEntities(favs.filter((e) => e.type !== 'show'), ctx).map(render1)] : sortEntities(favs, ctx).map(render1);
+  }
+  // Anders blijven de shows bovenaan, op starttijd (of naam), en daaronder de attracties.
   const shows = state.prefs.sort === 'name' ? [...showList].sort((x, y) => x.name.localeCompare(y.name, 'nl')) : showList.sort(byNextStart);
   const atts = sortEntities(favs.filter((e) => e.type === 'attraction'), ctx);
   const out: Node[] = [];
-  if (shows.length) out.push(h('h2', { class: 'ptitle' }, 'Shows'), ...shows.map(planShow));
+  if (shows.length) out.push(showsTitle(), ...(hidden ? [] : shows.map(planShow)));
   if (atts.length) out.push(h('h2', { class: 'ptitle' }, 'Attracties'), ...atts.map(planAttraction));
   return out;
 }
@@ -762,8 +776,12 @@ function render(): void {
               h('div', { class: 'stat' }, icon('bolt', 18), h('b', {}, stats.short ? String(stats.short.min) : '–'), h('span', {}, stats.short ? `korst: ${stats.short.name}` : 'korst')))
           : null)),
     plan ? h('div', { class: 'pbar' },
-      h('div', { class: 'pseg', role: 'group', 'aria-label': 'Sorteren' },
-        ...(['wait', 'distance', 'name'] as SortMode[]).map((mode) => h('button', { 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, { wait: 'Wachttijd', distance: 'Afstand', name: 'Naam' }[mode]))),
+      h('div', { class: 'pleft' },
+        h('div', { class: 'pseg', role: 'group', 'aria-label': 'Sorteren' },
+          ...(['wait', 'distance', 'name'] as SortMode[]).map((mode) => h('button', { 'aria-pressed': state.prefs.sort === mode, onclick: () => void setSort(mode) }, { wait: 'Wachttijd', distance: 'Afstand', name: 'Naam' }[mode]))),
+        state.entities.some((e) => e.type === 'show' && state.favorites.has(e.id))
+          ? h('button', { class: 'pchip', 'aria-pressed': !state.planShowsHidden, 'aria-label': state.planShowsHidden ? 'Shows tonen' : 'Shows inklappen', onclick: togglePlanShows }, 'Shows')
+          : null),
       h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` },
         offline ? `geen verbinding, gegevens van ${age}` : state.error ? `verversen mislukt, gegevens van ${age}` : state.fromCache ? `opgeslagen, ${age}` : `bron ${agoLabel(state.sourceUpdatedAt ?? state.generatedAt)}`)) : h('nav', { class: 'nav' },
       h('div', { class: 'segments', role: 'group', 'aria-label': 'Modus' },
@@ -1288,7 +1306,12 @@ function openSettings(): void {
     h('p', {}, 'De omschrijvingen zijn door ParkPilot zelf geschreven, want ThemeParks.wiki levert ze niet. Mist er een? Kopieer de lijst en stuur hem door, dan worden ze aangevuld.'),
     copyMissing,
     h('h3', {}, 'Versie'),
-    updateBtn, update.el);
+    updateBtn, update.el,
+    h('details', { class: 'changelog' },
+      h('summary', {}, 'Wat is er nieuw'),
+      ...CHANGELOG.map((c) => h('div', { class: 'cl-entry' },
+        h('div', { class: 'cl-head' }, h('b', {}, c.version === 'Eerder' ? 'Eerder' : `Versie ${c.version}`), c.date ? h('span', {}, c.date) : null),
+        h('ul', {}, ...c.changes.map((t) => h('li', {}, t)))))));
   document.body.append(sheet);
 }
 

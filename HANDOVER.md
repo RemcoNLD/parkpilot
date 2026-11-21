@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:05** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:15** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,8 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:05** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.6.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:00, nog niet door Remco bevestigd. 0.5.0 was op 21 nov bevestigd.
+- **Versie in de code:** `0.7.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:15, nog niet door Remco bevestigd. 0.5.0 was op 21 nov bevestigd.
+- **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
 
@@ -110,6 +111,7 @@ parkpilot/
 │       ├─ api.ts, dom.ts, format.ts, geo.ts, logic.ts, theme.ts
 │       ├─ icons.ts, art.ts (park-skyline), kindart.ts (illustraties detailvenster)
 │       ├─ info.ts   omschrijvingen/lengtes/gebied/jaar
+│       ├─ changelog.ts  versiegeschiedenis voor "Wat is er nieuw"
 │       ├─ sim.ts    simulatiestand (verzonnen data)
 │       └─ style.css
 └─ tools/  test-worker.sh, worker-test.cjs, tsconfig.worker.json, tsconfig.test.json, tsconfig.web.json, cf-shim.d.ts, vite-shim.d.ts
@@ -166,6 +168,7 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 ### 6.3 Mijn programma
 - Kleine kop: "‹ Overzicht", park en "bij <dichtstbijzijnde attractie binnen 400 m>", ↻ en instellingen. Compacte sorteerschakelaar en bronleeftijd rechts (rood als niet vers; offline-melding).
 - Alleen favorieten. **Shows bovenaan** (Wachttijd/Naam); bij **Afstand** alles door elkaar.
+- **Shows inklappen (sinds 0.7.0):** knopje "Shows" naast de sorteerschakelaar (alleen als je shows volgt) of tik op de kop "Shows ▾". Ingeklapt staat er één tikbare regel "Shows (N) ▸" bovenaan, ook bij Afstand. Onthouden in localStorage `pp.planShows`. Op een smal scherm mag de bronleeftijd naar een tweede regel.
 - **Attractierij:** naam, afstand/looptijd eronder, rechts wachttijd **groot, alleen getal**, ▲ rood / ▼ groen met verschil.
 - **Showrij:** eerstvolgende tijd groot links, naam en "over 14 min" plus vertrektijd, rechts "daarna". Uitklappen toont alle tijden (geweest grijs, eerstvolgende onderstreept, "NU"-streepje).
 - **Afstand-sortering:** groot afstandsblok vooraan ("150 m" + "2 min lopen"); bij shows starttijd groot aan het eind.
@@ -184,7 +187,7 @@ Illustratie per soort (eigen SVG's), grote wachttijd/status, grafiek "Verloop va
 Trapjes in niveaukleur, grijs bij dicht/onderhoud, **storingen als lichtrode zone + gestippelde rode lijn onderin**, "Storing: N keer, samen X". Resolutie ~5 min. Minder dan twee punten: "wordt opgebouwd".
 
 ### 6.6 Instellingen
-Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`.
+Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`. Daaronder een inklapbaar **"Wat is er nieuw"** (sinds 0.7.0) uit `changelog.ts`; versies vóór 0.6.0 zijn samengevat uit dit document (0.5.0 en "Eerder"), zonder datum omdat die niet bekend is.
 
 ### 6.7 Simulatiestand
 Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, verzonnen wachttijden die elke 5 min verschuiven, enkele storingen/onderhoud, showtijden per 45 min, verzonnen dagverloop. Oranje balk "SIMULATIE" met Stop. Echte cache blijft; programma voor morgen blijft echt.
@@ -250,6 +253,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 **Nieuw gevonden (21 nov 2026):**
 - ~~`tools/` ontbrak~~ en ~~oude losse bestanden in de root~~: opgelost op 21 nov 2026 (28 tests, root opgeruimd).
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
+
+**0.7.0 (21 nov 2026), door Remco te controleren:** shows inklappen (knop en kop), past de balk op zijn telefoon, "Wat is er nieuw" in Instellingen.
 
 **0.6.0 (21 nov 2026), door Remco te controleren:**
 - Gaat het gps-pijltje op de iPhone na de eerste positie uit en blijft het uit tijdens verversen?
@@ -318,6 +323,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - Controleert zelf in de live app; daarom altijd een zichtbaar, opgehoogd versienummer. (letterlijk)
 - **Het overdrachtsdocument moet altijd actueel zijn**, met alles wat Claude over hem leert in een aparte sectie (dit hoofdstuk). (21 nov 2026, letterlijk)
 - Batterij en privacy wegen zwaar: geen gps die blijft lopen. (21 nov 2026, afgeleid uit verzoek "locatie eenmalig, daarna gps uit")
+- Wil zien wat er per versie veranderd is, in de app zelf. (21 nov 2026, letterlijk: "Maak ook een changelog in de app")
 - Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
 
 ### 15.2 Wat Remco belangrijk vindt
@@ -345,6 +351,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 6. **Anoniem profiel + koppelcode** voor meerdere toestellen. *(Afgeleid.)*
 7. **Versheid en offline zichtbaar.** *(Afgeleid.)*
 8. **Zuinig verversen** (zichtbaar + online, plus ↻). *(Afgeleid.)*
+12. **Changelog in de app** ("Wat is er nieuw" onder de versieknop in Instellingen, gevoed uit één bestand). *(Gevraagd voor ParkPilot op 21 nov 2026; dat het in elke app hoort: afgeleid, nog bevestigen.)*
 11. **Locatie zuinig:** alleen op verzoek, eenmalig per app-start, daarna gps uit; handmatig bijwerken via ↻. *(**Bevestigd door Remco als framework feature, 21 nov 2026.**)*
 9. **Simulatie-/demostand** met gekleurde balk en Stop. *(Afgeleid.)*
 10. **Instellingenscherm** als vaste plek voor voorkeuren. *(Afgeleid.)*
@@ -357,6 +364,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:15 — versie 0.7.0:** shows inklappen in Mijn programma (onthouden); changelog in de app (Instellingen > Wat is er nieuw, `changelog.ts`).
 - **21 nov 2026, 11:05:** Remco bevestigt updateknop-met-versie en zuinige locatie als framework features (15.3 punten 2 en 11).
 - **21 nov 2026, 11:00 — versie 0.6.0:** locatie eenmalig per app-start (gps daarna uit, ↻ werkt bij); updateknop met versie in Instellingen; storingspagina-bug ("null") opgelost; strengere app-typecheck toegevoegd aan `tools/test-worker.sh` (vond 3 oude typefouten, alle opgelost).
 - **21 nov 2026, 09:15:** Op verzoek van Remco: tien oude losse bestanden uit de repo-root verwijderd, `.gitignore` toegevoegd, `tools/` met worker-typecheck en 28 tests opnieuw opgebouwd (alles ok). App-code ongewijzigd, versie blijft 0.5.0.

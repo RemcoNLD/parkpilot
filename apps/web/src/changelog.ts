@@ -1,0 +1,39 @@
+/** Wat er per versie is veranderd. Nieuwste bovenaan. Bij elke nieuwe versie hier een regel toevoegen. */
+export interface ChangelogEntry { version: string; date?: string; changes: string[] }
+
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.7.0',
+    date: '21 nov 2026',
+    changes: [
+      'Mijn programma: shows inklappen met de knop "Shows" of door op de kop "Shows" te tikken. De keuze wordt onthouden.',
+      'Instellingen: "Wat is er nieuw" met deze lijst.',
+    ],
+  },
+  {
+    version: '0.6.0',
+    date: '21 nov 2026',
+    changes: [
+      'Je locatie wordt één keer bepaald als je de app opent; daarna gaat de gps uit. Tik op ↻ om je locatie bij te werken.',
+      'Instellingen: knop met het versienummer die zoekt naar een update en de app zo nodig bijwerkt.',
+      'Storingspagina: los woord "null" bij een open park weggehaald.',
+    ],
+  },
+  {
+    version: '0.5.0',
+    changes: [
+      'Storing en onderhoud als los rood uitroepteken en grijze moersleutel.',
+      'Verversknop ↻ en zuiniger automatisch verversen.',
+      'App start ook zonder verbinding.',
+      'Grafiek toont storingen als lichtrode zone.',
+      'Storingstegel knippert rood bij nieuwe storingen.',
+    ],
+  },
+  {
+    version: 'Eerder',
+    changes: [
+      'Live wachttijden, storingen, showtijden en afstanden voor Disneyland Park en Disney Adventure World.',
+      'Mijn programma, detailvenster met dagverloop, koppelcode voor meerdere toestellen en simulatiestand.',
+    ],
+  },
+];
