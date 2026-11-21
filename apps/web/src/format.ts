@@ -1,17 +1,27 @@
+import { t } from './i18n';
+
+/** Minuten sinds een tijdstip (nooit negatief). */
+export const minutesSince = (iso: string, now = Date.now()): number => Math.max(0, Math.floor((now - Date.parse(iso)) / 60000));
+
+/** Duur in de huidige taal: "12 min", "2 u 5 min" / "2 h 5 min". */
+export function dur(min: number): string {
+  if (min < 60) return t.min(min);
+  return t.hours(Math.floor(min / 60), min % 60);
+}
+
 export function agoLabel(iso: string | null, now = Date.now()): string {
-  if (!iso) return 'onbekend';
-  const min = Math.max(0, Math.floor((now - Date.parse(iso)) / 60000));
-  if (min < 1) return 'zojuist';
-  if (min < 60) return `${min} min geleden`;
-  const hours = Math.floor(min / 60);
-  const rest = min % 60;
-  return rest ? `${hours} u ${rest} min geleden` : `${hours} u geleden`;
+  if (!iso) return t.unknown;
+  const min = minutesSince(iso, now);
+  return min < 1 ? t.justNow : t.ago(dur(min));
 }
 
 export function clock(ms: number | string, timeZone: string): string {
-  const t = typeof ms === 'string' ? Date.parse(ms) : ms;
-  return new Date(t).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', timeZone });
+  const v = typeof ms === 'string' ? Date.parse(ms) : ms;
+  return new Date(v).toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone });
 }
+
+/** Getal met één decimaal en het decimaalteken van de huidige taal. */
+export const dec1 = (n: number): string => n.toFixed(1).replace('.', t.decimal);
 
 export type WaitLevel = 'low' | 'mid' | 'high';
 export const waitLevel = (min: number): WaitLevel => (min < 20 ? 'low' : min < 45 ? 'mid' : 'high');

@@ -1,4 +1,5 @@
 import type { LatLng } from '../../../packages/shared/src/index';
+import { dec1 } from './format';
 
 const EARTH_RADIUS_M = 6_371_000;
 /** Looppaden zijn langer dan hemelsbreed; deze factor is een eerste schatting tot er echte routes zijn. */
@@ -21,7 +22,7 @@ export function walkMinutes(straightMeters: number, speedKmh: number): number {
 export function formatDistance(straightMeters: number): string {
   const m = straightMeters * PATH_FACTOR;
   if (m < 950) return `${Math.round(m / 10) * 10} m`;
-  return `${(m / 1000).toFixed(1).replace('.', ',')} km`;
+  return `${dec1(m / 1000)} km`;
 }
 
 export type GeoErrorCode = 'denied' | 'unavailable' | 'timeout' | 'unsupported';

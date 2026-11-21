@@ -1,4 +1,4 @@
-// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: bash tools/screenshot.sh [dark|light]
+// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang]
 // Opent nu het instellingenscherm; pas de stappen onderaan aan voor andere schermen.
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs'), path = require('path');
@@ -30,7 +30,8 @@ const api = {
   const scenario = process.argv[3] || 'settings';
   let offlineHistory = false;
   const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome' });
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: theme });
+  const locale = process.env.PP_LANG || 'nl-NL'; // taal van de 'telefoon', bijv. en-US of de-DE (valt terug op Engels)
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: theme, locale });
   const page = await ctx.newPage();
   await page.route('http://pp.test/**', (route) => {
     const u = new URL(route.request().url());
@@ -60,16 +61,38 @@ const api = {
     await browser.close();
     return;
   }
-  await page.click('button[aria-label="Instellingen"]');
+  if (scenario === 'lang') {
+    // Taalschakelaar: kies EN in instellingen, herlaad (keuze onthouden), zet terug op Auto.
+    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
+    await page.click('.set-sec:nth-of-type(1) .set-item:nth-of-type(3) .segments button:nth-of-type(3)'); await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/lang-${locale}-picked-en.png` });
+    await page.reload(); await page.waitForTimeout(1200);
+    console.log('na herladen:', await page.evaluate(() => document.documentElement.lang + ' / ' + document.querySelector('.segments button').textContent));
+    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
+    await page.click('.set-sec:nth-of-type(1) .set-item:nth-of-type(3) .segments button:nth-of-type(1)'); await page.waitForTimeout(300);
+    console.log('na Auto:', await page.evaluate(() => document.documentElement.lang + ' / ' + localStorage.getItem('pp.lang')));
+    await browser.close();
+    return;
+  }
+  if (scenario === 'main') {
+    await page.screenshot({ path: `${OUT}/main-${theme}-${locale}.png` });
+    await page.click('.ring-btn'); await page.waitForTimeout(500);
+    await page.screenshot({ path: `${OUT}/main-${theme}-${locale}-open.png` });
+    await page.click('.row-open'); await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT}/detail-${theme}-${locale}.png` });
+    await browser.close();
+    return;
+  }
+  await page.click('.top-actions .icon-btn:last-child');
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/settings-${theme}.png` });
-  await page.click('button[aria-label="Uitleg Geschiedenis"]');
+  await page.screenshot({ path: `${OUT}/settings-${theme}-${locale}.png` });
+  await page.click('.set-sec:nth-of-type(3) .info-btn');
   await page.click('.set-sec:nth-of-type(4) summary').catch(()=>{});
   await page.waitForTimeout(200);
-  await page.screenshot({ path: `${OUT}/settings-${theme}-full.png`, fullPage: false });
+  await page.screenshot({ path: `${OUT}/settings-${theme}-${locale}-full.png`, fullPage: false });
   const h = await page.evaluate(() => document.querySelector('.sheet').scrollHeight);
   console.log('sheet height', h);
   await page.evaluate(() => document.querySelector('.sheet').scrollTo(0, 99999));
-  await page.screenshot({ path: `${OUT}/settings-${theme}-bottom.png` });
+  await page.screenshot({ path: `${OUT}/settings-${theme}-${locale}-bottom.png` });
   await browser.close();
 })();

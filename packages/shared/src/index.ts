@@ -119,7 +119,9 @@ export interface ShowDayResponse {
   date: string;
   generatedAt: string;
   opening: ScheduleEntry[];
-  expectedBasis: string | null; // uitleg waarop de verwachte tijden gebaseerd zijn
+  expectedBasis: string | null; // uitleg waarop de verwachte tijden gebaseerd zijn (Nederlands, oud veld)
+  /** Zelfde uitleg zonder taal: de app maakt er zelf een zin van. */
+  basis?: { kind: 'lastWeek' | 'lastSeen' | 'mixed'; date: string | null } | null;
   shows: { entityId: string; slots: ShowSlot[] }[];
 }
 

@@ -61,6 +61,7 @@ export async function buildShowDay(env: Env, cfg: ParkConfig, date: string): Pro
   }
 
   let basis: string | null = null;
+  let basisInfo: ShowDayResponse['basis'] = null;
   const shows: ShowDayResponse['shows'] = [];
   const ids = new Set<string>([...official.keys(), ...perShow.keys()]);
   const liveIds = new Set(live.live.map((l) => l.id));
@@ -74,17 +75,20 @@ export async function buildShowDay(env: Env, cfg: ParkConfig, date: string): Pro
     const lastWeek = addDays(date, -7);
     let source = byDate.has(lastWeek) ? lastWeek : null;
     let why = `dezelfde weekdag vorige week (${lastWeek})`;
+    let info: NonNullable<ShowDayResponse['basis']> = { kind: 'lastWeek', date: lastWeek };
     if (!source) {
       const latest = [...byDate.keys()].filter((d) => d <= today).sort().pop();
-      if (latest) { source = latest; why = `de laatst geziene dag (${latest})`; }
+      if (latest) { source = latest; why = `de laatst geziene dag (${latest})`; info = { kind: 'lastSeen', date: latest }; }
     }
     if (!source) continue;
     const times = [...(byDate.get(source) as Set<string>)].sort();
     shows.push({ entityId: id, slots: times.map((t): ShowSlot => ({ start: new Date(zonedEpochMs(date, t, tz)).toISOString(), source: 'verwacht' })) });
-    basis = basis && basis !== why ? 'eerder geziene dagen' : why;
+    const mixed: boolean = basis !== null && basis !== why;
+    basis = mixed ? 'eerder geziene dagen' : why;
+    basisInfo = mixed ? { kind: 'mixed', date: null } : info;
   }
 
   const schedule = await getSchedule(cfg).catch(() => null);
   const opening: ScheduleEntry[] = schedule?.days.find((d) => d.date === date)?.entries ?? [];
-  return { parkId: cfg.id, date, generatedAt: live.generatedAt, opening, expectedBasis: basis, shows };
+  return { parkId: cfg.id, date, generatedAt: live.generatedAt, opening, expectedBasis: basis, basis: basisInfo, shows };
 }

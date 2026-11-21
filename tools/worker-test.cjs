@@ -270,6 +270,7 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     const m = await call('GET', `parks/dlp-studios/shows?date=${addDays(today, 1)}`);
     eq(m.data.shows.map((s) => [s.entityId, s.slots.map((x) => x.source)]), [['S1', ['verwacht', 'verwacht']]], 'morgen');
     if (!m.data.expectedBasis) throw new Error('geen uitleg bij verwachting');
+    if (!m.data.basis || !['lastWeek', 'lastSeen', 'mixed'].includes(m.data.basis.kind)) throw new Error('geen taalloze uitleg (basis) bij verwachting');
     eq(m.data.opening.length, 1, 'openingstijd morgen');
   });
   await test('shows: datum buiten bereik geeft 400', async () => {
