@@ -615,7 +615,7 @@ function planShow(entity: EntityInfo): HTMLElement {
         h('div', { class: 'pname' }, entity.name),
         h('div', { class: 'psub' }, sub)),
       byDist
-        ? h('div', { class: 'pend' }, ringToggle(entity, h('span', { class: 'pbig tm' }, nextText), 'ptoggle'), later)
+        ? h('div', { class: 'pend' }, ringToggle(entity, h('span', { class: `pnumcol${planLayout.sr ? ' gutter' : ''}` }, h('span', { class: 'pbig tm' }, nextText)), 'ptoggle'), later)
         : later),
     expandPanel(entity));
 }
@@ -632,8 +632,8 @@ function planAttraction(entity: EntityInfo): HTMLElement {
   } else if (closed) label = 'dicht';
   const t = closed ? null : trendDelta(live);
   const dist = byDist ? null : distText(entity);
-  // Single rider klein onder de wachttijd: alleen een getal, alleen als de bron er een geeft en de attractie open is.
-  const sr = !closed && live?.status === 'open' && typeof live.singleRiderWait === 'number' ? live.singleRiderWait : null;
+  // Single rider klein rechtsboven de wachttijd: alleen een getal, alleen als de bron er een geeft en de attractie open is.
+  const sr = srOf(live);
   return h('div', { class: 'rowwrap' },
     h('div', { class: 'prow' },
       byDist ? distBlock(entity) : null,
@@ -642,8 +642,8 @@ function planAttraction(entity: EntityInfo): HTMLElement {
         dist ? h('div', { class: 'psub' }, dist) : null),
       ringToggle(entity, h('span', { class: 'pright' },
         t ? h('span', { class: `trend ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null,
-        h('span', { class: 'pnumcol' },
-          h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}` }, label),
+        h('span', { class: `pnumcol${planLayout.sr ? ' gutter' : ''}` },
+          h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}`, style: label.length > 3 ? null : `min-width:${planLayout.digits}ch` }, label),
           sr !== null ? h('span', { class: `psr ${waitLevel(sr)}`, 'aria-label': `single rider ${sr}` }, String(sr)) : null)), 'ptoggle')),
     expandPanel(entity));
 }
@@ -784,8 +784,20 @@ function withSwipe(wrap: HTMLElement, entity: EntityInfo): HTMLElement {
   return wrap;
 }
 
+/** Uitlijning in Mijn programma: alle grote getallen en pijltjes staan recht onder elkaar. */
+let planLayout = { sr: false, digits: 2 };
+const srOf = (live: LiveInfo | undefined): number | null =>
+  parkStatus().open !== false && live?.status === 'open' && typeof live.singleRiderWait === 'number' ? live.singleRiderWait : null;
+
 function planNodes(): Node[] {
   const allFavs = state.entities.filter((e) => state.favorites.has(e.id));
+  {
+    // Ruimte voor single rider rechts naast elk groot getal reserveren als er ergens een is, en de breedte
+    // van het grote getal gelijk maken aan het breedste getal in de lijst. Zo lijnt alles verticaal uit.
+    const atts = allFavs.filter((e) => e.type === 'attraction').map((e) => state.live.get(e.id));
+    const waits = atts.map((l) => (l?.status === 'open' && typeof l.waitMinutes === 'number' ? String(l.waitMinutes).length : 0));
+    planLayout = { sr: atts.some((l) => srOf(l) !== null), digits: Math.max(2, ...waits) };
+  }
   const done = doneSet();
   const doneCount = allFavs.filter((e) => done.has(e.id)).length;
   const hideDone = state.planDoneHidden && doneCount > 0;
