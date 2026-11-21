@@ -53,6 +53,8 @@ export interface LiveInfo {
   changedAt: string | null; // wanneer wij de laatste wijziging van status/wachttijd zagen
   changeObserved: boolean; // false = nog nooit zien veranderen; changedAt is dan "sinds we meten"
   prevWaitMinutes: number | null;
+  /** Alleen in de app (sinds 0.21.0): langdurig dicht volgens isLongClosed(); = laatste update van de bron. */
+  longClosedSince?: string;
 }
 
 /**
@@ -66,6 +68,20 @@ export function isSourceStale(l: Pick<LiveInfo, 'status' | 'waitMinutes' | 'upda
   if (!l || l.status !== 'open' || l.waitMinutes === null || !l.updatedAt) return false;
   const t = Date.parse(l.updatedAt);
   return Number.isFinite(t) && now - t > SOURCE_STALE_MS;
+}
+
+/**
+ * Langdurig dicht (sinds 0.21.0): dicht of in onderhoud, en de bron heeft de attractie al meer dan een dag niet
+ * bijgewerkt. De bron meldt renovaties vaak als gewoon CLOSED (gezien: Crush's Coaster, dicht sinds 7 sep 2026,
+ * laatste update 6 sep). De laatste update is dan ongeveer de laatste werkdag. De app zet zulke attracties onder
+ * Onderhoud met "dicht sinds <datum>".
+ */
+export const LONG_CLOSED_MS = 24 * 3600_000;
+
+export function isLongClosed(l: Pick<LiveInfo, 'status' | 'updatedAt'> | undefined, now = Date.now()): boolean {
+  if (!l || (l.status !== 'closed' && l.status !== 'refurbishment') || !l.updatedAt) return false;
+  const t = Date.parse(l.updatedAt);
+  return Number.isFinite(t) && now - t > LONG_CLOSED_MS;
 }
 
 export interface LiveResponse {

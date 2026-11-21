@@ -8,6 +8,22 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.0',
+    date: '2026-11-21',
+    changes: [
+      'Attracties die al meer dan een dag dicht zijn zonder update van de bron, staan nu onder Onderhoud met "dicht sinds <datum>" (bijvoorbeeld Crush\'s Coaster, die de bron als gewoon dicht meldt). Ze tellen mee als onderhoud (grijs) in de storingstegel.',
+      'Storingen van vandaag als compacte tabel in plaats van tijdlijnen: tijd, duur en attractie per regel, nieuwste bovenaan, een storing die nog loopt in rood.',
+    ],
+    en: [
+      'Rides that have been closed for more than a day without an update from the source are now listed under Refurbishment with "closed since <date>" (for example Crush\'s Coaster, which the source reports as simply closed). They count as refurbishment (grey) in the breakdowns tile.',
+      'Today’s breakdowns as a compact table instead of timelines: time, duration and ride on each row, newest first, an ongoing breakdown in red.',
+    ],
+    pt: [
+      'As atrações fechadas há mais de um dia sem atualização da fonte aparecem agora em Manutenção com "fechada desde <data>" (por exemplo Crush\'s Coaster, que a fonte indica apenas como fechada). Contam como manutenção (cinzento) no mosaico de avarias.',
+      'Avarias de hoje numa tabela compacta em vez de linhas do tempo: hora, duração e atração em cada linha, as mais recentes primeiro, uma avaria em curso a vermelho.',
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-11-21',
     changes: ['Storingspagina: nieuw blok "Vandaag" met alle storingen van vandaag op een tijdlijn van opening tot sluiting. Per attractie hoe laat en hoe lang, bovenaan het aantal storingen, attracties en de totale duur. Een storing die nog loopt is gestreept. Tik op een attractie voor het verloop.'],

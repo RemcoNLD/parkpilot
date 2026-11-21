@@ -572,45 +572,25 @@ html.game-open, html.game-open body { overflow: hidden; }
 .tour-body:has(.tour-shot-frame) h2 { font-size: 24px; }
 .tour-body:has(.tour-shot-frame) p { font-size: 16px; }
 
-/* ---- Storingen van vandaag (storingspagina, 0.20.0) ---- */
-.inc { margin: 4px 0 8px; }
+/* ---- Storingen van vandaag (storingspagina, 0.20.0; tabel sinds 0.21.0) ---- */
+.inc { margin: 2px 0 8px; }
 .inc-title { color: var(--text); }
-.inc-msg { font-size: 14px; }
-.inc-stats { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 8px; }
-.inc-stat { padding: 10px 12px; border-radius: 16px; background: var(--raised); border: 1px solid var(--line); min-width: 0; }
-.inc-stat b { display: block; font: 700 24px/1.1 var(--rounded); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.inc-stat.long b { font-size: 20px; line-height: 1.2; }
-.inc-stat span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
-.inc-stat.bad { border-color: color-mix(in srgb, var(--high) 45%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--high) 16%, var(--raised)), var(--raised)); }
-.inc-stat.bad b { color: var(--high); }
-.sheet p.inc-longest { font-size: 13px; margin: 8px 2px 4px; }
-.inc-axis { position: relative; height: 22px; margin: 10px 0 2px; border-bottom: 1px solid var(--line); }
-.inc-tick { position: absolute; bottom: -1px; width: 1px; height: 5px; background: var(--line); }
-.inc-tick.lbl { height: 7px; background: var(--muted); }
-.inc-lbl { position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.inc-lbl.l { transform: none; } .inc-lbl.r { transform: translateX(-100%); }
-.inc-nowlbl { position: absolute; top: -1px; transform: translateX(-50%); font: 700 10px/1 var(--rounded); letter-spacing: .04em; text-transform: uppercase; color: var(--accent); background: var(--bg); padding: 1px 3px; border-radius: 4px; }
-.inc-row { display: block; width: 100%; text-align: left; padding: 10px 0 12px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
-.inc-row:active { background: color-mix(in srgb, var(--raised) 60%, transparent); }
-.inc-top { display: flex; align-items: baseline; gap: 8px; }
-.inc-name { flex: 1; min-width: 0; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.inc-sum { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.inc-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--high); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
-.inc-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--high); box-shadow: 0 0 0 0 color-mix(in srgb, var(--high) 60%, transparent); }
-.inc-track { position: relative; height: 14px; margin: 8px 0 6px; border-radius: 7px; background: color-mix(in srgb, var(--low) 16%, var(--raised2)); overflow: hidden; }
-.inc-seg { position: absolute; top: 0; bottom: 0; border-radius: 7px; background: linear-gradient(180deg, color-mix(in srgb, var(--high) 85%, white), var(--high)); box-shadow: 0 0 8px color-mix(in srgb, var(--high) 55%, transparent); }
-.inc-seg.cut { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-.inc-seg.live { background: repeating-linear-gradient(-45deg, var(--high) 0 6px, color-mix(in srgb, var(--high) 70%, white) 6px 12px); }
-.inc-now { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--accent); border-radius: 1px; }
-.inc-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; }
-.inc-chip { font-size: 12px; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--high) 12%, transparent); color: var(--text); }
-.inc-chip small { color: var(--muted); font-size: 12px; }
-.inc-chip.live { background: color-mix(in srgb, var(--high) 24%, transparent); font-weight: 650; }
-.inc.stale .inc-stats, .inc.stale .inc-row, .inc.stale .inc-axis { filter: grayscale(1); opacity: .75; }
+.sheet p.inc-msg { font-size: 14px; }
+.sheet p.inc-sum { font-size: 14px; margin: 0 0 8px; }
+.inc-sum b { color: var(--text); font-variant-numeric: tabular-nums; }
+.inc-sum b:first-child { color: var(--high); }
+.inc-table { border-radius: 14px; background: var(--raised); border: 1px solid var(--line); overflow: hidden; }
+.inc-tr { display: grid; grid-template-columns: 94px 68px minmax(0, 1fr); gap: 8px; align-items: center; width: 100%; text-align: left; padding: 7px 12px; font-size: 14px; line-height: 1.3; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.inc-tr:active { background: var(--raised2); }
+.inc-th { border-top: 0; padding-top: 6px; padding-bottom: 5px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: color-mix(in srgb, var(--raised2) 55%, var(--raised)); }
+.inc-time, .inc-dur { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inc-time { font-weight: 650; }
+.inc-dur { color: var(--muted); }
+.inc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inc-tr.live { background: color-mix(in srgb, var(--high) 10%, var(--raised)); }
+.inc-tr.live .inc-time, .inc-tr.live .inc-dur { color: var(--high); }
+.inc-dot { display: inline-block; width: 7px; height: 7px; margin: 0 6px 1px 0; border-radius: 50%; background: var(--high); vertical-align: middle; }
+.inc.stale .inc-table, .inc.stale .inc-sum { filter: grayscale(1); opacity: .75; }
 .sheet p.inc-stale { font-size: 13px; color: var(--muted); }
-@media (prefers-reduced-motion: no-preference) {
-  .inc-badge i { animation: incpulse 1.6s ease-out infinite; }
-  .inc-seg.live { background-size: 34px 34px; animation: incstripe 1.2s linear infinite; }
-}
-@keyframes incpulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--high) 60%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
-@keyframes incstripe { from { background-position: 0 0; } to { background-position: 34px 0; } }
+@media (prefers-reduced-motion: no-preference) { .inc-dot { animation: incpulse 1.6s ease-out infinite; } }
+@keyframes incpulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--high) 60%, transparent); } 100% { box-shadow: 0 0 0 6px transparent; } }

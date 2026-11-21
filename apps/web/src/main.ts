@@ -15,6 +15,7 @@ import {
   type SortMode,
   type TrackingMode,
   isSourceStale,
+  isLongClosed,
 } from '../../../packages/shared/src/index';
 import { APP_VERSION } from '../../../packages/shared/src/version';
 import { CHANGELOG, changelogDate, changesFor } from './changelog';
@@ -233,9 +234,17 @@ function issueLists(): { down: { e: EntityInfo; l: LiveInfo }[]; refurb: { e: En
     else if (!parkClosed && l.status === 'down') out.down.push({ e, l });
     else if (!parkClosed && l.status === 'closed') out.closedNow.push({ e, l });
   }
-  const oldest = (x: { l: LiveInfo }, y: { l: LiveInfo }): number => Date.parse(x.l.changedAt ?? '') - Date.parse(y.l.changedAt ?? '') || 0;
+  const since = (l: LiveInfo): number => Date.parse(l.longClosedSince ?? l.changedAt ?? '');
+  const oldest = (x: { l: LiveInfo }, y: { l: LiveInfo }): number => since(x.l) - since(y.l) || 0;
   for (const k of ['down', 'refurb', 'closedNow'] as const) out[k].sort(oldest);
   return out;
+}
+
+/** Live-gegevens in de app zetten; langdurig dichte attracties (isLongClosed) tellen als onderhoud. */
+function liveMap(list: LiveInfo[], now = Date.now()): Map<string, LiveInfo> {
+  return new Map(list.map((l) => [l.id, isLongClosed(l, now)
+    ? { ...l, status: 'refurbishment' as const, longClosedSince: l.updatedAt as string }
+    : l]));
 }
 
 const issuesKey = (): string => `pp.issuesSeen.${sim.on ? 'sim.' : ''}${state.parkId}`;
@@ -264,6 +273,11 @@ function hasNewIssues(): boolean {
 }
 
 function sinceText(l: LiveInfo): string {
+  if (l.longClosedSince) {
+    const at = Date.parse(l.longClosedSince);
+    const date = new Date(at).toLocaleDateString(T.locale, { day: 'numeric', month: 'short', timeZone: tz() });
+    return T.longClosedSince(date, Math.floor((Date.now() - at) / 86400_000));
+  }
   if (!l.changedAt) return T.durUnknown;
   const min = minutesSince(l.changedAt);
   if (min < 1) return l.changeObserved ? T.justStarted : T.atLeast(T.justNow);
@@ -337,72 +351,23 @@ function incidentsNode(close: () => void): HTMLElement {
     return box;
   }
 
-  // Per attractie groeperen; lopende storingen eerst, daarna de langste totale duur.
-  const groups = new Map<string, typeof items>();
-  for (const it of items) groups.set(it.entityId, [...(groups.get(it.entityId) ?? []), it]);
-  const rows = [...groups.entries()].map(([id, list]) => ({
-    e: byId.get(id) as EntityInfo,
-    list,
-    total: list.reduce((n, x) => n + x.min, 0),
-    live: list.some((x) => x.end === null),
-  })).sort((a, b) => Number(b.live) - Number(a.live) || b.total - a.total);
-  const totalMin = rows.reduce((n, r) => n + r.total, 0);
-  const longest = items.reduce((a, b) => (b.min > a.min ? b : a));
-
-  // Bereik van de as: openingstijden van vandaag (zonder openingstijden: eerste storing tot nu).
-  const firstKnown = Math.min(...items.map((x) => (x.startKnown ? x.s : x.e)));
-  let from = hours ? hours.from : firstKnown;
-  let to = Math.max(hours?.to ?? now, ...items.map((x) => x.e));
-  if (!hours) to = Math.max(to, now);
-  if (to - from < 2 * 3600_000) { const mid = (from + to) / 2; from = mid - 3600_000; to = mid + 3600_000; }
-  const pct = (t: number): number => ((Math.min(to, Math.max(from, t)) - from) / (to - from)) * 100;
-  const nowPct = now > from && now < to ? pct(now) : null;
-
-  // As: hele uren, labels om de 1 tot 4 uur zodat er hooguit 5 passen.
-  const spanH = (to - from) / 3600_000;
-  const step = spanH <= 5 ? 1 : spanH <= 10 ? 2 : spanH <= 16 ? 3 : 4;
-  const ticks: Node[] = [];
-  const firstHour = Math.ceil(from / 3600_000) * 3600_000;
-  for (let t = firstHour; t <= to; t += 3600_000) {
-    const hourOfDay = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: tz() }).format(new Date(t)));
-    const label = hourOfDay % step === 0;
-    const x = pct(t);
-    ticks.push(h('span', { class: `inc-tick${label ? ' lbl' : ''}`, style: `left:${x}%` }));
-    // Geen label te dicht bij "nu" (dat staat er al), aan de randen niet half buiten beeld.
-    if (label && (nowPct === null || Math.abs(x - nowPct) > 9)) {
-      ticks.push(h('span', { class: `inc-lbl${x < 6 ? ' l' : x > 94 ? ' r' : ''}`, style: `left:${x}%` }, clock(t, tz())));
-    }
+  // Tabel: één regel per storing (tijd · duur · attractie). Lopende eerst, daarna de nieuwste bovenaan.
+  const rows = [...items].sort((x, y) => Number(y.end === null) - Number(x.end === null) || y.s - x.s);
+  const rides = new Set(items.map((x) => x.entityId)).size;
+  const totalMin = items.reduce((n, x) => n + x.min, 0);
+  box.append(h('p', { class: 'inc-sum' }, ...T.incSummary(items.length, rides, dur(totalMin)).map((part, i) => (i % 2 ? h('b', {}, part) : part))));
+  const table = h('div', { class: 'inc-table', role: 'table' },
+    h('div', { class: 'inc-tr inc-th', role: 'row' },
+      h('span', { role: 'columnheader' }, T.incColTime), h('span', { role: 'columnheader' }, T.incColDur), h('span', { role: 'columnheader' }, T.incColName)));
+  for (const x of rows) {
+    const e = byId.get(x.entityId) as EntityInfo;
+    const live = x.end === null;
+    table.append(h('button', { class: `inc-tr${live ? ' live' : ''}`, role: 'row', onclick: () => { close(); openDetail(e); } },
+      h('span', { class: 'inc-time', role: 'cell' }, `${x.startKnown || hours ? clock(x.s, tz()) : T.incEarlier}–${live ? T.now : clock(x.e, tz())}`),
+      h('span', { class: 'inc-dur', role: 'cell' }, dur(x.min)),
+      h('span', { class: 'inc-name', role: 'cell' }, live ? h('i', { class: 'inc-dot', 'aria-label': T.incOngoing }) : null, e.name)));
   }
-
-  const stat = (n: string, label: string, cls = ''): Node =>
-    h('div', { class: `inc-stat ${cls}${n.length > 6 ? ' long' : ''}` }, h('b', {}, n), h('span', {}, label));
-  const totalText = dur(totalMin);
-  box.append(
-    h('div', { class: 'inc-stats' },
-      stat(String(items.length), T.incStatN, 'bad'),
-      stat(String(rows.length), T.incStatRides),
-      stat(totalText, T.incStatTotal)),
-    h('p', { class: 'inc-longest' }, T.incLongest(byId.get(longest.entityId)?.name ?? '', dur(longest.min))),
-    h('div', { class: 'inc-axis', 'aria-hidden': 'true' }, ...ticks, ...(nowPct !== null ? [h('span', { class: 'inc-nowlbl', style: `left:${nowPct}%` }, T.now)] : [])),
-  );
-
-  for (const r of rows) {
-    const segs = r.list.map((x) => {
-      const left = pct(x.startKnown || hours ? x.s : from);
-      const width = Math.max(1.6, pct(x.e) - left);
-      return h('span', { class: `inc-seg${x.end === null ? ' live' : ''}${x.cut ? ' cut' : ''}`, style: `left:${left}%;width:${width}%` });
-    });
-    const chips = r.list.map((x) => h('span', { class: `inc-chip${x.end === null ? ' live' : ''}` },
-      `${x.startKnown || hours ? clock(x.s, tz()) : T.incEarlier}–${x.end ? clock(x.e, tz()) : T.now}`,
-      h('small', {}, ` · ${dur(x.min)}`)));
-    box.append(h('button', { class: `inc-row${r.live ? ' live' : ''}`, onclick: () => { close(); openDetail(r.e); } },
-      h('div', { class: 'inc-top' },
-        h('span', { class: 'inc-name' }, r.e.name),
-        r.live ? h('span', { class: 'inc-badge' }, h('i', {}), T.incOngoing) : null,
-        h('span', { class: 'inc-sum' }, T.incTimes(r.list.length, dur(r.total)))),
-      h('div', { class: 'inc-track' }, ...segs, ...(nowPct !== null ? [h('span', { class: 'inc-now', style: `left:${nowPct}%` })] : [])),
-      h('div', { class: 'inc-chips' }, ...chips)));
-  }
+  box.append(table);
   if (stale) box.append(h('p', { class: 'inc-stale' }, T.histStale(clock(entry.at, tz()))));
   box.append(h('p', { class: 'hint' }, T.incHint));
   return box;
@@ -1857,7 +1822,7 @@ function loadCache(parkId: string): boolean {
     if (!c) return false;
     state.entities = c.entities;
     state.favorites = new Set(c.favorites ?? []);
-    state.live = new Map(c.live.map((l) => [l.id, l]));
+    state.live = liveMap(c.live);
     state.schedule = c.schedule;
     state.generatedAt = c.generatedAt;
     state.sourceUpdatedAt = c.sourceUpdatedAt ?? null;
@@ -1880,7 +1845,7 @@ async function loadPark(): Promise<void> {
     ]);
     if (parkId !== state.parkId) return;
     state.entities = entities.entities;
-    state.live = new Map(live.live.map((l) => [l.id, l]));
+    state.live = liveMap(live.live);
     state.generatedAt = live.generatedAt;
     state.sourceUpdatedAt = live.sourceUpdatedAt;
     state.schedule = schedule?.today ?? [];
@@ -1934,7 +1899,7 @@ async function refreshLive(force = false): Promise<void> {
     ]);
     if (schedule) lastSchedule = now;
     if (favs) lastFavs = now;
-    state.live = new Map(live.live.map((l) => [l.id, l]));
+    state.live = liveMap(live.live);
     state.generatedAt = live.generatedAt;
     state.sourceUpdatedAt = live.sourceUpdatedAt;
     if (schedule) { state.schedule = schedule.today; state.scheduleDays = schedule.days ?? []; }

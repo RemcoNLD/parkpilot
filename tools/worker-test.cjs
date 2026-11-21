@@ -316,6 +316,18 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     eq(mine, [['X2', 'begin', '00:20', false], ['X1', '00:05', '00:30', true], ['X1', '00:40', null, true]], 'periodes');
     env.DB.raw.exec("DELETE FROM wait_log WHERE entity_id IN ('X1', 'X2', 'X3')");
   });
+  await test('langdurig dicht: dicht of onderhoud zonder update van de bron in meer dan een dag', async () => {
+    const { isLongClosed } = require(path.join(BUILD, 'packages/shared/src/index.js'));
+    const n = Date.now(), ago = (h) => new Date(n - h * 3600e3).toISOString();
+    eq([
+      isLongClosed({ status: 'closed', updatedAt: ago(76 * 24) }, n),
+      isLongClosed({ status: 'refurbishment', updatedAt: ago(25) }, n),
+      isLongClosed({ status: 'closed', updatedAt: ago(20) }, n),
+      isLongClosed({ status: 'open', updatedAt: ago(48) }, n),
+      isLongClosed({ status: 'down', updatedAt: ago(48) }, n),
+      isLongClosed({ status: 'closed', updatedAt: null }, n),
+    ], [true, true, false, false, false, false], 'regels');
+  });
   await test('cron bewaart verloop 29 dagen (voor de vergelijking met vorige weken)', async () => {
     const ins = env.DB.raw.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)');
     const n = Math.floor(Date.now() / 1000);

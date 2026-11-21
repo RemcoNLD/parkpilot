@@ -62,7 +62,7 @@ if (RICH) {
     '/api/parks/dlp-studios/live': { parkId: 'dlp-studios', generatedAt: new Date(now).toISOString(), sourceUpdatedAt: ago(2), live: [
       L('A1', 'open', 35, { singleRider: true, singleRiderWait: 15, prevWaitMinutes: 50 }), L('A2', 'open', 50, { singleRider: true, singleRiderWait: 30, prevWaitMinutes: 40 }),
       L('A3', 'open', 25), L('A4', 'open', 45, { singleRider: true, singleRiderWait: 20 }), L('A5', 'open', 20, { prevWaitMinutes: 30 }), L('A6', 'open', 70),
-      L('A7', 'open', 5, { updatedAt: ago(180), changedAt: ago(210) }), L('A8', 'down', null, { changedAt: ago(40) }), L('A9', 'refurbishment', null),
+      L('A7', 'open', 5, { updatedAt: ago(180), changedAt: ago(210) }), L('A8', 'down', null, { changedAt: ago(40) }), L('A9', 'closed', null, { updatedAt: ago(76 * 1440) }), // langdurig dicht: hoort onder Onderhoud (0.21.0)
       { id: 'S2', status: 'open', waitMinutes: null, showtimes: [{ start: t('15:00'), end: null }, { start: t('17:30'), end: null }], updatedAt: ago(2), singleRider: false, changedAt: null, changeObserved: false, prevWaitMinutes: null } ] },
     '/api/favorites': [['A1', 'attraction'], ['A2', 'attraction'], ['A5', 'attraction'], ['A7', 'attraction'], ['S2', 'show']].map(([entityId, type]) => ({ parkId: 'dlp-studios', entityId, type })),
     '/api/parks/dlp-studios/schedule': { today: [{ type: 'OPERATING', opens: t('09:30'), closes: t('21:00') }], days: [] },
