@@ -553,9 +553,9 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 7. **Keuzes en bevestigingen via een keuzemenu onderin** (`actionSheet()`), niet via browser-popups.
 8. **Elke UI-wijziging eerst zelf bekijken** met de screenshot-tool (hoofdstuk 3), in licht én donker en in elke taal, en letten op verspringen, afgekapte tekst en uitlijning, vóór het naar Remco gaat.
 9. **Kop met beperkte ruimte:** op 390 px breed passen naast de schermschakelaar hooguit vier knoppen van 44 px. Zet minder gebruikte onderdelen (Instellingen, Help, Rondleiding) achter één menuknop (tandwiel → keuzemenu onderin) in plaats van knoppen te verkleinen of van het scherm te laten vallen. Meet de breedte in de langste taal. (ParkPilot 0.18.0, keuze van Remco)
+10. **Knoppen reageren op hun hele vlak** en geven meteen zichtbaar resultaat (niet wachten op de server; terugdraaien als opslaan mislukt). (ParkPilot 0.17.3, letterlijk: "De hele knop moet reageren")
 11. **Getoonde data die mogelijk verouderd is, grijs tonen** (bron zegt al lang niets): getal en grafiekstuk grijs, niet meetellen in samenvattingen, kleur terug zodra er weer data is. Gebruik de versheid van de bron zelf, niet "waarde veranderde niet". (ParkPilot 0.19.0, gevraagd door Remco)
 12. **Een knop heet en ziet eruit naar wat hij doet:** opent hij een menu, dan een menu-icoon (☰) en in teksten "menu". (ParkPilot 0.19.0)
-10. **Knoppen reageren op hun hele vlak** en geven meteen zichtbaar resultaat (niet wachten op de server; terugdraaien als opslaan mislukt). (ParkPilot 0.17.3, letterlijk: "De hele knop moet reageren")
 
 ---
 
