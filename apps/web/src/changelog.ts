@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.2',
+    date: '2026-11-21',
+    changes: ['Na "Eruit" kun je de attractie meteen afstrepen als gezien, vanuit dezelfde melding met je wachttijd.'],
+    en: ['After "Done" you can mark the attraction as seen straight away, from the same message that shows your wait.'],
+    pt: ['Depois de "Saí" pode marcar logo a atração como vista, na mesma mensagem que mostra a sua espera.'],
+  },
+  {
     version: '0.17.1',
     date: '2026-11-21',
     changes: ['Bij de vraag om te spelen na het inchecken staat nu "Niet meer vragen". Weer aanzetten: Instellingen > Spelletje > Vragen.'],

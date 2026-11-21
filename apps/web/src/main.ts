@@ -1119,7 +1119,11 @@ function markOut(): void {
   addQueueLog(done);
   saveQueue(null);
   render();
-  actionSheet(T.qDoneTitle(q.name), queueResult(done), [{ label: T.ok, kind: 'cancel' }]);
+  // Meteen aanbieden om af te strepen in Mijn dag (alleen als het nog niet gedaan is en je in hetzelfde park kijkt).
+  const canMark = q.parkId === state.parkId && !doneSet().has(q.id);
+  actionSheet(T.qDoneTitle(q.name), queueResult(done), canMark
+    ? [{ label: T.markSeen, kind: 'primary', run: () => setDone(q.id, true) }, { label: T.ok, kind: 'cancel' }]
+    : [{ label: T.ok, kind: 'cancel' }]);
 }
 
 /** "Je wachtte X. Verwacht was Y: Z sneller/langer. Rit tot eruit: R." */

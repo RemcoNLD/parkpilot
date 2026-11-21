@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:30** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:45** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:30** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.17.1` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:30 (commit 946922c), nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.17.2` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:45, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`), Engels (`en`) én Portugees (`pt`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Meertalig:** Nederlands, Engels (sinds 0.13.0) en Portugees (sinds 0.16.0). Elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en + pt). Nooit losse teksten in `main.ts`; nieuwe teksten altijd in alle drie de talen; zie 6.9.
 - **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
@@ -246,11 +246,11 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Lang drukken** (zelfde `withLongPress()` als kijkplekken, 0,6 s) op een attractierij in Alles én Mijn dag → keuzemenu "In welke rij sta je?": **Gewone rij · N** en, als de attractie een single-rider-rij heeft, **Single rider · N**. De verwachte tijd = de wachttijd van die rij op het moment van inchecken (leeg als dicht/onbekend: "verwachting onbekend").
 - **Eén rij tegelijk.** Lang drukken op een andere attractie terwijl je in een rij staat: "Stoppen en hier inchecken" (de oude stopt zonder resultaat). Lang drukken op dezelfde attractie opent de opties.
 - **Balk onderin** (`queueBar()`, CSS `.qbar`, vast onderin, in beide schermen): naam, rij, lopende tijd (m:ss, elke seconde bijgewerkt via `paintQueue()` zonder hele render), "verwacht N · nog ±M" of in rood "+M", voortgangsbalk (groen, rood boven de verwachting, verborgen zonder verwachting). Eén knop: **Aan de beurt**, daarna **Eruit**. Tik op de balk: Aan de beurt / Eruit / Inchecken ongedaan maken (na aan de beurt: Eruit / Toch nog in de rij / ongedaan maken). De rij in de lijst krijgt een accentstreep links (`.inq`). De voettekst krijgt extra ruimte (`.foot.qspace`) zodat de balk niets bedekt.
-- **Statussen:** in de rij → aan de beurt → eruit. Bij Eruit een melding: "Je wachtte X. Verwacht was Y: Z sneller/langer. Rit tot eruit: R." Gewacht = inchecken tot aan de beurt, in hele minuten; is aan de beurt overgeslagen, dan tot eruit (met die opmerking).
+- **Statussen:** in de rij → aan de beurt → eruit. Bij Eruit een melding: "Je wachtte X. Verwacht was Y: Z sneller/langer. Rit tot eruit: R." **Sinds 0.17.2** staat in die melding de knop **Afstrepen als gezien** (zelfde afstrepen als vegen in Mijn dag, 6.3b), alleen als de attractie vandaag nog niet is afgestreept en je naar hetzelfde park kijkt; anders alleen Oké. Gewacht = inchecken tot aan de beurt, in hele minuten; is aan de beurt overgeslagen, dan tot eruit (met die opmerking).
 - **Registratie:** alleen op dit toestel. Actief in `pp.queue` (blijft na afsluiten staan; de tijd loopt door omdat de starttijd bewaard is; na 12 uur vervalt hij). Afgerond in `pp.queueLog` = `{date, items}`, alleen vandaag (Parijse datum). Het detailvenster toont "Jij vandaag" per rit: tijd · rij: gewacht · verwacht N.
 - Code: blok "Inchecken in de rij" in `main.ts` (`loadQueue`, `showQueueMenu`, `chooseLine`, `checkIn`, `queueOptions`, `markTurn`, `markOut`, `queueResult`, `queueBar`, `paintQueue`); teksten `q…` in `i18n.ts`; `store.remove` toegevoegd.
 - Werkt ook in de simulatie (met verzonnen wachttijden).
-- Niet gebouwd (mogelijke vervolgstappen): delen via de koppelcode/server; echte wachttijden van gebruikers gebruiken om de bron te ijken; na Eruit automatisch afstrepen in Mijn dag; knop in het detailvenster voor wie niet lang drukt; geschiedenis van eerdere dagen.
+- Niet gebouwd (mogelijke vervolgstappen): delen via de koppelcode/server; echte wachttijden van gebruikers gebruiken om de bron te ijken; knop in het detailvenster voor wie niet lang drukt; geschiedenis van eerdere dagen.
 - Getest in Chrome-screenshots (`bash tools/screenshot.sh [light|dark] queue`, ook met `PP_LANG=en-US`): kiezen, lopen, over de verwachting, aan de beurt, resultaat, detailvenster. Niet op een iPhone: of lang drukken op een attractierij botst met scrollen, vegen of het iOS-tekstmenu is niet gecontroleerd; of iOS de timer na terugkeren uit de achtergrond meteen goed toont (zou moeten: rekent vanaf de bewaarde starttijd).
 
 ### 6.11 Spelletje tijdens het wachten (sinds 0.17.0)
@@ -328,6 +328,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.17.2 (21 nov 2026), door Remco te controleren:** na Eruit de knop Afstrepen als gezien; staat de attractie daarna doorgestreept in Mijn dag?
 
 **0.17.1 (21 nov 2026), door Remco te controleren:** "Niet meer vragen" bij inchecken; Instellingen > Spelletje zet het terug.
 
@@ -491,6 +493,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 16:45 — versie 0.17.2:** Remco: "Minor update. Als je 'eruit' vragen om af te strepen." Knop Afstrepen als gezien in de Eruit-melding (6.10). Bestaande teksten hergebruikt. Screenshot licht/nl bekeken; 33 × ok.
 - **21 nov 2026, 16:30 — versie 0.17.1:** Remco: "Voeg toe niet meer vragen als minor update en geef advies hoe ingewikkeld het is om misbruik te voorkomen." Optie "Niet meer vragen" + schakelaar in Instellingen; advies over misbruik vastgelegd in 6.11. Screenshots: vraag (licht/nl), instellingen (licht/nl, donker/pt).
 - **21 nov 2026, 16:20 — versie 0.17.0:** Remco: minigame die niet te duur is, vraag bij inchecken, naam en hiscores. Gebouwd: Ballonvlucht (6.11), gedeelde hiscores (migratie 0006, `/api/game/...`), 2 nieuwe tests (33 × ok), screenshot-scenario `game`. Keuzes zelf gemaakt en gemeld: soort spel, gedeelde lijst (niet alleen op het toestel), elke keer vragen.
 - **21 nov 2026, 16:15 — versie 0.16.0:** Remco: "Lees handover en voeg Portugees toe." Portugees (pt-PT) als derde taal: woordenboek in `i18n.ts`, alle omschrijvingen/tips in `info.ts` (tuples nu `[nl, en, pt]`), alle changelog-versies. Twee labels ingekort na screenshots (afgekapt). 31 × ok, typechecks ok. Gekozen voor Europees Portugees zonder het te vragen; gemeld aan Remco.
