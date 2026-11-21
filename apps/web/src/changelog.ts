@@ -3,6 +3,11 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.1',
+    date: '21 nov 2026',
+    changes: ['Grafiek "Verloop vandaag" loopt niet meer achter op het getal: de actuele wachttijd staat nu als laatste stukje tot "nu" in de grafiek.'],
+  },
+  {
     version: '0.10.0',
     date: '21 nov 2026',
     changes: [

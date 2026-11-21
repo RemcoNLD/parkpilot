@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:40** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:45** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:40** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.10.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:33, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.10.1` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:45, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw). Korte, gewone taal, gericht op wat Remco ziet.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
@@ -197,7 +197,7 @@ Illustratie per soort (eigen SVG's), grote wachttijd/status, grafiek "Verloop va
 
 ### 6.5 Grafiek
 Trapjes in niveaukleur, grijs bij dicht/onderhoud, **storingen als lichtrode zone + gestippelde rode lijn onderin**, "Storing: N keer, samen X". Resolutie ~5 min. Minder dan twee punten: "wordt opgebouwd".
-- **Bekende vertraging** (gezien door Remco 21 nov 2026, screenshot Cars ROAD TRIP: 30 ▼20, grafiek eindigt op 50): het getal en het pijltje komen uit de live-route (bron vs. laatst opgeslagen staat, direct); de grafiek uit `wait_log`, dat alleen de cron elke 5 min schrijft, plus 60 s cache in de app (`loadHistory`) en 30 s HTTP-cache. De grafiek kan dus tot ~6 min achterlopen. Voorgestelde oplossing (wacht op akkoord): de actuele live-waarde als laatste trede tot "nu" tekenen, alleen in de app, zonder extra schrijfacties.
+- **Bekende vertraging** (gezien door Remco 21 nov 2026, screenshot Cars ROAD TRIP: 30 ▼20, grafiek eindigt op 50): het getal en het pijltje komen uit de live-route (bron vs. laatst opgeslagen staat, direct); de grafiek uit `wait_log`, dat alleen de cron elke 5 min schrijft, plus 60 s cache in de app (`loadHistory`) en 30 s HTTP-cache. De grafiek kon dus tot ~6 min achterlopen. **Opgelost in 0.10.1:** `withLiveTail()` in `main.ts` voegt de actuele live-stand als laatste punt toe als die afwijkt van het laatste opgeslagen punt (tijdstip = `changedAt` van de live-route, anders nu). Alleen in de app, geen extra schrijfacties. Geldt voor uitklappen en detailvenster, niet in de simulatie.
 
 ### 6.6 Instellingen
 Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`. Daaronder een inklapbaar **"Wat is er nieuw"** (sinds 0.7.0) uit `changelog.ts`; versies vóór 0.6.0 zijn samengevat uit dit document (0.5.0 en "Eerder"), zonder datum omdat die niet bekend is.
@@ -343,6 +343,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - Controleert zelf in de live app; daarom altijd een zichtbaar, opgehoogd versienummer. (letterlijk)
 - **Het overdrachtsdocument moet altijd actueel zijn**, met alles wat Claude over hem leert in een aparte sectie (dit hoofdstuk). (21 nov 2026, letterlijk)
 - Batterij en privacy wegen zwaar: geen gps die blijft lopen. (21 nov 2026, afgeleid uit verzoek "locatie eenmalig, daarna gps uit")
+- **Versienummers:** kleine verbetering of reparatie = laatste cijfer omhoog (0.10.0 → 0.10.1); nieuwe functie = middelste cijfer (0.10.x → 0.11.0). Remco noemde een kleine aanpassing een "minor update"; Claude koos 0.10.1 en meldde dat. Bij twijfel: zo houden tenzij hij anders zegt. (21 nov 2026)
 - Wil zien wat er per versie veranderd is, in de app zelf. (21 nov 2026, letterlijk: "Maak ook een changelog in de app")
 - Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
 
@@ -385,6 +386,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:45 — versie 0.10.1:** grafiek sluit aan op het live-getal (`withLiveTail`). Remco vroeg om een "minor update"; uitgevoerd als 0.10.1 (patch), zie 15.1.
 - **21 nov 2026, 11:40:** Remco vraagt waarom de grafiek achterloopt op het getal; uitgelegd (cron elke 5 min), oplossing voorgesteld, niet gebouwd. Tijden in dit logboek gecorrigeerd naar de echte berichttijden.
 - **21 nov 2026, 11:33 — versie 0.10.0:** Remco bevestigt 0.9.0. Nieuw: afgestreepte attracties/shows verbergen in Mijn programma (knop "Gezien").
 - **21 nov 2026, 11:25 — versie 0.9.0:** single-rider-wachttijd in het uitklappen (en detailvenster); Worker levert `singleRiderWait`; test uitgebreid.

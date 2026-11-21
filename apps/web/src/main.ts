@@ -436,7 +436,7 @@ function expandPanel(entity: EntityInfo): HTMLElement | null {
   if (sim.on) inner = sparkline(simulateHistory(entity.id), Date.now());
   else if (!hist || hist.data === 'loading') inner = h('div', { class: 'chart-note' }, 'Verloop laden…');
   else if (hist.data === 'error') inner = h('div', { class: 'chart-note' }, 'Verloop is nu niet beschikbaar.');
-  else inner = sparkline(hist.data, Date.now());
+  else inner = sparkline(withLiveTail(hist.data, state.live.get(entity.id)), Date.now());
   return h('div', { class: 'expand' }, singleRiderLine(state.live.get(entity.id)), h('div', { class: 'section-title tight' }, 'Verloop vandaag'), inner);
 }
 
@@ -1002,6 +1002,21 @@ function levelColor(row: { open: boolean; y: number }): string {
 }
 
 /** Dagverloop: elke trede is gekleurd naar de wachttijd (groen is kort, rood is lang). */
+/**
+ * De server slaat het verloop maar elke 5 minuten op; het getal in de app is live. Wijkt de live-stand af van het
+ * laatste opgeslagen punt, dan tekenen we die stand als laatste trede tot "nu", zodat getal en grafiek kloppen.
+ * Alleen in de app, er wordt niets extra opgeslagen.
+ */
+function withLiveTail(data: HistoryResponse, live: LiveInfo | undefined): HistoryResponse {
+  if (!live || live.status === 'unknown') return data;
+  const last = data.rows[data.rows.length - 1];
+  if (last && last.wait === live.waitMinutes && last.status === live.status) return data;
+  const lastAt = last ? Date.parse(last.at) : 0;
+  const changed = live.changedAt ? Date.parse(live.changedAt) : NaN;
+  const at = Number.isFinite(changed) && changed > lastAt ? changed : Date.now();
+  return { ...data, rows: [...data.rows, { at: new Date(Math.min(at, Date.now())).toISOString(), wait: live.waitMinutes, status: live.status }] };
+}
+
 function sparkline(data: HistoryResponse, now: number): Node {
   const W = 300, H = 88, PAD = 6;
   const rows = data.rows.map((r) => ({ t: Math.max(Date.parse(data.from), Date.parse(r.at)), down: r.status === 'down', open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
@@ -1097,7 +1112,7 @@ function openDetail(entity: EntityInfo): void {
     chartBox.append(h('div', { class: 'chart-note' }, 'Verloop laden…'));
     const now = Date.now();
     (sim.on ? Promise.resolve(simulateHistory(entity.id)) : fetchHistoryToday(state.parkId, entity.id))
-      .then((data) => chartBox.replaceChildren(sparkline(data, now)))
+      .then((data) => chartBox.replaceChildren(sparkline(sim.on ? data : withLiveTail(data, state.live.get(entity.id)), now)))
       .catch(() => chartBox.replaceChildren(h('div', { class: 'chart-note' }, 'Verloop is nu niet beschikbaar.')));
   }
 
