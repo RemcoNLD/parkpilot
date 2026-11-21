@@ -3,7 +3,16 @@
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs'), path = require('path');
 const ROOT = process.env.PP_SHOT_ROOT || '/tmp/ppshot';
-const now = Date.now();
+// Rijke nepdata (meer attracties, favorieten, klok op 14:10 Parijse tijd) voor de schermafbeeldingen in de rondleiding.
+const RICH = process.env.PP_RICH === '1' || process.argv[3] === 'tourshots';
+function parisAt(hhmm) {
+  const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+  const off = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', timeZoneName: 'shortOffset' }).formatToParts(new Date()).find((x) => x.type === 'timeZoneName').value; // "GMT+1"
+  const m = /GMT([+-]\d+)?/.exec(off); const h = m && m[1] ? Number(m[1]) : 0;
+  const [Y, M, D] = d.split('-').map(Number); const [hh, mm] = hhmm.split(':').map(Number);
+  return Date.UTC(Y, M - 1, D, hh - h, mm);
+}
+const now = RICH ? parisAt('14:10') : Date.now();
 const OUT = process.env.PP_SHOT_OUT || '/tmp/ppshot/shots';
 fs.mkdirSync(OUT, { recursive: true });
 const api = {
@@ -39,13 +48,44 @@ const api = {
   '/api/profile/recovery-code': { code: 'K7QX-M4TR-2HWN' },
   '/api/profile/redeem': { deviceId: '00000000-0000-0000-0000-000000000000', token: 'b'.repeat(64), favoriteCount: 2 },
 };
+if (RICH) {
+  const t = (hhmm) => new Date(parisAt(hhmm)).toISOString();
+  const ago = (min) => new Date(now - min * 60e3).toISOString();
+  const E = (id, name, lat, lng, type = 'attraction') => ({ id, type, name, location: lat ? { lat, lng } : null, locationSource: lat ? 'source' : null });
+  const L = (id, status, wait, extra = {}) => ({ id, status, waitMinutes: wait, showtimes: [], updatedAt: ago(2), singleRider: false, changedAt: ago(25), changeObserved: true, prevWaitMinutes: wait, ...extra });
+  Object.assign(api, {
+    '/api/parks/dlp-studios/entities': { parkId: 'dlp-studios', generatedAt: new Date(now).toISOString(), entities: [
+      E('A1', "Crush's Coaster", 48.8669, 2.7787), E('A2', 'Avengers Assemble: Flight Force', 48.8688, 2.7805), E('A3', 'Spider-Man W.E.B. Adventure', 48.8690, 2.7810),
+      E('A4', "Ratatouille : L'Aventure Totalement Toquée de Rémy", 48.8672, 2.7770), E('A5', 'The Twilight Zone Tower of Terror', 48.8665, 2.7800),
+      E('A6', 'Frozen Ever After', 48.8680, 2.7760), E('A7', 'Cars ROAD TRIP', 48.8662, 2.7782), E('A8', 'Toy Soldiers Parachute Drop', 48.8660, 2.7790),
+      E('A9', 'RC Racer', 48.8658, 2.7795), E('S2', 'TOGETHER: a Pixar Musical Adventure', 48.8683, 2.7790, 'show') ] },
+    '/api/parks/dlp-studios/live': { parkId: 'dlp-studios', generatedAt: new Date(now).toISOString(), sourceUpdatedAt: ago(2), live: [
+      L('A1', 'open', 35, { singleRider: true, singleRiderWait: 15, prevWaitMinutes: 50 }), L('A2', 'open', 50, { singleRider: true, singleRiderWait: 30, prevWaitMinutes: 40 }),
+      L('A3', 'open', 25), L('A4', 'open', 45, { singleRider: true, singleRiderWait: 20 }), L('A5', 'open', 20, { prevWaitMinutes: 30 }), L('A6', 'open', 70),
+      L('A7', 'open', 5, { updatedAt: ago(180), changedAt: ago(210) }), L('A8', 'down', null, { changedAt: ago(40) }), L('A9', 'refurbishment', null),
+      { id: 'S2', status: 'open', waitMinutes: null, showtimes: [{ start: t('15:00'), end: null }, { start: t('17:30'), end: null }], updatedAt: ago(2), singleRider: false, changedAt: null, changeObserved: false, prevWaitMinutes: null } ] },
+    '/api/favorites': [['A1', 'attraction'], ['A2', 'attraction'], ['A5', 'attraction'], ['A7', 'attraction'], ['S2', 'show']].map(([entityId, type]) => ({ parkId: 'dlp-studios', entityId, type })),
+    '/api/parks/dlp-studios/schedule': { today: [{ type: 'OPERATING', opens: t('09:30'), closes: t('21:00') }], days: [] },
+    '/api/parks/dlp-studios/history/A1': { entityId: 'A1', from: t('00:00'), rows: [
+      ['09:00', null, 'closed'], ['09:35', 10], ['10:05', 20], ['10:50', 35], ['11:40', 55], ['12:30', 45], ['13:05', 50], ['13:45', 35]].map(([h, w, st]) => ({ at: t(h), wait: w, status: st || 'open' })) },
+    '/api/parks/dlp-studios/history/A1?ref': { entityId: 'A1', date: '', dates: ['a', 'b', 'c'], rows: [
+      ['00:00', null], ['09:35', 15], ['10:30', 30], ['11:30', 50], ['12:30', 60], ['14:00', 55], ['15:30', 45], ['17:00', 40], ['18:30', 30], ['19:45', 20], ['20:45', 10], ['21:00', null]].map(([h, w]) => ({ at: t(h), wait: w })) },
+    '/api/parks/dlp-studios/history/A7': { entityId: 'A7', from: t('00:00'), rows: [
+      ['09:00', null, 'closed'], ['09:35', 5], ['10:00', 10], ['10:40', 5], ['11:10', 5, 'stale']].map(([h, w, st]) => ({ at: t(h), wait: w, status: st || 'open' })) },
+    '/api/parks/dlp-studios/history/A7?ref': { entityId: 'A7', date: '', dates: ['a', 'b'], rows: [
+      ['00:00', null], ['09:35', 5], ['10:30', 15], ['12:00', 20], ['15:00', 15], ['18:00', 10], ['20:30', 5], ['21:00', null]].map(([h, w]) => ({ at: t(h), wait: w })) },
+  });
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(now));
+  api['/api/parks/dlp-studios/history/A1?ref'].date = today; api['/api/parks/dlp-studios/history/A7?ref'].date = today;
+}
 (async () => {
   const theme = process.argv[2] || 'dark';
   const scenario = process.argv[3] || 'settings';
   let offlineHistory = false;
   const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome' });
   const locale = process.env.PP_LANG || 'nl-NL'; // taal van de 'telefoon', bijv. en-US of de-DE (valt terug op Engels)
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: theme, locale });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: theme, locale,
+    ...(RICH ? { geolocation: { latitude: 48.8674, longitude: 2.7792 }, permissions: ['geolocation'] } : {}) });
   const page = await ctx.newPage();
   await page.route('http://pp.test/**', (route) => {
     const u = new URL(route.request().url());
@@ -56,15 +96,66 @@ const api = {
     }
     const f = path.join(ROOT, u.pathname === '/' ? 'index.html' : u.pathname);
     if (fs.existsSync(f) && fs.statSync(f).isFile()) return route.fulfill({ path: f });
+    // Bestanden uit apps/web/public (o.a. de afbeeldingen van de rondleiding)
+    const pub = path.join(__dirname, '..', 'apps/web/public', u.pathname);
+    if (fs.existsSync(pub) && fs.statSync(pub).isFile()) return route.fulfill({ path: pub });
     return route.fulfill({ status: 404, body: '' });
   });
   page.on('pageerror', (e) => console.log('pageerror', e.message));
   // Alle scenario's behalve de rondleiding: rondleiding al gezien, anders staat hij over alles heen.
   if (scenario !== 'tour') await page.addInitScript(() => { try { localStorage.setItem('pp.tour', 'done'); } catch {} });
+  if (RICH) {
+    await page.addInitScript((t) => { try { localStorage.setItem('pp.gameAsk', 'never'); localStorage.setItem('pp.pos', JSON.stringify({ lat: 48.8674, lng: 2.7792, at: t })); } catch {} }, now);
+    await page.clock.install({ time: now });
+  }
   // Tandwiel = menu; eerste knop is Instellingen.
   const openSettingsUi = async () => { await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(250); await page.click('.asheet-btn.primary'); await page.waitForTimeout(300); };
   await page.goto('http://pp.test/');
   await page.waitForTimeout(1200);
+  if (scenario === 'tourshots') {
+    // Uitsneden voor de rondleiding: per stap één PNG; tools/tour-shots.sh zet ze om naar WebP in apps/web/public/tour/.
+    const lang = locale.slice(0, 2);
+    const shot = async (name, clip) => {
+      const c = { x: 0, width: 390, y: Math.max(0, Math.floor(clip.y)), height: Math.min(844 - Math.max(0, Math.floor(clip.y)), Math.ceil(clip.height)) };
+      await page.screenshot({ path: `${OUT}/${lang}-${theme}-${name}.png`, clip: c });
+    };
+    const box = async (sel, pad = 8) => { const b = await page.locator(sel).first().boundingBox(); return { y: b.y - pad, height: b.height + 2 * pad }; };
+    const row = (name) => `.rowwrap:has-text("${name}")`;
+    const fresh = async (plan) => { await page.reload(); await page.waitForTimeout(1300); if (plan !== null) { await page.click(`.vswitch button:nth-of-type(${plan ? 2 : 1})`); await page.waitForTimeout(500); } };
+    await fresh(false);
+    await shot('welcome', { y: 0, height: 600 });
+    await fresh(true);
+    await shot('views', { y: 0, height: 560 });
+    await fresh(false);
+    await page.locator(row("Crush's Coaster")).locator('.ring-btn').first().click(); await page.waitForTimeout(900);
+    await page.locator(row("Crush's Coaster")).first().scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
+    await shot('tap', await box(row("Crush's Coaster"), 6));
+    await fresh(true);
+    await page.locator(row('Cars ROAD TRIP')).locator('.ptoggle').first().click(); await page.waitForTimeout(900);
+    await page.locator(row('Cars ROAD TRIP')).first().scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
+    await shot('stale', await box(row('Cars ROAD TRIP'), 6));
+    await fresh(true);
+    { const b = await page.locator(row('Avengers')).locator('.prow').first().boundingBox();
+      await page.mouse.move(b.x + b.width * 0.7, b.y + b.height / 2); await page.mouse.down();
+      for (let i = 1; i <= 8; i++) { await page.mouse.move(b.x + b.width * 0.7 - i * 16, b.y + b.height / 2); await page.waitForTimeout(16); }
+      await page.mouse.up(); await page.waitForTimeout(500);
+      const sh = await page.locator('.asheet').first().boundingBox();
+      const top = Math.min(b.y, sh.y) - 12;
+      await shot('swipe', { y: top, height: 844 - top }); }
+    await fresh(true);
+    { const b = await page.locator(row('Tower of Terror')).locator('.pmain').first().boundingBox();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up(); await page.waitForTimeout(400);
+      await page.click('.asheet-btn.primary'); await page.waitForTimeout(2300);
+      const q = await page.locator('.qbar').boundingBox();
+      await shot('hold', { y: q.y - 300, height: 844 - (q.y - 300) }); }
+    await page.evaluate(() => localStorage.removeItem('pp.queue'));
+    await fresh(false);
+    await shot('tiles', await box('.stats', 10));
+    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(400);
+    { const s = await page.locator('.asheet').first().boundingBox(); await shot('menu', { y: s.y - 20, height: 844 - s.y + 20 }); }
+    await browser.close();
+    return;
+  }
   if (scenario === 'history') {
     // 1) verloop ophalen (wordt bewaard), 2) herladen zonder bereik voor de historie: grijs uit de cache.
     await page.click('.ring-btn'); await page.waitForTimeout(500);

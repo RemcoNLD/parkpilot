@@ -13,6 +13,7 @@ import {
   type ShowDayResponse,
   type SortMode,
   type TrackingMode,
+  isSourceStale,
 } from '../../../packages/shared/src/index';
 import { APP_VERSION } from '../../../packages/shared/src/version';
 import { CHANGELOG, changelogDate, changesFor } from './changelog';
@@ -195,6 +196,11 @@ function dayLabel(date: string): string {
   return new Intl.DateTimeFormat(T.locale, { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 }
 
+/** Bron zegt al lang niets over deze attractie (open, met wachttijd): getal grijs tonen. Alleen bij open park. */
+function srcStale(live: LiveInfo | undefined): boolean {
+  return !sim.on && isSourceStale(live) && parkStatus().open !== false;
+}
+
 function parkStats(): { openCount: number; down: number | null; refurb: number; avg: number | null; short: { name: string; min: number } | null } {
   const closed = parkStatus().open === false;
   let openCount = 0, down = 0, refurb = 0, sum = 0, n = 0;
@@ -207,7 +213,7 @@ function parkStats(): { openCount: number; down: number | null; refurb: number; 
     if (l?.status === 'down') down++;
     if (l?.status !== 'open') continue;
     openCount++;
-    if (l.waitMinutes === null) continue;
+    if (l.waitMinutes === null || srcStale(l)) continue; // oude getallen niet meetellen in gemiddelde en kortste
     sum += l.waitMinutes; n++;
     if (!short || l.waitMinutes < short.min) short = { name: e.name, min: l.waitMinutes };
   }
@@ -377,6 +383,7 @@ function statusRing(entity: EntityInfo, live: LiveInfo | undefined): HTMLElement
     case 'open':
       if (parkClosed) return ring('stale', null, h('div', { class: 'ring-in' }, icon('moon', 20)));
       if (live.waitMinutes === null) return ring('', 1, txt(T.open));
+      if (srcStale(live)) return ring('nosrc', Math.min(live.waitMinutes, 90) / 90, h('div', { class: `ring-in num${live.waitMinutes >= 100 ? ' tri' : ''}`, title: T.staleSrc }, String(live.waitMinutes)));
       {
         const r = ring(waitLevel(live.waitMinutes), Math.min(live.waitMinutes, 90) / 90, h('div', { class: `ring-in num${live.waitMinutes >= 100 ? ' tri' : ''}` }, String(live.waitMinutes)));
         const t = trendDelta(live);
@@ -548,7 +555,7 @@ function singleRiderLine(live: LiveInfo | undefined): HTMLElement | null {
   if (!live?.singleRider || live.status !== 'open' || parkStatus().open === false) return null;
   const w = live.singleRiderWait ?? null;
   return h('div', { class: 'srline' }, h('span', {}, T.singleRider),
-    w === null ? h('span', { class: 'srnone' }, T.srNone) : h('b', { class: waitLevel(w) }, String(w)));
+    w === null ? h('span', { class: 'srnone' }, T.srNone) : h('b', { class: srcStale(live) ? 'nosrc' : waitLevel(w) }, String(w)));
 }
 
 const ringToggle = (entity: EntityInfo, child: Node, cls = 'ring-btn'): HTMLElement =>
@@ -737,10 +744,10 @@ function planAttraction(entity: EntityInfo): HTMLElement {
   let label = '–', cls = '';
   if (live && !closed) {
     if (live.status === 'open') {
-      if (live.waitMinutes !== null) { label = String(live.waitMinutes); cls = waitLevel(live.waitMinutes); } else label = T.open;
+      if (live.waitMinutes !== null) { label = String(live.waitMinutes); cls = srcStale(live) ? 'nosrc' : waitLevel(live.waitMinutes); } else label = T.open;
     } else label = { down: T.down, closed: T.closed, refurbishment: T.refurb, open: T.open, unknown: '–' }[live.status];
   } else if (closed) label = T.closed;
-  const t = closed ? null : trendDelta(live);
+  const t = closed || srcStale(live) ? null : trendDelta(live);
   const dist = byDist ? null : distText(entity);
   // Single rider klein rechtsboven de wachttijd: alleen een getal, alleen als de bron er een geeft en de attractie open is.
   const sr = srOf(live);
@@ -754,7 +761,7 @@ function planAttraction(entity: EntityInfo): HTMLElement {
         h('span', { class: `pnumcol${planLayout.side ? ' gutter' : ''}` },
           h('span', { class: `pbig pwait-xl ${cls}${label.length > 3 ? ' word' : ''}`, style: label.length > 3 ? null : `min-width:${planLayout.digits}ch` }, label),
           // Rechts van de wachttijd, onder elkaar: single rider (badge) boven, verschil (▲/▼) onder.
-          sr !== null ? h('span', { class: `psr ${waitLevel(sr)}`, 'aria-label': `${T.singleRiderLower} ${sr}` }, String(sr)) : null,
+          sr !== null ? h('span', { class: `psr ${srcStale(live) ? 'nosrc' : waitLevel(sr)}`, 'aria-label': `${T.singleRiderLower} ${sr}` }, String(sr)) : null,
           t ? h('span', { class: `trend ptr ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null)), 'ptoggle'))),
     expandPanel(entity));
 }
@@ -1463,8 +1470,14 @@ function levelColor(row: { open: boolean; y: number }): string {
 function withLiveTail(data: HistoryResponse, live: LiveInfo | undefined): HistoryResponse {
   if (!live || live.status === 'unknown') return data;
   const last = data.rows[data.rows.length - 1];
-  if (last && last.wait === live.waitMinutes && last.status === live.status) return data;
+  // Bron stil: grijs vanaf de laatste update van de bron (of de laatste opgeslagen regel, als die later is).
+  const status = isSourceStale(live) ? 'stale' : live.status;
+  if (last && last.wait === live.waitMinutes && last.status === status) return data;
   const lastAt = last ? Date.parse(last.at) : 0;
+  if (status === 'stale') {
+    const at = Math.max(lastAt + 1000, Date.parse(live.updatedAt as string));
+    return { ...data, rows: [...data.rows, { at: new Date(Math.min(at, Date.now())).toISOString(), wait: live.waitMinutes, status: 'stale' }] };
+  }
   const changed = live.changedAt ? Date.parse(live.changedAt) : NaN;
   const at = Number.isFinite(changed) && changed > lastAt ? changed : Date.now();
   return { ...data, rows: [...data.rows, { at: new Date(Math.min(at, Date.now())).toISOString(), wait: live.waitMinutes, status: live.status }] };
@@ -1487,7 +1500,8 @@ function todayHours(): { from: number; to: number } | null {
 function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): Node {
   const W = 300, H = 88, PAD = 6;
   const hours = todayHours();
-  const raw = data.rows.map((r) => ({ t: Date.parse(r.at), down: r.status === 'down', open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
+  // 'stale' = bron gaf geen update: op de hoogte van de laatste waarde, maar grijs (sinds 0.19.0).
+  const raw = data.rows.map((r) => ({ t: Date.parse(r.at), down: r.status === 'down', stale: r.status === 'stale' && r.wait !== null, open: r.status === 'open' && r.wait !== null, y: (r.status === 'open' || r.status === 'stale') && r.wait !== null ? r.wait : 0 }));
   const from = hours ? hours.from : Math.max(Date.parse(data.from), raw[0]?.t ?? now);
   const to = hours ? hours.to : now;
   const end = Math.min(now, to); // tot hier loopt het verloop van vandaag
@@ -1533,7 +1547,7 @@ function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): N
     const t1 = i + 1 < rows.length ? rows[i + 1].t : end;
     if (t1 <= r.t && i === rows.length - 1 && i > 0) return; // stand precies op het eindpunt: geen losse stip
     if (i > 0) shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(rows[i - 1].y).toFixed(1)}V${y(r.y).toFixed(1)}`, stroke: 'var(--muted)', 'stroke-opacity': 0.5, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
-    shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(r.y).toFixed(1)}H${x(t1).toFixed(1)}`, stroke: levelColor(r), 'stroke-width': 3.5, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+    shapes.push(svg('path', { d: `M${x(r.t).toFixed(1)} ${y(r.y).toFixed(1)}H${x(t1).toFixed(1)}`, stroke: r.stale ? 'var(--muted)' : levelColor(r), 'stroke-opacity': r.stale ? 0.75 : 1, 'stroke-width': 3.5, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   });
   for (const o of outages) {
     const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
@@ -1554,6 +1568,7 @@ function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): N
       showNow ? h('span', { class: 'now-lbl', style: `left:${nowPct.toFixed(1)}%` }, T.now) : null,
       h('span', {}, hours ? clock(to, tz()) : T.now)),
     outages.length ? h('div', { class: 'chart-note outage' }, T.outage(outages.length, dur(downMin))) : null,
+    rows.some((r) => r.stale) ? h('div', { class: 'chart-note stale-src' }, T.staleChart) : null,
     refSeg.length && ref ? h('div', { class: 'chart-note ref-note' }, h('span', { class: 'ref-swatch', 'aria-hidden': 'true' }),
       T.refWeeks(ref.dates.length, new Intl.DateTimeFormat(T.locale, { weekday: 'long', timeZone: tz() }).format(new Date(now)))) : null,
     h('div', { class: 'chart-note' }, open.length
@@ -1583,7 +1598,7 @@ function openDetail(entity: EntityInfo): void {
 
   if (entity.type === 'attraction' && live) {
     if (live.status === 'open' && live.waitMinutes !== null) {
-      bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, T.waitTime)));
+      bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, srcStale(live) && live.updatedAt ? T.staleSince(clock(Date.parse(live.updatedAt), tz())) : T.waitTime)));
     } else {
       const t = { open: T.stOpenNoWait, down: T.stDown, closed: T.stClosed, refurbishment: T.stRefurb, unknown: T.stUnknown }[live.status];
       bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, t)));
@@ -1929,11 +1944,11 @@ function openSettings(focus?: 'code'): void {
     strongBtn.setAttribute('disabled', '');
     try {
       const { code } = await createRecoveryCode();
-      const copy = h('button', { class: 'btn secondary' }, T.copy);
+      const copy = h('button', { class: 'btn sm' }, T.copy);
       copy.addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(code); copy.textContent = T.copied; } catch { copy.textContent = T.copyFailCode; }
       });
-      strongBox.replaceChildren(h('div', { class: 'code' }, code), h('p', {}, T.strongNote), copy);
+      strongBox.replaceChildren(h('div', { class: 'code-row' }, h('div', { class: 'code' }, code), copy), h('p', { class: 'code-warn' }, T.strongNote));
     } catch { strongBox.replaceChildren(h('p', {}, T.strongFail)); }
     strongBtn.removeAttribute('disabled');
   });
@@ -2007,8 +2022,10 @@ function openSettings(focus?: 'code'): void {
         h('summary', {}, T.linkCode),
         row(T.ownCode, null, T.codeInfo),
         h('div', { class: 'code-line' }, customInput, saveCustom),
+        h('p', { class: 'code-warn' }, T.ownCodeWarn),
+        custom.el,
         h('div', { class: 'inline-actions' }, strongBtn),
-        custom.el, strongBox,
+        strongBox,
         h('div', { class: 'set-sub' }, T.haveCode),
         h('div', { class: 'code-line' }, input, restoreBtn),
         restore.el)),
@@ -2035,7 +2052,7 @@ function showHelp(): void {
   openHelp({ replayTour: showTour, openCodeSettings: () => openSettings('code') });
 }
 
-/** Tandwiel in de kop: keuzemenu met Instellingen, Help en Rondleiding (een losse helpknop past niet naast de schakelaar). */
+/** Menuknop (☰) in de kop: keuzemenu met Instellingen, Help en Rondleiding (een losse helpknop past niet naast de schakelaar). */
 function openMenu(): void {
   actionSheet(T.menu, null, [
     { label: T.settings, kind: 'primary', run: () => openSettings() },
@@ -2046,7 +2063,7 @@ function openMenu(): void {
 }
 
 const menuButton = (size: number): HTMLElement =>
-  h('button', { class: 'icon-btn', 'aria-label': T.menu, 'aria-haspopup': 'dialog', onclick: openMenu }, icon('gear', size));
+  h('button', { class: 'icon-btn', 'aria-label': T.menu, 'aria-haspopup': 'dialog', onclick: openMenu }, icon('menu', size));
 
 // ---- Start -----------------------------------------------------------------------------------
 

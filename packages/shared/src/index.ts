@@ -55,6 +55,19 @@ export interface LiveInfo {
   prevWaitMinutes: number | null;
 }
 
+/**
+ * De bron werkt een attractie normaal elke paar minuten bij. Is dat langer dan dit geleden terwijl de attractie
+ * open is met een wachttijd, dan is dat getal niet betrouwbaar: de app toont het grijs en de cron zet een
+ * 'stale'-regel in het verloop (sinds 0.19.0).
+ */
+export const SOURCE_STALE_MS = 30 * 60_000;
+
+export function isSourceStale(l: Pick<LiveInfo, 'status' | 'waitMinutes' | 'updatedAt'> | undefined, now = Date.now()): boolean {
+  if (!l || l.status !== 'open' || l.waitMinutes === null || !l.updatedAt) return false;
+  const t = Date.parse(l.updatedAt);
+  return Number.isFinite(t) && now - t > SOURCE_STALE_MS;
+}
+
 export interface LiveResponse {
   parkId: string;
   generatedAt: string; // wanneer onze Worker de bron heeft opgehaald
@@ -128,7 +141,7 @@ export interface ShowDayResponse {
 export interface HistoryRow {
   at: string;
   wait: number | null;
-  status: LiveStatus;
+  status: LiveStatus | 'stale'; // 'stale' = bron gaf geen update (sinds 0.19.0), wait = laatste bekende waarde
 }
 
 export interface HistoryResponse {

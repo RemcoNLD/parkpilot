@@ -48,6 +48,7 @@ const iso = (ms) => new Date(ms).toISOString();
 const fake = {
   calls: [],
   wait: 25,
+  srcAge: 120000, // ouderdom van lastUpdated in de bron (ms)
   parkOpen: true,
   showtimes: () => ['12:00', '23:00'].map((t) => ({ startTime: iso(zonedEpochMs(today, t, TZ)), endTime: null })),
 };
@@ -81,7 +82,7 @@ globalThis.fetch = async (input) => {
   }
   if (kind === 'live') {
     return respond({ liveData: [
-      { id: 'A1', entityType: 'ATTRACTION', status: 'OPERATING', lastUpdated: iso(Date.now() - 120000), queue: { STANDBY: { waitTime: fake.wait }, SINGLE_RIDER: { waitTime: 10 } } },
+      { id: 'A1', entityType: 'ATTRACTION', status: 'OPERATING', lastUpdated: iso(Date.now() - fake.srcAge), queue: { STANDBY: { waitTime: fake.wait }, SINGLE_RIDER: { waitTime: 10 } } },
       { id: 'A2', entityType: 'ATTRACTION', status: 'DOWN', queue: { STANDBY: { waitTime: null } } },
       { id: 'S1', entityType: 'SHOW', status: 'OPERATING', showtimes: fake.showtimes() },
       { id: 'R1', entityType: 'RESTAURANT', status: 'OPERATING' },
@@ -263,6 +264,19 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
   await test('historie vandaag geeft het verloop', async () => {
     const r = await call('GET', 'parks/dlp-studios/history/A1?since=today');
     eq(r.data.rows.map((x) => x.wait), [25, 40], 'verloop');
+  });
+  await test('bron valt stil (>30 min geen update): één stale-regel, terug actief: één open-regel', async () => {
+    const rows = () => env.DB.raw.prepare("SELECT status, wait FROM wait_log WHERE park_id = 'dlp-studios' AND entity_id = 'A1' ORDER BY at, rowid").all().map((r) => `${r.status}:${r.wait}`);
+    fake.srcAge = 3 * 3600e3;
+    await cron();
+    eq(rows(), ['open:25', 'open:40', 'stale:40'], 'stil');
+    await cron();
+    eq(rows().length, 3, 'geen extra regel zolang het stil blijft');
+    fake.srcAge = 120000;
+    await cron();
+    eq(rows(), ['open:25', 'open:40', 'stale:40', 'open:40'], 'weer actief');
+    const a1 = (await call('GET', 'parks/dlp-studios/live')).data.live.find((l) => l.id === 'A1');
+    eq([a1.prevWaitMinutes, a1.changeObserved], [25, true], 'wijzigingsgegevens blijven kloppen');
   });
   await test('vorige weken: gemiddelde zelfde weekdag, alleen open tijden, tijden naar vandaag', async () => {
     const leeg = await call('GET', 'parks/dlp-studios/history/A2?ref=weeks');

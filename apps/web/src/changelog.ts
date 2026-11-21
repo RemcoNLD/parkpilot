@@ -8,6 +8,25 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.0',
+    date: '2026-11-21',
+    changes: [
+      'Geeft de bron meer dan 30 minuten geen update over een attractie, dan wordt de wachttijd grijs in Alles en Mijn dag, en is dat stuk van de grafiek grijs. Komt er weer een update, dan komt de kleur terug. Grijze getallen tellen niet mee in gemiddelde en kortste wachttijd.',
+      'Rondleiding met schermafbeeldingen bij elke stap, een stap over grijze getallen, en "menu" in plaats van "tandwiel". De menuknop rechtsboven heeft nu drie streepjes.',
+      'Koppelcode: waarschuwing bij een zelfgekozen code (iedereen die hem kent, kan je lijstje aanpassen) en bij een sterke code dat je hem maar één keer ziet, met de kopieerknop er direct naast.',
+    ],
+    en: [
+      'If the source gives no update about an attraction for more than 30 minutes, the wait turns grey in All and My day, and that stretch of the chart is grey. When an update arrives, the colour comes back. Grey numbers are left out of the average and shortest wait.',
+      'Tour with a screenshot for every step, a step about grey numbers, and "menu" instead of "gear". The menu button at the top right now has three lines.',
+      'Link code: a warning for a code you choose yourself (anyone who knows it can change your list) and, for a strong code, that you see it only once, with the copy button right next to it.',
+    ],
+    pt: [
+      'Se a fonte não atualizar uma atração durante mais de 30 minutos, o tempo de espera fica cinzento em Tudo e O meu dia, e esse troço do gráfico fica cinzento. Quando chega uma atualização, a cor volta. Os números cinzentos não contam para a média nem para a espera mínima.',
+      'Visita guiada com uma imagem em cada passo, um passo sobre números cinzentos, e "menu" em vez de "roda dentada". O botão de menu no canto superior direito tem agora três riscas.',
+      'Código de ligação: aviso para um código escolhido por si (quem o souber pode alterar a sua lista) e, para um código forte, que só o vê uma vez, com o botão de copiar logo ao lado.',
+    ],
+  },
+  {
     version: '0.18.1',
     date: '2026-11-21',
     changes: ['Grafiek vernieuwd: loopt van opening tot sluiting. De stippellijn van vorige weken loopt door de hele dag, het verloop van vandaag vult zich van links tot nu. Geen hulplijnen meer; de schaal past zich aan de stippellijn aan, en hoger als vandaag erboven uitkomt.'],
@@ -19,17 +38,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '2026-11-21',
     changes: [
       'Rondleiding voor nieuwe gebruikers: de belangrijkste functies in een paar stappen, en uitleg over de koppelcode met de vraag wat je wilt (al een code, een sterke code laten maken, zelf kiezen of nu niet).',
-      'Help: het tandwiel rechtsboven is nu een menu met Instellingen, Help en Rondleiding.',
+      'Help: de knop rechtsboven is nu een menu met Instellingen, Help en Rondleiding.',
       'Grafiek: een stippellijn toont de wachttijd van dezelfde weekdag in de vorige weken (gemiddeld, tot vier weken). Het verloop wordt daarvoor 29 dagen bewaard in plaats van 7, dus de lijn vult zich de komende weken.',
     ],
     en: [
       'A tour for new users: the main features in a few steps, plus an explanation of the link code and the question what you want (already have a code, make a strong code, choose your own, or not now).',
-      'Help: the gear at the top right is now a menu with Settings, Help and Tour.',
+      'Help: the button at the top right is now a menu with Settings, Help and Tour.',
       'Chart: a dotted line shows the wait on the same weekday in previous weeks (average, up to four weeks). History is now kept for 29 days instead of 7, so the line fills in over the coming weeks.',
     ],
     pt: [
       'Visita guiada para novos utilizadores: as principais funções em poucos passos, e uma explicação do código de ligação com a pergunta sobre o que pretende (já tem um código, criar um código forte, escolher o seu, ou agora não).',
-      'Ajuda: a roda dentada no canto superior direito é agora um menu com Definições, Ajuda e Visita guiada.',
+      'Ajuda: o botão no canto superior direito é agora um menu com Definições, Ajuda e Visita guiada.',
       'Gráfico: uma linha pontilhada mostra a espera no mesmo dia da semana nas semanas anteriores (média, até quatro semanas). O histórico é agora guardado 29 dias em vez de 7, por isso a linha vai-se completando nas próximas semanas.',
     ],
   },

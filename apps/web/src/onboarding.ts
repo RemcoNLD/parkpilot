@@ -1,12 +1,12 @@
 import { ApiError, createRecoveryCode, getCreds, redeemRecoveryCode, setCreds } from './api';
 import { h } from './dom';
-import { t as T } from './i18n';
+import { lang, t as T } from './i18n';
 import { icon } from './icons';
 
 // ---- Rondleiding voor nieuwe gebruikers + helpscherm ----------------------------------------------
 // Rondleiding: alleen bij de eerste start van een nieuwe gebruiker (geen `pp.tour` en nog geen profiel).
 // Bestaande gebruikers (al een profiel) krijgen hem niet: de vlag wordt dan stil gezet.
-// Help: via het tandwiel in de kop, met uitklapbare onderwerpen en een knop terug naar de rondleiding.
+// Help: via het menu (☰) in de kop, met uitklapbare onderwerpen en een knop terug naar de rondleiding.
 
 const TOUR_KEY = 'pp.tour';
 const getFlag = (): string | null => { try { return localStorage.getItem(TOUR_KEY); } catch { return null; } };
@@ -50,11 +50,11 @@ function codeChooser(hooks: TourHooks, made: { code: string | null }): HTMLEleme
     const msg = mkMsg();
     const out = h('div', {});
     const show = (code: string): void => {
-      const copy = h('button', { class: 'btn secondary sm', type: 'button' }, T.copy);
+      const copy = h('button', { class: 'btn sm', type: 'button' }, T.copy);
       copy.addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(code); copy.textContent = T.copied; } catch { copy.textContent = T.copyFailCode; }
       });
-      out.replaceChildren(h('div', { class: 'code' }, code), h('p', { class: 'tour-small' }, T.strongNote), copy);
+      out.replaceChildren(h('div', { class: 'code-row' }, h('div', { class: 'code' }, code), copy), h('p', { class: 'code-warn' }, T.strongNote));
     };
     // Maar één keer per rondleiding maken, ook als je terugbladert of opnieuw kiest.
     if (made.code) show(made.code);
@@ -83,7 +83,7 @@ function codeChooser(hooks: TourHooks, made: { code: string | null }): HTMLEleme
       }
       save.removeAttribute('disabled');
     });
-    return [h('p', { class: 'tour-small' }, T.tourCodeOwnHint), h('div', { class: 'code-line' }, input, save), msg.el];
+    return [h('p', { class: 'code-warn' }, T.ownCodeWarn), h('p', { class: 'tour-small' }, T.tourCodeOwnHint), h('div', { class: 'code-line' }, input, save), msg.el];
   };
 
   const havePanel = (): Node[] => {
@@ -133,6 +133,26 @@ function codeChooser(hooks: TourHooks, made: { code: string | null }): HTMLEleme
   return box;
 }
 
+/**
+ * Schermafbeelding per stap (sleutel = icoon van de stap). Gemaakt met `bash tools/tour-shots.sh` in elke taal en elk
+ * thema (apps/web/public/tour/<taal>-<thema>-<naam>.webp). Na elke UI-wijziging die in een stap te zien is opnieuw
+ * maken. Geen afbeelding (zoals bij de koppelcode): dan het grote icoon.
+ */
+const SHOTS: Record<string, string> = {
+  heart: 'welcome', grid: 'views', gauge: 'tap', stale: 'stale', swipe: 'swipe', timer: 'hold', warn: 'tiles', show: 'menu',
+};
+
+function shotNode(stepIcon: string): HTMLElement | null {
+  const name = SHOTS[stepIcon];
+  if (!name) return null;
+  const theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  const img = h('img', { class: 'tour-shot', src: `/tour/${lang}-${theme}-${name}.webp`, alt: '', decoding: 'async' }) as HTMLImageElement;
+  const frame = h('div', { class: 'tour-shot-frame' }, img);
+  // Afbeelding ontbreekt (bijv. offline zonder cache): dan het icoon tonen.
+  img.addEventListener('error', () => frame.replaceWith(h('div', { class: 'tour-icon' }, icon(stepIcon, 44))));
+  return frame;
+}
+
 /** Rondleiding op volledig scherm: stippen, Overslaan, Terug/Volgende. Sluiten (ook Overslaan) zet de vlag. */
 export function openTour(hooks: TourHooks): void {
   const steps = T.tourSteps;
@@ -153,7 +173,7 @@ export function openTour(hooks: TourHooks): void {
           ...steps.map((_, k) => h('span', { class: k === i ? 'on' : k < i ? 'seen' : '' }))),
         last ? null : h('button', { class: 'tour-skip', type: 'button', onclick: close }, T.tourSkip)),
       h('div', { class: 'tour-body' },
-        h('div', { class: 'tour-icon' }, icon(s.icon, 44)),
+        shotNode(s.icon) ?? h('div', { class: 'tour-icon' }, icon(s.icon, 44)),
         h('h2', {}, s.title),
         ...s.body.map((p) => h('p', {}, p)),
         i === 0 && isIosSafari() ? h('p', { class: 'tour-tip' }, T.tourIosTip) : null,

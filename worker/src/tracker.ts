@@ -1,4 +1,4 @@
-import { TRACKING_MODES, type LiveInfo, type LiveResponse, type TrackingMode, type WeekRefResponse } from '../../packages/shared/src/index';
+import { TRACKING_MODES, isSourceStale, type LiveInfo, type LiveResponse, type TrackingMode, type WeekRefResponse } from '../../packages/shared/src/index';
 import type { Env } from './auth';
 import { PARKS, type ParkConfig } from './parks';
 import { hasShowHistory, recordShowtimes } from './shows';
@@ -17,6 +17,7 @@ export interface StateRow {
   prev_wait: number | null;
   changed_at: number;
   first_seen_at: number;
+  stale?: number; // > 0 = bron stil sinds (s); < 0 = weer actief sinds -waarde; 0 = nooit (0.19.0, migratie 0007)
 }
 
 /** 29 dagen: genoeg voor dezelfde weekdag in de vier voorgaande weken (stippellijn in de grafiek). */
@@ -27,7 +28,7 @@ const iso = (sec: number): string => new Date(sec * 1000).toISOString();
 
 export async function loadStates(env: Env, parkId: string): Promise<Map<string, StateRow>> {
   const rows = await env.DB.prepare(
-    'SELECT entity_id, wait, status, prev_wait, changed_at, first_seen_at FROM wait_state WHERE park_id = ?',
+    'SELECT entity_id, wait, status, prev_wait, changed_at, first_seen_at, stale FROM wait_state WHERE park_id = ?',
   )
     .bind(parkId)
     .all<StateRow>();
@@ -68,28 +69,42 @@ export function track(
 ): { live: LiveResponse; statements: D1PreparedStatement[] } {
   const statements: D1PreparedStatement[] = [];
 
-  const write = (item: LiveInfo, prevWait: number | null): void => {
+  const write = (item: LiveInfo, prevWait: number | null, stale: boolean): void => {
     statements.push(
       env.DB.prepare(
-        'INSERT INTO wait_state (park_id, entity_id, wait, status, prev_wait, changed_at, first_seen_at) ' +
-          'VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(park_id, entity_id) DO UPDATE SET ' +
-          'wait = excluded.wait, status = excluded.status, prev_wait = excluded.prev_wait, changed_at = excluded.changed_at',
-      ).bind(parkId, item.id, item.waitMinutes, item.status, prevWait, now, now),
+        'INSERT INTO wait_state (park_id, entity_id, wait, status, prev_wait, changed_at, first_seen_at, stale) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(park_id, entity_id) DO UPDATE SET ' +
+          'wait = excluded.wait, status = excluded.status, prev_wait = excluded.prev_wait, changed_at = excluded.changed_at, stale = excluded.stale',
+      ).bind(parkId, item.id, item.waitMinutes, item.status, prevWait, now, now, stale ? now : 0),
       env.DB.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)').bind(
-        parkId, item.id, now, item.waitMinutes, item.status,
+        parkId, item.id, now, item.waitMinutes, stale ? 'stale' : item.status,
       ),
     );
   };
 
   const live = data.live.map((item): LiveInfo => {
     const prev = states.get(item.id);
+    const stale = isSourceStale(item, now * 1000);
     if (!prev) {
-      write(item, null);
+      write(item, null, stale);
       return { ...item, changedAt: iso(now), changeObserved: false, prevWaitMinutes: null };
     }
     if (prev.wait !== item.waitMinutes || prev.status !== item.status) {
-      write(item, prev.wait);
+      write(item, prev.wait, stale);
       return { ...item, changedAt: iso(now), changeObserved: true, prevWaitMinutes: prev.wait };
+    }
+    // Zelfde stand, maar de bron valt stil of komt weer terug: alleen die overgang in het verloop zetten.
+    // Begin van het grijze stuk = laatste update van de bron (niet vóór de laatste regel die we al hebben).
+    const prevStale = (prev.stale ?? 0) > 0;
+    if (stale !== prevStale) {
+      const lastMark = Math.abs(prev.stale ?? 0);
+      const at = stale ? Math.min(now, Math.max(prev.changed_at + 1, lastMark + 1, Math.floor(Date.parse(item.updatedAt as string) / 1000))) : now;
+      statements.push(
+        env.DB.prepare('UPDATE wait_state SET stale = ? WHERE park_id = ? AND entity_id = ?').bind(stale ? at : -at, parkId, item.id),
+        env.DB.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)').bind(
+          parkId, item.id, at, item.waitMinutes, stale ? 'stale' : item.status,
+        ),
+      );
     }
     return {
       ...item,
