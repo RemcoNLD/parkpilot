@@ -650,10 +650,127 @@ function planHeader(): HTMLElement {
     h('button', { class: 'icon-btn', 'aria-label': 'Instellingen', onclick: openSettings }, icon('gear', 20)));
 }
 
+// ---- Mijn programma: vegen (links = afstrepen, rechts = navigeren) ---------------------------
+
+let swipeBusy = false;
+let renderPending = false;
+const SWIPE_TRIGGER = 80; // pixels voordat een veeg telt
+
+/** Afgestreepte favorieten per park, alleen voor vandaag (Parijse datum) en alleen op dit toestel. */
+function doneKey(): string { return `pp.done.${state.parkId}`; }
+function doneSet(): Set<string> {
+  try {
+    const v = JSON.parse(store.get(doneKey()) ?? 'null') as { date: string; ids: string[] } | null;
+    return v && v.date === todayStr() ? new Set(v.ids) : new Set();
+  } catch { return new Set(); }
+}
+function setDone(id: string, done: boolean): void {
+  const set = doneSet();
+  if (done) set.add(id); else set.delete(id);
+  store.set(doneKey(), JSON.stringify({ date: todayStr(), ids: [...set] }));
+  render();
+}
+
+/** Keuzemenu onderin het scherm. Tikken naast het menu of op de laatste knop sluit het. */
+function actionSheet(title: string, sub: string | null, options: { label: string; kind?: 'primary' | 'danger' | 'cancel'; run?: () => void }[]): void {
+  const overlay = h('div', { class: 'asheet-bg', role: 'dialog', 'aria-label': title });
+  const close = (): void => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.append(h('div', { class: 'asheet' },
+    h('div', { class: 'asheet-title' }, h('b', {}, title), sub ? h('span', {}, sub) : null),
+    ...options.map((o) => h('button', { class: `asheet-btn ${o.kind ?? ''}`.trim(), onclick: () => { close(); o.run?.(); } }, o.label))));
+  document.body.append(overlay);
+}
+
+function confirmDone(entity: EntityInfo): void {
+  const done = doneSet().has(entity.id);
+  actionSheet(entity.name, done ? 'Staat afgestreept als gezien.' : null, done
+    ? [{ label: 'Afstrepen ongedaan maken', kind: 'primary', run: () => setDone(entity.id, false) }, { label: 'Annuleren', kind: 'cancel' }]
+    : [{ label: 'Afstrepen als gezien', kind: 'primary', run: () => setDone(entity.id, true) }, { label: 'Annuleren', kind: 'cancel' }]);
+}
+
+/** Opent lopende navigatie in Apple Kaarten of Google Maps naar de attractie of show. */
+function chooseNavigation(entity: EntityInfo): void {
+  const loc = entity.location;
+  if (!loc) {
+    actionSheet(entity.name, 'Voor deze attractie of show is geen locatie bekend, dus navigeren kan niet.', [{ label: 'Oké', kind: 'cancel' }]);
+    return;
+  }
+  const dest = `${loc.lat},${loc.lng}`;
+  const go = (url: string): void => { window.location.href = url; };
+  actionSheet(`Lopen naar ${entity.name}`, 'Kies je kaarten-app', [
+    { label: 'Apple Kaarten', kind: 'primary', run: () => go(`https://maps.apple.com/?daddr=${dest}&dirflg=w`) },
+    { label: 'Google Maps', kind: 'primary', run: () => {
+      // Eerst de app zelf; staat die er niet op (de app blijft dan zichtbaar), dan de website.
+      go(`comgooglemaps://?daddr=${dest}&directionsmode=walking`);
+      setTimeout(() => { if (document.visibilityState === 'visible') go(`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=walking&dir_action=navigate`); }, 1500);
+    } },
+    { label: 'Annuleren', kind: 'cancel' },
+  ]);
+}
+
+/** Maakt een rij in Mijn programma veegbaar. Verticaal scrollen blijft gewoon werken (touch-action: pan-y). */
+function withSwipe(wrap: HTMLElement, entity: EntityInfo): HTMLElement {
+  const row = wrap.querySelector('.prow') as HTMLElement | null;
+  if (!row) return wrap;
+  if (doneSet().has(entity.id)) wrap.classList.add('done');
+  const track = h('div', { class: 'swipe' },
+    h('div', { class: 'swipe-bg nav' }, '➜ Navigeer'),
+    h('div', { class: 'swipe-bg seen' }, doneSet().has(entity.id) ? '↺ Niet gezien' : '✓ Gezien'));
+  row.replaceWith(track);
+  track.append(row);
+
+  let startX = 0, startY = 0, dx = 0, mode: 'idle' | 'maybe' | 'swipe' | 'scroll' = 'idle', pointer = -1, suppressClickUntil = 0;
+  row.addEventListener('click', (ev) => { if (Date.now() < suppressClickUntil) { ev.stopPropagation(); ev.preventDefault(); } }, { capture: true });
+  const reset = (): void => {
+    row.style.transition = 'transform .18s ease';
+    row.style.transform = '';
+    track.classList.remove('to-left', 'to-right');
+    mode = 'idle'; pointer = -1;
+    swipeBusy = false;
+    if (renderPending) { renderPending = false; setTimeout(render, 200); }
+  };
+  row.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startX = e.clientX; startY = e.clientY; dx = 0; mode = 'maybe'; pointer = e.pointerId;
+    row.style.transition = '';
+  });
+  row.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== pointer || mode === 'idle' || mode === 'scroll') return;
+    const mx = e.clientX - startX, my = e.clientY - startY;
+    if (mode === 'maybe') {
+      if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { mode = 'scroll'; return; }
+      if (Math.abs(mx) < 10) return;
+      mode = 'swipe'; swipeBusy = true;
+      try { row.setPointerCapture(pointer); } catch { /* niet ondersteund */ }
+    }
+    dx = Math.max(-140, Math.min(140, mx));
+    row.style.transform = `translateX(${dx}px)`;
+    track.classList.toggle('to-left', dx < 0);
+    track.classList.toggle('to-right', dx > 0);
+    track.classList.toggle('armed', Math.abs(dx) >= SWIPE_TRIGGER);
+  });
+  const end = (e: PointerEvent): void => {
+    if (e.pointerId !== pointer) return;
+    const wasSwipe = mode === 'swipe', d = dx;
+    reset();
+    track.classList.remove('armed');
+    if (!wasSwipe) return;
+    suppressClickUntil = Date.now() + 400; // de veeg telt niet ook als tik op de rij
+    if (d <= -SWIPE_TRIGGER) confirmDone(entity);
+    else if (d >= SWIPE_TRIGGER) chooseNavigation(entity);
+  };
+  row.addEventListener('pointerup', end);
+  row.addEventListener('pointercancel', (e) => { if (e.pointerId === pointer) reset(); });
+  return wrap;
+}
+
 function planNodes(): Node[] {
   const favs = state.entities.filter((e) => state.favorites.has(e.id));
   const ctx = { sort: state.prefs.sort, live: state.live, pos: state.pos };
-  const render1 = (e: EntityInfo): HTMLElement => (e.type === 'show' ? planShow(e) : planAttraction(e));
+  const planShowS = (e: EntityInfo): HTMLElement => withSwipe(planShow(e), e);
+  const planAttractionS = (e: EntityInfo): HTMLElement => withSwipe(planAttraction(e), e);
+  const render1 = (e: EntityInfo): HTMLElement => (e.type === 'show' ? planShowS(e) : planAttractionS(e));
   const showList = favs.filter((e) => e.type === 'show');
   const hidden = state.planShowsHidden && showList.length > 0;
   // Ingeklapt: één tikbare regel in plaats van de shows.
@@ -667,8 +784,8 @@ function planNodes(): Node[] {
   const shows = state.prefs.sort === 'name' ? [...showList].sort((x, y) => x.name.localeCompare(y.name, 'nl')) : showList.sort(byNextStart);
   const atts = sortEntities(favs.filter((e) => e.type === 'attraction'), ctx);
   const out: Node[] = [];
-  if (shows.length) out.push(showsTitle(), ...(hidden ? [] : shows.map(planShow)));
-  if (atts.length) out.push(h('h2', { class: 'ptitle' }, 'Attracties'), ...atts.map(planAttraction));
+  if (shows.length) out.push(showsTitle(), ...(hidden ? [] : shows.map(planShowS)));
+  if (atts.length) out.push(h('h2', { class: 'ptitle' }, 'Attracties'), ...atts.map(planAttractionS));
   return out;
 }
 
@@ -715,6 +832,7 @@ function locationNotice(): HTMLElement | null {
 // ---- Hoofdscherm -----------------------------------------------------------------------------
 
 function render(): void {
+  if (swipeBusy) { renderPending = true; return; } // niet verversen midden in een veeg
   const park = currentPark();
   document.documentElement.dataset.park = state.parkId;
   applyTheme();

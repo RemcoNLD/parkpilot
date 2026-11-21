@@ -368,3 +368,24 @@ main { padding: 2px 0 12px; }
 /* Smal scherm: bronleeftijd mag naar een tweede regel als sorteren + Shows niet passen */
 .pbar { flex-wrap: wrap; row-gap: 4px; }
 .pbar .pfresh { margin-left: auto; }
+
+/* Mijn programma: vegen. Links = afstrepen als gezien, rechts = navigeren */
+.swipe { position: relative; overflow: hidden; }
+.swipe .prow { position: relative; z-index: 1; background: var(--bg); touch-action: pan-y; }
+.swipe-bg { position: absolute; inset: 0; display: none; align-items: center; padding: 0 20px; font: 700 15px/1 var(--rounded); }
+.swipe-bg.nav { justify-content: flex-start; background: color-mix(in srgb, var(--accent) 30%, var(--bg)); color: var(--text); }
+.swipe-bg.seen { justify-content: flex-end; background: color-mix(in srgb, var(--low) 30%, var(--bg)); color: var(--text); }
+.swipe.to-right .swipe-bg.nav, .swipe.to-left .swipe-bg.seen { display: flex; }
+.swipe.armed.to-right .swipe-bg.nav { background: var(--accent); color: var(--on-accent); }
+.swipe.armed.to-left .swipe-bg.seen { background: var(--low); color: var(--bg); }
+.rowwrap.done .pname { text-decoration: line-through; }
+.rowwrap.done .prow { opacity: 0.5; }
+
+/* Keuzemenu onderin */
+.asheet-bg { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.4); display: flex; align-items: flex-end; justify-content: center; zoom: var(--z); }
+.asheet { width: 100%; max-width: 520px; padding: 10px 10px calc(env(safe-area-inset-bottom) + 10px); display: flex; flex-direction: column; gap: 8px; }
+.asheet-title { background: var(--raised); border-radius: 14px; padding: 14px; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+.asheet-title span { color: var(--muted); font-size: 14px; }
+.asheet-btn { background: var(--raised); border-radius: 14px; padding: 16px; font: 650 17px/1.2 var(--rounded); color: var(--text); text-align: center; }
+.asheet-btn.primary { color: var(--accent); }
+.asheet-btn.cancel { font-weight: 750; margin-top: 4px; }

@@ -3,6 +3,14 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.0',
+    date: '21 nov 2026',
+    changes: [
+      'Mijn programma: veeg een rij naar links om hem af te strepen als gezien (met bevestiging). Nog eens naar links vegen maakt het ongedaan. Geldt voor vandaag en alleen op dit toestel.',
+      'Mijn programma: veeg een rij naar rechts om te navigeren. Kies Apple Kaarten of Google Maps; de route is lopend.',
+    ],
+  },
+  {
     version: '0.7.1',
     date: '21 nov 2026',
     changes: ['Mijn programma: de grote tijd en wachttijd stonden in 0.7.0 mogelijk verschoven. Hersteld.'],
