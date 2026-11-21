@@ -110,7 +110,6 @@ const nl = {
   progEmpty: 'Voor deze dag zijn nog geen showtijden bekend. ParkPilot onthoudt de tijden die het ziet en kan er daarna een verwachting van maken.',
 
   // Mijn programma
-  backOverview: '‹ Overzicht',
   near: (name: string) => ` · bij ${name}`,
   swipeNav: '➜ Navigeer',
   swipeUnseen: '↺ Niet gezien',
@@ -167,7 +166,7 @@ const nl = {
   // Hoofdscherm
   loadingData: 'Gegevens laden…',
   noAttractions: 'Geen attracties gevonden voor dit park.',
-  emptyPlan: 'Je programma is nog leeg. Kies Overzicht en tik op het hartje bij attracties en shows die je wilt volgen.',
+  emptyPlan: 'Mijn dag is nog leeg. Kies Alles en tik op het hartje bij attracties en shows die je wilt volgen.',
   emptyClosed: 'Het park is dicht, dus er is nu niets open.',
   emptyFavs: 'Nog niets om te volgen. Tik op het hartje bij een attractie of show.',
   emptyFilter: 'Niets gevonden met dit filter.',
@@ -202,8 +201,8 @@ const nl = {
   seenHide: 'Afgestreepte verbergen',
   seen: 'Gezien',
   mode: 'Modus',
-  overview: 'Overzicht',
-  myPlan: 'Mijn programma',
+  overview: 'Alles',
+  myPlan: 'Mijn dag',
   view: 'Weergave',
   shows: 'Shows',
   following: (n: number) => `Volgend${n ? ` (${n})` : ''}`,
@@ -449,7 +448,6 @@ const en: Dict = {
   basisMixed: 'earlier days',
   progEmpty: 'No showtimes known for this day yet. ParkPilot remembers the times it sees and can make an estimate from them later.',
 
-  backOverview: '‹ Overview',
   near: (name) => ` · near ${name}`,
   swipeNav: '➜ Navigate',
   swipeUnseen: '↺ Not seen',
@@ -503,7 +501,7 @@ const en: Dict = {
 
   loadingData: 'Loading data…',
   noAttractions: 'No attractions found for this park.',
-  emptyPlan: 'Your plan is still empty. Choose Overview and tap the heart on attractions and shows you want to follow.',
+  emptyPlan: 'My day is still empty. Choose All and tap the heart on attractions and shows you want to follow.',
   emptyClosed: 'The park is closed, so nothing is open right now.',
   emptyFavs: 'Nothing to follow yet. Tap the heart on an attraction or show.',
   emptyFilter: 'Nothing found with this filter.',
@@ -538,8 +536,8 @@ const en: Dict = {
   seenHide: 'Hide seen',
   seen: 'Seen',
   mode: 'Mode',
-  overview: 'Overview',
-  myPlan: 'My plan',
+  overview: 'All',
+  myPlan: 'My day',
   view: 'View',
   shows: 'Shows',
   following: (n) => `Following${n ? ` (${n})` : ''}`,

@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:05** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:25** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,9 +14,10 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:05** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.13.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~14:05, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.14.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~14:25, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`) én Engels (`en`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Tweetalig (sinds 0.13.0):** elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en). Nooit meer losse Nederlandse teksten in `main.ts`; zie 6.9.
+- **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
 
@@ -164,13 +165,14 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - Kop met parknaam, open/dicht-status, skyline-art, drie tegels:
   - **Storingstegel (links):** drie grote getallen, **geen labels**: groen = open, rood = storing, grijs = onderhoud. Park dicht: open = 0, storing = "–". Tik opent de **storingspagina** (Storing / Onderhoud / Tijdelijk dicht met duur, "al minstens …" als het al liep vóór de meting). **Knippert rood** bij iets nieuws sinds het laatste bezoek.
   - Midden en rechts: gemiddelde en kortste wachttijd, **zonder "min"**.
-- Segmentknop **Overzicht | Mijn programma**, tabs Attracties / Shows / Volgend, sorteerchips (Wachttijd, Afstand, Naam), filter "Alleen open" (houdt rekening met gesloten park). Shows-tab heeft een **dagkeuze** (zie 7.3).
+- **Schakelaar Alles | Mijn dag (sinds 0.14.0):** klein pilvormig keuzeknopje linksboven (`viewSwitch()`, CSS `.vswitch`), in beide schermen op exact dezelfde plek (`.phead` heeft dezelfde padding als `.hero-top`), rechts daarvan de icoontjes. Vervangt de grote segmentknop en de knop "‹ Overzicht". Op Remco's verzoek (14:12): "Maak de switch tussen programma en overzicht beter … Knoppen of andere manier om te switchen bovenaan. De toggles kleiner en compacter." Namen gekozen door Remco uit voorstellen. "ParkPilot v…" staat nu klein onder de schakelaar. Parkknoppen, tabbladen (`.nav .segments`) en chips zijn kleiner.
+- Tabs Attracties / Shows / Volgend, sorteerchips (Wachttijd, Afstand, Naam), filter "Alleen open" (houdt rekening met gesloten park). Shows-tab heeft een **dagkeuze** (zie 7.3).
 - Rij: ring met wachttijd (<20 groen, <45 oranje, anders rood), naam, soortregel, afstand/looptijd, bronleeftijd. Storing = rood uitroepteken zonder ring; onderhoud = grijze moersleutel zonder ring; park dicht = gedimd met maantje.
 - **Tik op wachttijd/showtijd** klapt de rij uit. Bij attracties met single rider staat bovenin het uitklappen "Single rider" met de wachttijd (alleen getal, kleur per niveau) of "geen wachttijd bekend"; alleen als de attractie open is en het park open. Geldt in Overzicht én Mijn programma (`singleRiderLine()`). Ook in het detailvenster bij de feiten. **Tik op de naam** opent het detailvenster.
 - **Geen omschrijvingen in lijsten.**
 
 ### 6.3 Mijn programma
-- Kleine kop: "‹ Overzicht", park en "bij <dichtstbijzijnde attractie binnen 400 m>", ↻ en instellingen. Compacte sorteerschakelaar en bronleeftijd rechts (rood als niet vers; offline-melding).
+- Kleine kop: schakelaar Alles | Mijn dag, park en "bij <dichtstbijzijnde attractie binnen 400 m>", ↻ en instellingen. Compacte sorteerschakelaar en bronleeftijd rechts (rood als niet vers; offline-melding).
 - Alleen favorieten. **Shows bovenaan** (Wachttijd/Naam); bij **Afstand** alles door elkaar.
 - **Shows inklappen (sinds 0.7.0):** knopje "Shows" naast de sorteerschakelaar (alleen als je shows volgt) of tik op de kop "Shows ▾". Ingeklapt staat er één tikbare regel "Shows (N) ▸" bovenaan, ook bij Afstand. Onthouden in localStorage `pp.planShows`. Op een smal scherm mag de bronleeftijd naar een tweede regel.
 - **Attractierij:** naam, afstand/looptijd eronder, rechts wachttijd **groot, alleen getal**, ▲ rood / ▼ groen met verschil.
@@ -297,6 +299,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.14.0 (21 nov 2026), door Remco te controleren:** schakelaar Alles | Mijn dag linksboven, verspringt niet bij wisselen; kleinere parkknoppen/tabbladen/chips prettig op zijn iPhone? Bekeken in Chrome-screenshots (licht/donker, nl/en), niet op een iPhone.
 
 **0.13.0 (21 nov 2026), door Remco te controleren:** app volgt de taal van zijn iPhone (Nederlands); Instellingen > Taal > EN zet alles in het Engels, ook na afsluiten; Auto zet het terug. Lezen de Engelse teksten goed, passen knoppen en kopjes nog (Engels is soms langer)?
 
@@ -427,6 +431,18 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
    - **Elke tekst meteen in alle talen opslaan**, ook omschrijvingen, changelog-regels en meldingen; niet later bijvertalen.
    - Taalkeuze op de ParkPilot-manier: Auto = telefoontaal, anders Engels, bij elke start opnieuw bepalen; schakelaar in Instellingen (Auto + per taal); tijden, datums en decimalen per taal.
 
+### 15.4 Ontwerpregels voor elke app (vanaf de eerste versie)
+*(Op verzoek van Remco, 21 nov 2026 14:14: "Zorg dat dit soort design keuzes in de framework instructies opgenomen worden. Het instellingenscherm nu echt prettig maar was dat niet." Bedoeling: deze keuzes meteen goed doen in een nieuwe app, niet pas na een paar rondes.)* Alles hieronder is in ParkPilot door Remco gevraagd of goedgekeurd.
+
+1. **Instellingenscherm in iOS-stijl, compact vanaf het begin** (ParkPilot 0.12.1): groepen met een kopje in kleine hoofdletters; per instelling één regel met label links en keuze rechts (segmentknop of keuzelijst); uitleg niet in beeld maar achter een ronde **(i)** die openklapt; zeldzame onderdelen (koppelcode, wat is er nieuw) inklapbaar; versie + "Zoek update" onderaan in de groep Over. Code: `row()`/`group()` in `openSettings()`, CSS `.set-*`.
+2. **Schakelen tussen hoofdschermen met één kleine pilvormige schakelaar bovenaan** (0.14.0), in elk scherm op **exact dezelfde plek** (zelfde padding/hoogte), zodat er niets verspringt. Geen grote segmentknoppen of "‹ terug"-knoppen voor gelijkwaardige schermen.
+3. **Namen die zeggen wat je ziet**, kort (bijv. "Alles" / "Mijn dag"), niet naar een moment ("Voorbereiding") als het scherm ook op andere momenten gebruikt wordt. Bij twijfel: 2 à 4 voorstellen geven en Remco laten kiezen.
+4. **Toggles, tabbladen en chips klein en compact:** knophoogte ~30 px, tekst 13–14 px, weinig ruimte ertussen. Grote knoppen alleen voor de belangrijkste actie op een scherm.
+5. **Getallen boven labels:** geen eenheden of labels waar het getal duidelijk is (wachttijd zonder "min", storingstegel zonder tekst). Zie hoofdstuk 10.
+6. **Alles verticaal uitgelijnd:** reserveer vaste ruimte voor extra's (badges, pijltjes) zodat kolommen niet verspringen.
+7. **Keuzes en bevestigingen via een keuzemenu onderin** (`actionSheet()`), niet via browser-popups.
+8. **Elke UI-wijziging eerst zelf bekijken** met de screenshot-tool (hoofdstuk 3), in licht én donker en in elke taal, en letten op verspringen, afgekapte tekst en uitlijning, vóór het naar Remco gaat.
+
 ---
 
 ## 16. Logboek
@@ -435,6 +451,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 14:25 — versie 0.14.0:** Overzicht → "Alles", Mijn programma → "Mijn dag" (Remco koos uit vier voorstellen); kleine schakelaar linksboven op dezelfde plek in beide schermen; parkknoppen, tabbladen en chips compacter. Op Remco's verzoek (14:14) ontwerpregels vastgelegd als framework-instructies (15.4).
 - **21 nov 2026, 14:02:** Remco: meertaligheid is een framework feature; bij elke nieuwe app eerst vragen welke talen, alles meteen vertaald opslaan (15.3 punt 14).
 - **21 nov 2026, 14:05 — versie 0.13.0:** Engelse taal (6.9): volgt de telefoontaal, terugval Engels, elke start opnieuw bepaald; schakelaar Auto/NL/EN in Instellingen. Alle teksten naar `i18n.ts`, omschrijvingen en changelog vertaald. Worker stuurt bij verwachte showtijden ook `basis` (taalloos); test uitgebreid (31 × ok). Screenshot-tool kreeg `PP_LANG` en scenario's `main`/`lang`.
 - **21 nov 2026, 13:55 — versie 0.12.2:** wachttijdverloop bewaard op het toestel; grijs met tijdstip als niet actueel, vanzelf bijgewerkt bij weer bereik (6.5).

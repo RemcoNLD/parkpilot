@@ -8,6 +8,18 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.14.0',
+    date: '2026-11-21',
+    changes: [
+      'Overzicht heet nu "Alles" en Mijn programma heet "Mijn dag". Wisselen doe je met de kleine schakelaar linksboven, die in beide schermen op dezelfde plek staat.',
+      'Parkknoppen, tabbladen en sorteerknoppen zijn kleiner en compacter.',
+    ],
+    en: [
+      'Overview is now called "All" and My plan is now "My day". Switch with the small toggle at the top left, which is in the same place on both screens.',
+      'Park buttons, tabs and sort buttons are smaller and more compact.',
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-11-21',
     changes: [

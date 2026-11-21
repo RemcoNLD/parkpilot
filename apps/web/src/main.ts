@@ -727,10 +727,18 @@ function nearestName(): string | null {
   return best && best.d <= 400 ? best.name : null;
 }
 
+/** Schakelaar bovenin, in beide schermen op dezelfde plek: Alles (hele park) of Mijn dag (favorieten). */
+function viewSwitch(): HTMLElement {
+  const plan = state.view === 'plan';
+  return h('div', { class: 'vswitch', role: 'group', 'aria-label': T.mode },
+    h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, T.overview),
+    h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, T.myPlan));
+}
+
 function planHeader(): HTMLElement {
   const near = nearestName();
   return h('header', { class: 'phead' },
-    h('button', { class: 'pback', onclick: () => setView('full') }, T.backOverview),
+    viewSwitch(),
     h('div', { class: 'ploc' }, h('b', {}, currentPark()?.shortName ?? ''), near ? T.near(near) : ''),
     refreshButton(),
     h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 20)));
@@ -1103,12 +1111,13 @@ function render(): void {
     sim.on ? h('div', { class: 'simbar' }, T.simBar, h('button', { onclick: () => void setSim(false) }, T.stop)) : null,
     plan ? planHeader() : h('header', { class: 'hero' },
       h('div', { class: 'hero-top' },
-        h('div', { class: 'brand' }, 'ParkPilot', h('span', { class: 'ver' }, `v${APP_VERSION}`)),
+        viewSwitch(),
         h('div', { class: 'top-actions' },
           refreshButton(),
           h('button', { class: 'icon-btn aa', 'aria-label': state.density === 'compact' ? T.biggerText : T.compactText, onclick: () => setDensity(state.density === 'compact' ? 'comfortable' : 'compact') }, 'Aa'),
           h('button', { class: 'icon-btn', 'aria-label': dark ? T.toLight : T.toDark, onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', 22)),
           h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 22)))),
+      h('div', { class: 'brand' }, 'ParkPilot', h('span', { class: 'ver' }, `v${APP_VERSION}`)),
       state.parks.length > 1
         ? h('div', { class: 'parks', role: 'group', 'aria-label': T.park },
             ...state.parks.map((p) => h('button', { class: 'park-pill', 'aria-pressed': p.id === state.parkId, onclick: () => switchPark(p.id) }, p.shortName)))
@@ -1140,9 +1149,6 @@ function render(): void {
           : null),
       h('div', { class: `pfresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}` },
         offline ? T.pOffline(age) : state.error ? T.pError(age) : state.fromCache ? T.pCached(age) : T.srcAgo(agoLabel(state.sourceUpdatedAt ?? state.generatedAt)))) : h('nav', { class: 'nav' },
-      h('div', { class: 'segments', role: 'group', 'aria-label': T.mode },
-        h('button', { 'aria-pressed': !plan, onclick: () => setView('full') }, T.overview),
-        h('button', { 'aria-pressed': plan, onclick: () => setView('plan') }, T.myPlan)),
       plan ? null : h('div', { class: 'segments sub', role: 'group', 'aria-label': T.view },
         h('button', { 'aria-pressed': state.tab === 'attractions', onclick: () => setTab('attractions') }, T.attractions),
         h('button', { 'aria-pressed': state.tab === 'shows', onclick: () => setTab('shows') }, T.shows),

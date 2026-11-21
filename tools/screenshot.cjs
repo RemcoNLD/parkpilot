@@ -80,6 +80,9 @@ const api = {
     await page.screenshot({ path: `${OUT}/main-${theme}-${locale}-open.png` });
     await page.click('.row-open'); await page.waitForTimeout(600);
     await page.screenshot({ path: `${OUT}/detail-${theme}-${locale}.png` });
+    await page.mouse.click(195, 40); await page.waitForTimeout(300);
+    await page.click('.vswitch button:nth-of-type(2)'); await page.waitForTimeout(500);
+    await page.screenshot({ path: `${OUT}/plan-${theme}-${locale}.png` });
     await browser.close();
     return;
   }
