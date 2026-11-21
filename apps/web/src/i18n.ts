@@ -210,6 +210,11 @@ const nl = {
   gamePending: 'Geen verbinding: je score wordt later opgeslagen.',
   gamePaused: 'Gepauzeerd',
   gameResume: 'Verder',
+  gameNeverAsk: 'Niet meer vragen',
+  gameSetting: 'Spelletje',
+  gameAskYes: 'Vragen',
+  gameAskNo: 'Niet',
+  gameSettingInfo: 'Na het inchecken in een rij vraagt de app of je Ballonvlucht wilt spelen. Staat dit op "Niet", dan kun je nog steeds spelen via een tik op de rijbalk onderin.',
 
   // Locatie
   locatingNotice: 'Locatie bepalen…',
@@ -603,6 +608,11 @@ const en: Dict = {
   gamePending: 'No connection: your score will be saved later.',
   gamePaused: 'Paused',
   gameResume: 'Resume',
+  gameNeverAsk: "Don't ask again",
+  gameSetting: 'Game',
+  gameAskYes: 'Ask',
+  gameAskNo: 'Off',
+  gameSettingInfo: 'After checking in to a queue, the app asks if you want to play Balloon Flight. When set to "Off", you can still play by tapping the queue bar at the bottom.',
 
   locatingNotice: 'Getting your location…',
   locDeniedNotice: 'ParkPilot is not allowed to use your location. Turn it on in your iPhone Settings, under Privacy & Security, Location Services. Then open the app again.',
@@ -987,6 +997,11 @@ const pt: Dict = {
   gamePending: 'Sem ligação: a pontuação será guardada mais tarde.',
   gamePaused: 'Em pausa',
   gameResume: 'Continuar',
+  gameNeverAsk: 'Não perguntar mais',
+  gameSetting: 'Jogo',
+  gameAskYes: 'Perguntar',
+  gameAskNo: 'Não',
+  gameSettingInfo: 'Depois de entrar numa fila, a app pergunta se quer jogar Voo de Balão. Com "Não", pode jogar na mesma tocando na barra da fila em baixo.',
 
   locatingNotice: 'A obter a sua localização…',
   locDeniedNotice: 'O ParkPilot não tem permissão para usar a sua localização. Ative-a nas Definições do iPhone, em Privacidade e segurança, Serviços de localização. Depois abra a app de novo.',

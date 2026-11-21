@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:45** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:35** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 16:45** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.17.0` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:45 (commit ac467f7), nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.17.1` (`packages/shared/src/version.ts` en `package.json`), gepusht naar `main` op 21 nov 2026 ~16:35, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`), Engels (`en`) én Portugees (`pt`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Meertalig:** Nederlands, Engels (sinds 0.13.0) en Portugees (sinds 0.16.0). Elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en + pt). Nooit losse teksten in `main.ts`; nieuwe teksten altijd in alle drie de talen; zie 6.9.
 - **Schermnamen (sinds 0.14.0):** "Alles" (was Overzicht, Engels All) en "Mijn dag" (was Mijn programma, Engels My day). In code en dit document heten ze nog `full`/Overzicht en `plan`/Mijn programma.
@@ -152,7 +152,7 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - De live-route leest D1, schrijft niet.
 
 ### Frontend-state en opslag
-- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.lang` (alleen bij een vaste taalkeuze), `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`), `pp.hist.<park>` (wachttijdverloop van vandaag, zie 6.5), `pp.queue` (rij waar je nu in staat) en `pp.queueLog` (afgeronde rijen van vandaag), zie 6.10; `pp.gameName`, `pp.gameBest` (record per naam) en `pp.gamePending` (nog niet verstuurde scores), zie 6.11. Alles in try/catch via een `store` helper.
+- localStorage: `pp.cache.<park>`, `pp.parks`, `pp.park`, `pp.pos`, `pp.theme`, `pp.lang` (alleen bij een vaste taalkeuze), `pp.density`, `pp.sim`, `pp.issuesSeen.<park>` (+ `.sim.`), `pp.hist.<park>` (wachttijdverloop van vandaag, zie 6.5), `pp.queue` (rij waar je nu in staat) en `pp.queueLog` (afgeronde rijen van vandaag), zie 6.10; `pp.gameName`, `pp.gameAsk` (`never` = niet vragen), `pp.gameBest` (record per naam) en `pp.gamePending` (nog niet verstuurde scores), zie 6.11. Alles in try/catch via een `store` helper.
 - Service worker (`public/sw.js`): app-schil offline; `/api/*` niet bewaard. Navigatie netwerk-eerst met 5 s time-out, rest stale-while-revalidate.
 
 ---
@@ -256,12 +256,13 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 ### 6.11 Spelletje tijdens het wachten (sinds 0.17.0)
 - Op verzoek van Remco (16:14): "voeg een leuke minigame toe die niet te duur is en vraag bij het inchecken of gebruiker dat wil tijdens wachten. Laat naam opgeven en hou hiscores bij."
 - **Ballonvlucht** (en Balloon Flight, pt Voo de Balão), eigen ontwerp in de stijl van Flappy Bird: tik = ballon stijgt, zwaartekracht trekt omlaag, vlieg tussen kasteeltorens door; elke toren = 1 punt. Wordt langzaam sneller en de opening kleiner. Plafond is veilig, grond en torens niet. Kleuren uit het thema (licht/donker × park).
-- **Vraag bij inchecken:** na het kiezen van de rij een keuzemenu "Spelletje tijdens het wachten?" met Spelen / Nee, dank je. Elke keer (er is geen "niet meer vragen"; bewust niet meer gebouwd dan gevraagd). Later spelen: tik op de rijbalk → "Spelletje spelen".
+- **Vraag bij inchecken:** na het kiezen van de rij een keuzemenu "Spelletje tijdens het wachten?" met Spelen / **Niet meer vragen** (sinds 0.17.1) / Nee, dank je. "Niet meer vragen" zet `pp.gameAsk` = `never` (alleen dit toestel). Weer aanzetten: Instellingen > Shows en lopen > **Spelletje: Vragen / Niet** (met (i)-uitleg; geen eigen groep om het scherm compact te houden). Spelen kan altijd: tik op de rijbalk → "Spelletje spelen".
 - **Scherm:** volledig scherm boven de app. Bovenin: ✕, naam van de attractie, lopende wachttijd (elke seconde) en de knop **Aan de beurt** (sluit het spel en zet de rij op aan de beurt). Daaronder het speelveld met kaartjes voor menu / pauze / einde.
 - **Naam:** gevraagd vóór het eerste potje (invoerveld, max 16 tekens), onthouden in `pp.gameName`, te wijzigen via "wijzig". Start is uitgeschakeld zolang er geen naam is.
 - **Hiscores:** gedeeld voor iedereen (server, tabel `game_scores`), top 10, eigen naam gemarkeerd. Persoonlijk record per naam op het toestel (`pp.gameBest`). **Zuinig:** de app stuurt alleen een score in als die beter is dan het eigen record op dit toestel → hooguit een paar D1-schrijfacties per dag. Lijst ophalen alleen bij openen van het spel. Zonder bereik: score in `pp.gamePending`, opnieuw geprobeerd bij het volgende openen van het spel; melding "wordt later opgeslagen".
 - **Batterij:** de animatie (requestAnimationFrame, tijdstap-gebaseerd zodat 60 en 120 Hz even snel zijn) draait alleen tijdens een potje; app naar de achtergrond = pauze. Canvas op max. 2× pixeldichtheid.
 - Code: `apps/web/src/game.ts` (`openGame(hooks)`); koppeling in `main.ts` (`checkIn` → vraag, `playGame()`, optie in `queueOptions`); teksten `game…` in `i18n.ts`; CSS-blok "Spelletje" onderaan `style.css`; `fetchGameScores`/`postGameScore` in `api.ts`.
+- **Misbruik voorkomen (advies aan Remco, 21 nov 2026 16:35, niet gebouwd):** een nepscore insturen kan nu met één zelfgemaakt verzoek. Opties, oplopend in moeite: (1) plausibiliteitscontrole op de server (score past bij de speelduur: max. ~1 toren per 1,2 s, app stuurt duur mee) + strengere limiet: klein, ~1 uur, houdt alleen luie valsspelers tegen; (2) potje-sessie: server geeft bij start een id + starttijd, controleert bij insturen de echte verstreken tijd: middel, ~2–3 uur, 1 extra schrijfactie per potje; (3) server speelt het potje na uit seed + tik-tijdstippen (deterministische physics gedeeld tussen app en Worker): groot, 1–2 dagen, eigenlijk alleen zinvol bij publiek gebruik; (4) beheer: knop om een score te verwijderen met een geheim: klein. Waterdicht is het nooit (de app draait op de telefoon van de speler). Advies: niets of (1)+(4) zolang het alleen bekenden zijn. Ook: namen zijn vrij in te vullen (iemand kan "Remco" kiezen); scheldwoorden worden niet gefilterd.
 - Bekende zwaktes: iedereen kan een nepscore insturen met een eigen verzoek (geen controle op de server; prima voor persoonlijk gebruik). Eén persoon kan met verschillende namen meerdere plekken innemen. Moeilijkheid (zwaartekracht, snelheid, opening) is door Claude gekozen en niet door een mens gespeeld; misschien te makkelijk of te moeilijk. Bijstellen: constanten in `game.ts` (`H * 2.2`, `-H * 0.62`, `speed()`, `gapSize()`).
 - Getest in Chrome-screenshots (licht/nl, donker/nl, licht/pt): vraag, naam, menu, potje, einde met hiscores. Niet op een iPhone: of tikken snel genoeg reageert, of het toetsenbord bij het naamveld het kaartje goed laat zien, en of de veilige zones (notch, thuisbalk) kloppen.
 
@@ -327,6 +328,8 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
 **0.10.0 (21 nov 2026), door Remco te controleren:** knop "Gezien", regel "Afgestreept (N)", past de balk met drie knoppen nog op zijn scherm.
+
+**0.17.1 (21 nov 2026), door Remco te controleren:** "Niet meer vragen" bij inchecken; Instellingen > Spelletje zet het terug.
 
 **0.17.0 (21 nov 2026), door Remco te controleren:** inchecken → vraag om te spelen; naam opgeven; is Ballonvlucht leuk en niet te moeilijk/makkelijk; Aan de beurt bovenin het spel; komt je score in de hiscores (ook na geen bereik)?
 
@@ -488,6 +491,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 16:35 — versie 0.17.1:** Remco: "Voeg toe niet meer vragen als minor update en geef advies hoe ingewikkeld het is om misbruik te voorkomen." Optie "Niet meer vragen" + schakelaar in Instellingen; advies over misbruik vastgelegd in 6.11. Screenshots: vraag (licht/nl), instellingen (licht/nl, donker/pt).
 - **21 nov 2026, 16:45 — versie 0.17.0:** Remco: minigame die niet te duur is, vraag bij inchecken, naam en hiscores. Gebouwd: Ballonvlucht (6.11), gedeelde hiscores (migratie 0006, `/api/game/...`), 2 nieuwe tests (33 × ok), screenshot-scenario `game`. Keuzes zelf gemaakt en gemeld: soort spel, gedeelde lijst (niet alleen op het toestel), elke keer vragen.
 - **21 nov 2026, 16:15 — versie 0.16.0:** Remco: "Lees handover en voeg Portugees toe." Portugees (pt-PT) als derde taal: woordenboek in `i18n.ts`, alle omschrijvingen/tips in `info.ts` (tuples nu `[nl, en, pt]`), alle changelog-versies. Twee labels ingekort na screenshots (afgekapt). 31 × ok, typechecks ok. Gekozen voor Europees Portugees zonder het te vragen; gemeld aan Remco.
 - **21 nov 2026, 15:01 — versie 0.15.0 live:** Remco: "Probeer het opnieuw." Nieuwe chat: `add_repo` werkte nu. De lokale commit uit de vorige chat was weg, dus 0.15.0 opnieuw gebouwd volgens 6.10 en rechtstreeks naar `main` gepusht (commit f1f5bc0). 31 × ok, typechecks ok, screenshots licht/nl en donker/en bekeken. De eerder geleverde zip is daarmee overbodig.

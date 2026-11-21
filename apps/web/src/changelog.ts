@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.1',
+    date: '2026-11-21',
+    changes: ['Bij de vraag om te spelen na het inchecken staat nu "Niet meer vragen". Weer aanzetten: Instellingen > Spelletje > Vragen.'],
+    en: ['The question to play after checking in now has "Don\'t ask again". To turn it back on: Settings > Game > Ask.'],
+    pt: ['A pergunta para jogar depois de entrar na fila tem agora "Não perguntar mais". Para voltar a ativar: Definições > Jogo > Perguntar.'],
+  },
+  {
     version: '0.17.0',
     date: '2026-11-21',
     changes: [

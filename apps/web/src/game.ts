@@ -25,6 +25,9 @@ const store = {
 const json = <V>(k: string, fallback: V): V => { try { return (JSON.parse(store.get(k) ?? 'null') as V) ?? fallback; } catch { return fallback; } };
 
 export const getGameName = (): string => store.get('pp.gameName') ?? '';
+/** Vragen om te spelen na het inchecken? "Niet meer vragen" zet dit uit; Instellingen zet het terug. */
+export const gameAskOn = (): boolean => store.get('pp.gameAsk') !== 'never';
+export const setGameAsk = (on: boolean): void => { try { if (on) localStorage.removeItem('pp.gameAsk'); else localStorage.setItem('pp.gameAsk', 'never'); } catch { /* geen opslag */ } };
 const setGameName = (n: string): void => store.set('pp.gameName', n);
 /** Persoonlijk record per naam, op dit toestel. */
 const bests = (): Record<string, number> => json<Record<string, number>>('pp.gameBest', {});

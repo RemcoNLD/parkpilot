@@ -27,7 +27,7 @@ import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMet
 import { icon, iconForKind } from './icons';
 import { blurbFor } from './info';
 import { kindArt } from './kindart';
-import { openGame } from './game';
+import { gameAskOn, openGame, setGameAsk } from './game';
 import { simulateHistory, simulateLive, simulateSchedule } from './sim';
 import { distanceOf, nextStartMs, sortEntities } from './logic';
 import { applyTheme, effectiveTheme, getPref, setPref, watchSystemTheme, type ThemePref } from './theme';
@@ -1069,8 +1069,10 @@ function chooseLine(entity: EntityInfo): void {
 function checkIn(entity: EntityInfo, line: QueueLine, expected: number | null): void {
   saveQueue({ id: entity.id, parkId: state.parkId, name: entity.name, line, expected, start: Date.now(), turnAt: null });
   render();
+  if (!gameAskOn()) return;
   actionSheet(T.gameAsk, T.gameAskBody, [
     { label: T.gamePlay, kind: 'primary', run: playGame },
+    { label: T.gameNeverAsk, run: () => setGameAsk(false) },
     { label: T.gameNoThanks, kind: 'cancel' },
   ]);
 }
@@ -1790,6 +1792,15 @@ function openSettings(): void {
   };
   paintSim();
 
+  // Spelletje: na het inchecken vragen of niet (game.ts)
+  const gameBox = h('div', { class: 'segments', role: 'group', 'aria-label': T.gameSetting });
+  const paintGame = (): void => {
+    gameBox.replaceChildren(
+      h('button', { 'aria-pressed': gameAskOn(), onclick: () => { setGameAsk(true); paintGame(); } }, T.gameAskYes),
+      h('button', { 'aria-pressed': !gameAskOn(), onclick: () => { setGameAsk(false); paintGame(); } }, T.gameAskNo));
+  };
+  paintGame();
+
   // Shows
   const marginOptions = [0, 5, 10, 15, 20, 30, 45, 60];
   const speeds: [number, string][] = [[3.5, T.paceRelaxed], [4.5, T.paceNormal], [5.5, T.paceBrisk]];
@@ -1890,7 +1901,8 @@ function openSettings(): void {
     group(T.gShows,
       row(T.marginLabel, marginSelect, T.marginInfo),
       row(T.walkPace, speedSelect),
-      row(T.location, h('span', { class: 'set-value' }, T.oncePerLaunch), T.locInfo)),
+      row(T.location, h('span', { class: 'set-value' }, T.oncePerLaunch), T.locInfo),
+      row(T.gameSetting, gameBox, T.gameSettingInfo)),
     group(T.gServer,
       row(T.history, trackBox, T.histInfo),
       trackMsg.el,
