@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 09:15** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 11:00** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 09:15** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.5.0` (`packages/shared/src/version.ts` en `package.json`). **Op 21 nov 2026 bevestigde Remco: "Versie 0.5.0 is in orde."** Volgende app-levering wordt `0.6.0`.
+- **Versie in de code:** `0.6.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~11:00, nog niet door Remco bevestigd. 0.5.0 was op 21 nov bevestigd.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
 - **Werkwijze sinds 21 nov 2026:** Claude commit zelf naar GitHub; Remco werkt vanaf zijn telefoon (zie 4.1).
 
@@ -48,8 +48,8 @@ Wat in de sessies tot nu toe gold (kan anders zijn in een nieuwe chat, controlee
 - **Bash had geen algemeen netwerk.** Geen `npm install`, geen `vite build`, geen `wrangler`. Wel `tsc` en Node 22 (met `node:sqlite`). Git naar GitHub loopt via een eigen proxy en werkt wel (4.1). Package-installs vereisen dat Remco netwerktoegang in zijn instellingen aanzet (werkt pas in een nieuwe chat).
 - **WebFetch/WebSearch** werken, maar `api.themeparks.wiki` stond niet op de allowlist en Wikipedia was niet bereikbaar. Live API-gedrag is nooit zelf gezien, alleen afgeleid uit documentatie en screenshots van Remco.
 - **Gevolg:** de frontend is wel getypecheckt maar **nooit gebouwd of in een browser uitgeprobeerd door Claude**. Zeg dat eerlijk in elke oplevering ("niet op een telefoon bekeken").
-- Typecheck frontend: `tsc -p apps/web 2>&1 | grep -E "^apps|^packages" | grep -vE "vite|style.css"`.
-- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: 28 × `ok` en "alles ok".** Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
+- Typecheck frontend: zit nu in `bash tools/test-worker.sh` (stap "typecheck app", via `tools/tsconfig.web.json` + `tools/vite-shim.d.ts`). De oude filtermethode (`tsc -p apps/web | grep ...`) verborg echte fouten omdat de ontbrekende vite-types de check verstoorden; niet meer gebruiken.
+- **Worker typecheck + test:** `bash tools/test-worker.sh`. Doet: typecheck van `worker/src` met `tools/cf-shim.d.ts` (minimale Cloudflare-typen, geen `npm install` nodig), compileert naar `.test-build/` (CommonJS, staat in `.gitignore`) en draait `tools/worker-test.cjs`: nep-D1 met `node:sqlite` en de echte migraties, nep-`fetch` voor ThemeParks.wiki met vaste nepdata op de Parijse datum. **Verwacht: drie geslaagde typechecks (worker, app), 28 × `ok` en "alles ok".** Opnieuw opgebouwd op 21 nov 2026 (de oude `tools/` stond nooit in de repo). Gedekt: health/versie, parken, entiteiten, live (alleen lezen), schema, profiel, favorieten, voorkeuren, koppelcodes (sterk, eigen, 409, 404, rate limit), tracking-modi (uit / overdag met park dicht / open), cron-schrijfgedrag, wijzigingsdetectie, historie, showprogramma (bron vandaag, verwacht morgen), datumgrenzen. Showtijden in de nepdata staan om 12:00 en 23:00 Parijse tijd, zodat de test rond middernacht niet omvalt.
 - tsc in de sandbox was versie 7 (Go-versie): `moduleResolution: node` bestaat daar niet meer; de test-tsconfig laat die optie daarom weg.
 - Gebruikte ontwerpconventie: geen framework; DOM-helpers `h()` en `svg()` in `apps/web/src/dom.ts`.
 - Dit document staat in het claude.ai-project én als `HANDOVER.md` in de repo. Houd beide gelijk; het projectdocument is leidend als ze verschillen.
@@ -112,7 +112,7 @@ parkpilot/
 │       ├─ info.ts   omschrijvingen/lengtes/gebied/jaar
 │       ├─ sim.ts    simulatiestand (verzonnen data)
 │       └─ style.css
-└─ tools/  test-worker.sh, worker-test.cjs, tsconfig.worker.json, tsconfig.test.json, cf-shim.d.ts
+└─ tools/  test-worker.sh, worker-test.cjs, tsconfig.worker.json, tsconfig.test.json, tsconfig.web.json, cf-shim.d.ts, vite-shim.d.ts
 ```
 
 De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste uploads) zijn op 21 nov 2026 verwijderd; ze werden niet door de build gebruikt. `.gitignore` toegevoegd (node_modules, dist, .wrangler, .test-build).
@@ -169,7 +169,13 @@ De oude losse bestanden in de repo-root (`dom.ts`, `main.ts` enz. van de eerste 
 - **Attractierij:** naam, afstand/looptijd eronder, rechts wachttijd **groot, alleen getal**, ▲ rood / ▼ groen met verschil.
 - **Showrij:** eerstvolgende tijd groot links, naam en "over 14 min" plus vertrektijd, rechts "daarna". Uitklappen toont alle tijden (geweest grijs, eerstvolgende onderstreept, "NU"-streepje).
 - **Afstand-sortering:** groot afstandsblok vooraan ("150 m" + "2 min lopen"); bij shows starttijd groot aan het eind.
-- Ververst elke minuut (Overzicht: 2 min), alleen zichtbaar + online. ↻ forceert.
+- Ververst elke minuut (Overzicht: 2 min), alleen zichtbaar + online. ↻ forceert (en werkt ook de locatie één keer bij).
+
+### 6.3a Locatie (sinds 0.6.0)
+- **Eenmalig per keer dat de app opent** (`posAskedThisSession` in `main.ts`), daarna gaat de gps uit. Op Remco's verzoek (21 nov 2026). Daarvoor vroeg de app bij elke verversing (elke 1 à 2 min) opnieuw een gps-positie op.
+- Opnieuw bepalen alleen bij: ↻ (forceRefresh), "Gebruik mijn locatie", of de app helemaal afsluiten en opnieuw openen. Een positie in localStorage (`pp.pos`) blijft 10 minuten bruikbaar.
+- Gevolg: afstanden, looptijden, "bij <attractie>" en vertrektijden blijven gebaseerd op de plek waar je de app opende tot je ↻ tikt. Bewuste afweging; zo uitgelegd aan Remco en in Instellingen > Locatie.
+- Let op iOS: een PWA die naar de achtergrond gaat en terugkomt, telt niet als "opnieuw openen". Pas na volledig afsluiten wordt de locatie opnieuw gevraagd.
 
 ### 6.4 Detailvenster
 Illustratie per soort (eigen SVG's), grote wachttijd/status, grafiek "Verloop vandaag" (schaal **rechts**, 0/20/45/max), feiten, omschrijving (min. lengte alleen waar bevestigd, tip, gebied, openingsjaar), showtijden, favoriet-knop.
@@ -178,7 +184,7 @@ Illustratie per soort (eigen SVG's), grote wachttijd/status, grafiek "Verloop va
 Trapjes in niveaukleur, grijs bij dicht/onderhoud, **storingen als lichtrode zone + gestippelde rode lijn onderin**, "Storing: N keer, samen X". Resolutie ~5 min. Minder dan twee punten: "wordt opgebouwd".
 
 ### 6.6 Instellingen
-Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving".
+Thema, tekstgrootte, sortering, aankomstmarge, looptempo, koppelcode, **Geschiedenis bijhouden** (Uit / Alleen overdag / Altijd), **Simulatie**, "Kopieer lijst zonder omschrijving", en onderaan de knop **"Versie 0.6.0 · zoek update"** (sinds 0.6.0): vraagt `/api/health` zonder cache op, laat de service worker op updates controleren, en herlaadt de app als de server een andere versie meldt; anders "Je hebt de nieuwste versie". Offline: duidelijke melding. Functie `checkForUpdate()` in `main.ts`.
 
 ### 6.7 Simulatiestand
 Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, verzonnen wachttijden die elke 5 min verschuiven, enkele storingen/onderhoud, showtijden per 45 min, verzonnen dagverloop. Oranje balk "SIMULATIE" met Stop. Echte cache blijft; programma voor morgen blijft echt.
@@ -245,6 +251,11 @@ Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, ve
 - ~~`tools/` ontbrak~~ en ~~oude losse bestanden in de root~~: opgelost op 21 nov 2026 (28 tests, root opgeruimd).
 - **Testbranch `claude/koppeltest`** staat nog op GitHub (Claude kan geen branches verwijderen). Remco kan hem verwijderen via GitHub → Branches.
 
+**0.6.0 (21 nov 2026), door Remco te controleren:**
+- Gaat het gps-pijltje op de iPhone na de eerste positie uit en blijft het uit tijdens verversen?
+- Updateknop: bij een nieuwe deploy herlaadt de app naar de nieuwe versie; zonder nieuwe versie de melding "nieuwste versie".
+- Storingspagina toont bij open park geen los woord "null" meer (bug gevonden met de strengere typecheck: `append(null)`; mogelijk zag Remco dat al).
+
 **Niet gecontroleerd door Claude (geen browser):**
 - **Service worker** niet getest op een echte iPhone (oude versie blijft hangen? bijwerken na deploy?). Controleren bij 0.6.0.
 - **Cron** en "alleen overdag" alleen met nepomgeving getest. Controle: detailvenster na een paar uur, of Cloudflare → Workers → parkpilot → Triggers.
@@ -306,6 +317,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - Een vraag is een vraag: eerst antwoorden, pas bouwen als hij dat zegt. (letterlijk)
 - Controleert zelf in de live app; daarom altijd een zichtbaar, opgehoogd versienummer. (letterlijk)
 - **Het overdrachtsdocument moet altijd actueel zijn**, met alles wat Claude over hem leert in een aparte sectie (dit hoofdstuk). (21 nov 2026, letterlijk)
+- Batterij en privacy wegen zwaar: geen gps die blijft lopen. (21 nov 2026, afgeleid uit verzoek "locatie eenmalig, daarna gps uit")
 - Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
 
 ### 15.2 Wat Remco belangrijk vindt
@@ -326,13 +338,14 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
    - Eén attribuut op het root-element (`data-theme="light|dark"`); alle kleuren als CSS custom properties per thema. Tweede attribuut (bij ParkPilot `data-park`) voor een accent per context.
    - iOS-PWA: statusbalk `black-translucent` met eigen `.statusbar`-div.
    - Code: `apps/web/src/theme.ts` + `style.css`. **Nog te controleren:** thema vóór eerste render (geen witte flits) en meeveranderende `<meta name="theme-color">`.
-2. **Zichtbaar versienummer** op drie plekken, uit één bron, ook via `/api/health`; elke levering ophogen. *(Letterlijk gewenst; framework-status afgeleid.)*
+2. **Zichtbaar versienummer** op drie plekken, uit één bron, ook via `/api/health`; elke levering ophogen. In Instellingen als **knop "Versie X · zoek update"** die geforceerd op een update controleert en zo nodig herlaadt (`checkForUpdate()`, vergelijkt `/api/health` met de app-versie). *(Versie zichtbaar: letterlijk gewenst. Updateknop: letterlijk gevraagd 21 nov 2026. Dat het in elke app hoort: afgeleid, nog bevestigen.)*
 3. **Tekstgrootte Compact/Comfortabel** ("Aa", ~20%, onthouden). *(Afgeleid.)*
 4. **Mobile-first PWA** met offline app-schil. *(Afgeleid.)*
 5. **`store`-helper** voor localStorage met try/catch en app-prefix. *(Afgeleid.)*
 6. **Anoniem profiel + koppelcode** voor meerdere toestellen. *(Afgeleid.)*
 7. **Versheid en offline zichtbaar.** *(Afgeleid.)*
 8. **Zuinig verversen** (zichtbaar + online, plus ↻). *(Afgeleid.)*
+11. **Locatie zuinig:** alleen op verzoek, eenmalig per app-start, daarna gps uit; handmatig bijwerken via ↻. *(Gevraagd voor ParkPilot op 21 nov 2026; dat het in elke app hoort: afgeleid.)*
 9. **Simulatie-/demostand** met gekleurde balk en Stop. *(Afgeleid.)*
 10. **Instellingenscherm** als vaste plek voor voorkeuren. *(Afgeleid.)*
 
@@ -344,6 +357,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 11:00 — versie 0.6.0:** locatie eenmalig per app-start (gps daarna uit, ↻ werkt bij); updateknop met versie in Instellingen; storingspagina-bug ("null") opgelost; strengere app-typecheck toegevoegd aan `tools/test-worker.sh` (vond 3 oude typefouten, alle opgelost).
 - **21 nov 2026, 09:15:** Op verzoek van Remco: tien oude losse bestanden uit de repo-root verwijderd, `.gitignore` toegevoegd, `tools/` met worker-typecheck en 28 tests opnieuw opgebouwd (alles ok). App-code ongewijzigd, versie blijft 0.5.0.
 
 *Einde van het overdrachtsdocument.*

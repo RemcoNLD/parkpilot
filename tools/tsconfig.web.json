@@ -1,0 +1,5 @@
+{
+  "extends": "../apps/web/tsconfig.json",
+  "compilerOptions": { "types": [] },
+  "include": ["../apps/web/src", "../packages/shared/src", "vite-shim.d.ts"]
+}

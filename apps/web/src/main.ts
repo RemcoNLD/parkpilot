@@ -106,6 +106,8 @@ const currentPark = (): ParkInfo | undefined => state.parks.find((p) => p.id ===
 const tz = (): string => currentPark()?.timezone ?? 'Europe/Paris';
 
 // ---- Locatie (alleen op verzoek, nooit bij het opstarten) ------------------------------------
+// Eenmalig per keer dat de app opent: daarna gaat de gps weer uit. Alleen ↻ of "Gebruik mijn locatie" vraagt opnieuw.
+let posAskedThisSession = false;
 
 function storePos(): void {
   if (state.pos) localStorage.setItem(POS_KEY, JSON.stringify({ ...state.pos, at: Date.now() }));
@@ -113,6 +115,7 @@ function storePos(): void {
 
 async function ensurePosition(): Promise<boolean> {
   if (sim.on) return true;
+  posAskedThisSession = true;
   state.loc = 'asking';
   render();
   try {
@@ -129,10 +132,11 @@ async function ensurePosition(): Promise<boolean> {
 }
 
 async function refreshPositionQuietly(): Promise<void> {
-  if (sim.on) return;
+  if (sim.on || posAskedThisSession) return;
   const needed = state.prefs.sort === 'distance' || state.view === 'plan' || [...state.favorites].some((id) => state.entities.find((e) => e.id === id)?.type === 'show');
   if (!needed || state.loc === 'denied' || state.loc === 'asking') return;
   if (state.loc !== 'ok' && !(await hasGeoPermission())) return;
+  posAskedThisSession = true;
   try { state.pos = await getPosition(); state.loc = 'ok'; storePos(); } catch { /* oude positie blijft */ }
 }
 
@@ -252,7 +256,7 @@ function openIssues(): void {
   ];
   sheet.append(
     h('div', { class: 'sheet-head' }, h('h2', {}, 'Storingen en onderhoud'), h('button', { class: 'icon-btn', 'aria-label': 'Sluiten', onclick: close }, '✕')),
-    parkClosed ? h('p', {}, 'Het park is nu dicht, dus storingen en tijdelijke sluitingen zijn niet actueel. Onderhoud (langere sluiting) staat hieronder wel.') : null,
+    ...(parkClosed ? [h('p', {}, 'Het park is nu dicht, dus storingen en tijdelijke sluitingen zijn niet actueel. Onderhoud (langere sluiting) staat hieronder wel.')] : []),
     ...(parkClosed ? [] : section('Storing', 'bad', lists.down, 'Geen storingen.')),
     ...section('Onderhoud (refurbishment)', 'mid', lists.refurb, 'Geen attracties in onderhoud.'),
     ...(parkClosed ? [] : section('Tijdelijk dicht', 'muted', lists.closedNow, 'Geen attracties tijdelijk dicht.')),
@@ -290,7 +294,7 @@ function freshness(iso: string | null): 'fresh' | 'aging' | 'old' | 'unknown' {
 
 function metaLine(live: LiveInfo | undefined): HTMLElement | null {
   if (!live) return null;
-  const parts: Node[] = [];
+  const parts: (Node | string)[] = [];
   const trend = trendNode(live);
   if (trend) parts.push(trend, ' · ');
   const changed = changedText(live);
@@ -1052,6 +1056,7 @@ async function forceRefresh(): Promise<void> {
   state.refreshing = true;
   render();
   const started = Date.now();
+  posAskedThisSession = false; // ↻ werkt ook je locatie één keer bij
   await refreshLive(true);
   await new Promise((r) => setTimeout(r, Math.max(0, 600 - (Date.now() - started)))); // even zichtbaar draaien
   state.refreshing = false;
@@ -1091,6 +1096,31 @@ async function refreshLive(force = false): Promise<void> {
   render();
 }
 
+// ---- Update zoeken ----------------------------------------------------------------------------
+
+/** Vraagt de server welke versie live staat. Is die anders dan deze app, dan laadt de app opnieuw met de nieuwe versie. */
+async function checkForUpdate(btn: HTMLButtonElement, say: (t: string, kind?: 'good' | 'err' | '') => void): Promise<void> {
+  if (!navigator.onLine) { say('Geen verbinding, zoeken naar een update lukt nu niet.', 'err'); return; }
+  btn.disabled = true;
+  say('Zoeken naar een update…');
+  try {
+    const res = await fetch(`/api/health?t=${Date.now()}`, { cache: 'no-store' });
+    const live = ((await res.json()) as { version?: string }).version ?? null;
+    state.serverVersion = live;
+    const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+    await reg?.update().catch(() => undefined);
+    if (live && live !== APP_VERSION) {
+      say(`Nieuwe versie ${live} gevonden. Bijwerken…`, 'good');
+      setTimeout(() => location.reload(), 800);
+      return;
+    }
+    say(`Je hebt de nieuwste versie (${APP_VERSION}).`, 'good');
+  } catch {
+    say('Zoeken naar een update is mislukt. Probeer het zo nog eens.', 'err');
+  }
+  btn.disabled = false;
+}
+
 // ---- Instellingen en koppelcode --------------------------------------------------------------
 
 function openSettings(): void {
@@ -1100,6 +1130,11 @@ function openSettings(): void {
   };
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Instellingen' });
   const close = (): void => sheet.remove();
+
+  // Versie + update zoeken
+  const update = mkMsg();
+  const updateBtn = h('button', { class: 'btn secondary', onclick: () => void checkForUpdate(updateBtn as HTMLButtonElement, update.say) },
+    `Versie ${APP_VERSION} · zoek update`) as HTMLButtonElement;
 
   // Thema
   const themeLabels: [ThemePref, string][] = [['auto', 'Automatisch'], ['light', 'Licht'], ['dark', 'Donker']];
@@ -1239,7 +1274,7 @@ function openSettings(): void {
       h('div', { class: 'hint' }, 'Hiermee toont ParkPilot bij shows die je volgt wanneer je moet vertrekken, zodra je locatie bekend is. Een melding hierover komt in een volgende versie.')),
     h('label', { class: 'field' }, h('span', {}, 'Looptempo'), speedSelect),
     h('h3', {}, 'Locatie'),
-    h('p', {}, 'ParkPilot gebruikt je locatie alleen voor afstanden en vertrektijden, en alleen nadat je daar zelf om vraagt. Je locatie wordt niet naar de server gestuurd.'),
+    h('p', {}, 'ParkPilot gebruikt je locatie alleen voor afstanden en vertrektijden, en alleen nadat je daar zelf om vraagt. De locatie wordt één keer bepaald als je de app opent; daarna gaat de gps weer uit. Tik op ↻ om je locatie bij te werken als je verder bent gelopen. Je locatie wordt niet naar de server gestuurd.'),
     h('h3', {}, 'Je lijstje op meerdere toestellen'),
     h('p', {}, 'Kies een eigen code, bijvoorbeeld 1234. Vul je die op een ander toestel in, dan zie en wijzig je daar hetzelfde lijstje. Alle toestellen met de code delen één lijst. Let op: een korte code is makkelijk te raden. Je lijstje bevat alleen favorieten en voorkeuren, maar kies liever 6 of meer tekens als je dat liever niet deelt. De app op je beginscherm heeft op iPhone eigen opslag, los van Safari.'),
     customInput,
@@ -1253,7 +1288,7 @@ function openSettings(): void {
     h('p', {}, 'De omschrijvingen zijn door ParkPilot zelf geschreven, want ThemeParks.wiki levert ze niet. Mist er een? Kopieer de lijst en stuur hem door, dan worden ze aangevuld.'),
     copyMissing,
     h('h3', {}, 'Versie'),
-    h('p', {}, `App v${APP_VERSION}${state.serverVersion ? `, server v${state.serverVersion}` : ''}. Zie je een oudere versie dan verwacht, sluit de app dan helemaal af en open hem opnieuw.`));
+    updateBtn, update.el);
   document.body.append(sheet);
 }
 
