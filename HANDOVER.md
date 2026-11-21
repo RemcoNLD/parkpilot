@@ -1,6 +1,6 @@
 # ParkPilot: overdrachtsdocument
 
-Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:35** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
+Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:05** (zie logboek, hoofdstuk 16). Doel: een nieuwe Claude-chat, ook in een ander account, kan hiermee zonder voorkennis verder bouwen. Alles wat nodig is staat hier of in de repo. Lees dit eerst helemaal, vooral de hoofdstukken 2, 3, 4.1, 12 en **15**.
 
 **Vaste afspraak:** Claude werkt dit document bij na elke wijziging, beslissing of nieuwe kennis, in dezelfde beurt, zowel in het claude.ai-project "ParkPilot" (`claude/ParkPilot-HANDOVER.md`) als in de repo (`HANDOVER.md`). Wat Claude leert over Remco's werkwijze en voorkeuren, en alles wat hij een "framework feature" noemt, gaat naar hoofdstuk 15.
 
@@ -14,7 +14,7 @@ Eerste versie 21 november 2026. **Laatst bijgewerkt: 21 november 2026, 14:35** (
 - **Live:** https://parkpilot.remco-dv.workers.dev
 - **Repo:** https://github.com/RemcoNLD/parkpilot (publiek). Cloudflare Workers Builds bouwt en deployt automatisch bij elke commit.
 - **Stack:** Vite + TypeScript (vanilla, geen framework) · één Cloudflare Worker (API + statische assets) · Cloudflare D1 (SQLite) · live data van ThemeParks.wiki.
-- **Versie in de code:** `0.13.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~14:35, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
+- **Versie in de code:** `0.13.0` (`packages/shared/src/version.ts` en `package.json`), live gezet 21 nov 2026 ~14:05, nog niet door Remco bevestigd. 0.9.0 (single rider) bevestigd met "Werkt".
 - **Bij elke nieuwe versie:** nummer ophogen in `version.ts` + `package.json` **én** een regel toevoegen bovenaan `apps/web/src/changelog.ts` (in de app: Instellingen > Wat is er nieuw), in het Nederlands (`changes`) én Engels (`en`), datum als `JJJJ-MM-DD`. Korte, gewone taal, gericht op wat Remco ziet.
 - **Tweetalig (sinds 0.13.0):** elke tekst in de app staat in `apps/web/src/i18n.ts` (nl + en). Nooit meer losse Nederlandse teksten in `main.ts`; zie 6.9.
 - **Fase:** fase 1 (basis + veel extra's) is af. Fase 2 (vertrekmeldingen, Web Push, looproutes) is nog niet begonnen.
@@ -224,7 +224,7 @@ Oorspronkelijke inhoud (labels inmiddels korter): Thema, tekstgrootte, sortering
 Doet alsof je in het park staat ("Ik sta bij …"): park open, eigen locatie, verzonnen wachttijden die elke 5 min verschuiven, enkele storingen/onderhoud, showtijden per 45 min, verzonnen dagverloop. Oranje balk "SIMULATIE" met Stop. Echte cache blijft; programma voor morgen blijft echt.
 
 ### 6.9 Taal (sinds 0.13.0)
-- Op verzoek van Remco (14:00): "Voeg Engelse taal toe. Volg de taalinstelling op de telefoon. Als eigen taal niet beschikbaar is dan terugvallen op Engels. Elke keer laden checken en aanpassen als een taal dan wel beschikbaar is. Met een switcher in de instellingen."
+- Op verzoek van Remco (13:51): "Voeg Engelse taal toe. Volg de taalinstelling op de telefoon. Als eigen taal niet beschikbaar is dan terugvallen op Engels. Elke keer laden checken en aanpassen als een taal dan wel beschikbaar is. Met een switcher in de instellingen."
 - Talen: Nederlands en Engels. **Auto** (standaard): bij elke start kijkt de app naar `navigator.languages` (volgorde van de telefoon) en kiest de eerste taal die er is; anders Engels. De gevonden taal wordt **niet** bewaard, dus komt er later een taal bij, dan wordt die vanzelf gekozen. Verandert de telefoontaal terwijl de app openstaat (`languagechange`), dan volgt de app meteen.
 - Instellingen > Weergave > **Taal**: Auto / NL / EN. Een vaste keuze staat in `pp.lang`; Auto verwijdert die sleutel. Bij wisselen opent het instellingenscherm opnieuw in de nieuwe taal. De (i) toont welke taal Auto nu kiest.
 - Techniek: `apps/web/src/i18n.ts`. Woordenboek `nl` is de bron; `en` heeft type `Dict` (= `typeof nl`), dus TypeScript weigert een ontbrekende of extra sleutel. Gebruik: `T.sleutel` of `T.functie(waarde)` (in `main.ts` geïmporteerd als `T`, omdat `t` daar al lokaal gebruikt wordt). `export let t` is een live binding: na `applyLang()` zien alle modules de nieuwe taal; `render()` bouwt alles opnieuw op. **Een taal toevoegen:** woordenboek erbij in `DICTS` en `LANG_NAMES`, Engelse teksten in `info.ts` en `changelog.ts` aanvullen (die vallen anders terug op Engels).
@@ -430,7 +430,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
-- **21 nov 2026, 14:35 — versie 0.13.0:** Engelse taal (6.9): volgt de telefoontaal, terugval Engels, elke start opnieuw bepaald; schakelaar Auto/NL/EN in Instellingen. Alle teksten naar `i18n.ts`, omschrijvingen en changelog vertaald. Worker stuurt bij verwachte showtijden ook `basis` (taalloos); test uitgebreid (31 × ok). Screenshot-tool kreeg `PP_LANG` en scenario's `main`/`lang`.
+- **21 nov 2026, 14:05 — versie 0.13.0:** Engelse taal (6.9): volgt de telefoontaal, terugval Engels, elke start opnieuw bepaald; schakelaar Auto/NL/EN in Instellingen. Alle teksten naar `i18n.ts`, omschrijvingen en changelog vertaald. Worker stuurt bij verwachte showtijden ook `basis` (taalloos); test uitgebreid (31 × ok). Screenshot-tool kreeg `PP_LANG` en scenario's `main`/`lang`.
 - **21 nov 2026, 13:55 — versie 0.12.2:** wachttijdverloop bewaard op het toestel; grijs met tijdstip als niet actueel, vanzelf bijgewerkt bij weer bereik (6.5).
 - **21 nov 2026, 13:25 — versie 0.12.1:** instellingenscherm compact (groepen, één regel per instelling, uitleg achter (i), koppelcode inklapbaar). Ontdekt dat Claude de app met Bun + Chrome kan bouwen en screenshotten: `tools/screenshot.sh` (zie 3).
 - **21 nov 2026, 13:10 — versie 0.12.0:** kijkplek van shows zonder bronlocatie vastleggen door lang drukken, gedeeld voor alle gebruikers (6.8). Op Remco's aanvulling: altijd bevestigen met gps-nauwkeurigheid, bij een bestaande plek van beide. Migratie 0005, 3 nieuwe tests (31 × ok).
