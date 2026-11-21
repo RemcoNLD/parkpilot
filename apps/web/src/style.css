@@ -397,13 +397,16 @@ main { padding: 2px 0 12px; }
 .srline b.low { color: var(--low); } .srline b.mid { color: var(--mid); } .srline b.high { color: var(--high); }
 .srline .srnone { font-weight: 400; color: var(--muted); font-size: 14px; }
 
-/* Mijn programma: single rider klein rechtsboven de wachttijd (als een exponent), alleen getal.
+/* Mijn programma: single rider klein rechtsboven de wachttijd (als een exponent), alleen getal, in een witte badge.
    Alles lijnt verticaal uit: als er ergens single rider is, krijgt elk groot getal rechts dezelfde vrije strook,
    en alle grote getallen zijn even breed (breedste getal in de lijst), rechts uitgelijnd. */
+.pbig.pwait-xl:not(.word) { font-size: 54px; } /* wachttijd attracties extra groot (shows en woorden houden hun maat) */
 .pnumcol { position: relative; display: inline-flex; justify-content: flex-end; }
-.pnumcol.gutter { padding-right: 22px; }
+.pnumcol.gutter { padding-right: 32px; }
 .pnumcol .pbig { display: inline-block; text-align: right; }
-.psr { position: absolute; top: 3px; left: calc(100% - 21px); font: 750 16px/1 var(--rounded); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
-.psr.low { color: var(--low); } .psr.mid { color: var(--mid); } .psr.high { color: var(--high); }
+.psr { position: absolute; top: 2px; left: calc(100% - 30px); padding: 3px 5px; border-radius: 7px; background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); font: 800 15px/1 var(--rounded); font-variant-numeric: tabular-nums; white-space: nowrap; color: #4a4f6b; }
+/* Vaste, donkere niveaukleuren: goed leesbaar op wit, ook in het donkere thema */
+.psr.low { color: #0f7d57; } .psr.mid { color: #94600a; } .psr.high { color: #c9301f; }
 /* Delta (▲/▼) op dezelfde basislijn als de grote wachttijd */
 .prow .pright { align-items: baseline; }

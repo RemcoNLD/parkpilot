@@ -643,7 +643,7 @@ function planAttraction(entity: EntityInfo): HTMLElement {
       ringToggle(entity, h('span', { class: 'pright' },
         t ? h('span', { class: `trend ${t.up ? 'up' : 'down'}` }, `${t.up ? '▲' : '▼'}${Math.abs(t.diff)}`) : null,
         h('span', { class: `pnumcol${planLayout.sr ? ' gutter' : ''}` },
-          h('span', { class: `pbig ${cls}${label.length > 3 ? ' word' : ''}`, style: label.length > 3 ? null : `min-width:${planLayout.digits}ch` }, label),
+          h('span', { class: `pbig pwait-xl ${cls}${label.length > 3 ? ' word' : ''}`, style: label.length > 3 ? null : `min-width:${planLayout.digits}ch` }, label),
           sr !== null ? h('span', { class: `psr ${waitLevel(sr)}`, 'aria-label': `single rider ${sr}` }, String(sr)) : null)), 'ptoggle')),
     expandPanel(entity));
 }
