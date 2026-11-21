@@ -384,6 +384,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **Versienummers:** kleine verbetering of reparatie = laatste cijfer omhoog (0.10.0 → 0.10.1); nieuwe functie = middelste cijfer (0.10.x → 0.11.0). Remco noemde een kleine aanpassing een "minor update"; Claude koos 0.10.1 en meldde dat. Bij twijfel: zo houden tenzij hij anders zegt. (21 nov 2026)
 - Bij iets wat een bestaande (gedeelde) waarde overschrijft: eerst bevestiging vragen, met de gegevens om te kunnen kiezen (bij kijkplekken: nauwkeurigheid van oud én nieuw). (21 nov 2026, letterlijk: "Vraag wel even bevestiging als er al een locatie is")
 - Wil de app ook in het Engels, volgens de telefoontaal met Engels als terugval, en een schakelaar in Instellingen. (21 nov 2026, letterlijk) Gevolg voor Claude: nieuwe teksten altijd in beide talen.
+- **Bij elke nieuwe app eerst vragen welke talen nodig zijn** en alles meteen vertaald opslaan (framework feature 15.3 punt 14). (21 nov 2026 14:02, letterlijk)
 - Wil zien wat er per versie veranderd is, in de app zelf. (21 nov 2026, letterlijk: "Maak ook een changelog in de app")
 - Bij instellingen in een webinterface (zoals koppelingen) komt hij soms op een verkeerd scherm; geef de exacte link en zeg wat hij níet moet kiezen. (21 nov 2026, afgeleid)
 
@@ -420,7 +421,11 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 11. **Locatie zuinig:** alleen op verzoek, eenmalig per app-start, daarna gps uit; handmatig bijwerken via ↻. *(**Bevestigd door Remco als framework feature, 21 nov 2026.**)*
 9. **Simulatie-/demostand** met gekleurde balk en Stop. *(Afgeleid.)*
 10. **Instellingenscherm** als vaste plek voor voorkeuren. *(Afgeleid.)*
-14. **Meertalig volgens de telefoon** (Auto = telefoontaal, anders Engels, elke start opnieuw bepalen; schakelaar in Instellingen; alle teksten in één `i18n.ts` met getypte woordenboeken). *(Gevraagd voor ParkPilot op 21 nov 2026; dat het in elke app hoort: afgeleid, nog bevestigen.)*
+14. **Meertalig vanaf het begin.** *(**Letterlijk door Remco genoemd als framework feature, 21 nov 2026 14:02:** "altijd aan het begin vragen welke talen moeten worden ondersteund zodat het meteen wordt opgebouwd. En dus alles meteen ook vertaald opslaan.")*
+   - **Bij de start van elke nieuwe app eerst vragen welke talen ondersteund moeten worden**, vóórdat er schermen gebouwd worden.
+   - Vanaf de eerste regel alle teksten via een woordenboek (`i18n.ts`, getypte woordenboeken: de brontaal bepaalt de sleutels, elke andere taal moet ze allemaal hebben). Nooit losse teksten in de code.
+   - **Elke tekst meteen in alle talen opslaan**, ook omschrijvingen, changelog-regels en meldingen; niet later bijvertalen.
+   - Taalkeuze op de ParkPilot-manier: Auto = telefoontaal, anders Engels, bij elke start opnieuw bepalen; schakelaar in Instellingen (Auto + per taal); tijden, datums en decimalen per taal.
 
 ---
 
@@ -430,6 +435,7 @@ Claude vult dit aan zodra iets nieuws blijkt. Geldt **voor elke app** van Remco.
 - **21 nov 2026, 08:45:** Remco bevestigt 0.5.0. Wil vanaf telefoon werken. Afspraken toegevoegd: document altijd bijwerken; hoofdstuk 15 en dit logboek aangemaakt. Licht/donker-schakelaar als eerste framework feature benoemd.
 - **21 nov 2026, 08:51–08:55:** GitHub gekoppeld (eerst per ongeluk op "Add custom connector"; juiste route in 4.1). Lezen werkte eerst, schrijven pas na installatie van de Claude GitHub App. Branch-push getest (werkt); branch verwijderen geblokkeerd, `claude/koppeltest` blijft staan. Bij het lezen gevonden: `tools/` ontbreekt, oude losse bestanden in de root, `HANDOVER.md` ontbrak.
 - **21 nov 2026, 09:00:** `HANDOVER.md` toegevoegd aan de repo als eerste commit van Claude. Rechtstreeks naar `main` pushen werkt.
+- **21 nov 2026, 14:02:** Remco: meertaligheid is een framework feature; bij elke nieuwe app eerst vragen welke talen, alles meteen vertaald opslaan (15.3 punt 14).
 - **21 nov 2026, 14:05 — versie 0.13.0:** Engelse taal (6.9): volgt de telefoontaal, terugval Engels, elke start opnieuw bepaald; schakelaar Auto/NL/EN in Instellingen. Alle teksten naar `i18n.ts`, omschrijvingen en changelog vertaald. Worker stuurt bij verwachte showtijden ook `basis` (taalloos); test uitgebreid (31 × ok). Screenshot-tool kreeg `PP_LANG` en scenario's `main`/`lang`.
 - **21 nov 2026, 13:55 — versie 0.12.2:** wachttijdverloop bewaard op het toestel; grijs met tijdstip als niet actueel, vanzelf bijgewerkt bij weer bereik (6.5).
 - **21 nov 2026, 13:25 — versie 0.12.1:** instellingenscherm compact (groepen, één regel per instelling, uitleg achter (i), koppelcode inklapbaar). Ontdekt dat Claude de app met Bun + Chrome kan bouwen en screenshotten: `tools/screenshot.sh` (zie 3).
