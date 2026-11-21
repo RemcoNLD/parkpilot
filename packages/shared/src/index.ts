@@ -137,6 +137,18 @@ export interface HistoryResponse {
   rows: HistoryRow[];
 }
 
+/**
+ * Wachttijd op dezelfde weekdag in voorgaande weken (max. 4), per 5 minuten gemiddeld over de weken waarin de
+ * attractie open was. Tijden staan al omgezet naar vandaag (zelfde kloktijd). Alleen de momenten waarop de waarde
+ * verandert; `wait: null` = in geen van die weken open of geen gegevens.
+ */
+export interface WeekRefResponse {
+  entityId: string;
+  date: string;      // vandaag (parkdatum)
+  dates: string[];   // de gebruikte eerdere dagen met gegevens, nieuwste eerst
+  rows: { at: string; wait: number | null }[];
+}
+
 /** Wanneer de server wachttijden en showtijden bijhoudt: nooit, alleen rond de openingstijden van het park, of altijd. */
 export type TrackingMode = 'off' | 'park-hours' | 'always';
 export const TRACKING_MODES: TrackingMode[] = ['off', 'park-hours', 'always'];

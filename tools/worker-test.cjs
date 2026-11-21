@@ -264,6 +264,33 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     const r = await call('GET', 'parks/dlp-studios/history/A1?since=today');
     eq(r.data.rows.map((x) => x.wait), [25, 40], 'verloop');
   });
+  await test('vorige weken: gemiddelde zelfde weekdag, alleen open tijden, tijden naar vandaag', async () => {
+    const leeg = await call('GET', 'parks/dlp-studios/history/A2?ref=weeks');
+    eq([leeg.status, leeg.data.dates, leeg.data.rows], [200, [], []], 'zonder gegevens leeg');
+    const ins = env.DB.raw.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)');
+    const at = (d, t) => Math.floor(zonedEpochMs(d, t, TZ) / 1000);
+    const w1 = addDays(today, -7), w2 = addDays(today, -14), w5 = addDays(today, -35);
+    ins.run('dlp-studios', 'R9', at(w1, '10:00'), 20, 'open');
+    ins.run('dlp-studios', 'R9', at(w1, '11:00'), 40, 'open');
+    ins.run('dlp-studios', 'R9', at(w1, '12:00'), null, 'down');
+    ins.run('dlp-studios', 'R9', at(w2, '10:00'), 30, 'open');
+    ins.run('dlp-studios', 'R9', at(w2, '13:00'), null, 'closed');
+    ins.run('dlp-studios', 'R9', at(w5, '10:00'), 90, 'open'); // te oud: telt niet mee
+    const r = await call('GET', 'parks/dlp-studios/history/R9?ref=weeks');
+    eq(r.data.dates, [w1, w2], 'gebruikte dagen');
+    const byTime = Object.fromEntries(r.data.rows.map((x) => [new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(x.at)), x.wait]));
+    eq(byTime, { '00:00': null, '10:00': 25, '11:00': 35, '12:00': 30, '13:00': null }, 'gemiddelde per tijd');
+    if (!r.data.rows.every((x) => localDateStr(TZ, Date.parse(x.at)) === today)) throw new Error('tijden niet op vandaag');
+  });
+  await test('cron bewaart verloop 29 dagen (voor de vergelijking met vorige weken)', async () => {
+    const ins = env.DB.raw.prepare('INSERT INTO wait_log (park_id, entity_id, at, wait, status) VALUES (?, ?, ?, ?, ?)');
+    const n = Math.floor(Date.now() / 1000);
+    ins.run('dlp-studios', 'R8', n - 28 * 86400, 10, 'open');
+    ins.run('dlp-studios', 'R8', n - 30 * 86400, 10, 'open');
+    await cron();
+    eq(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM wait_log WHERE entity_id = 'R8'").get().n, 1, 'alleen de oude weg');
+    env.DB.raw.exec("DELETE FROM wait_log WHERE entity_id IN ('R8', 'R9')");
+  });
   await test('shows vandaag uit de bron, morgen verwacht', async () => {
     const t = await call('GET', `parks/dlp-studios/shows?date=${today}`);
     eq(t.data.shows.map((s) => [s.entityId, s.slots.map((x) => x.source)]), [['S1', ['bron', 'bron']]], 'vandaag');

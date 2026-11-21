@@ -13,6 +13,7 @@ import type {
   RedeemResponse,
   ScheduleResponse,
   TrackingMode,
+  WeekRefResponse,
   TrackingSettings,
   ShowDayResponse,
 } from '../../../packages/shared/src/index';
@@ -89,6 +90,9 @@ export const savePreferences = (parkId: string, prefs: PreferencesDto) =>
 export const fetchSchedule = (parkId: string) => request<ScheduleResponse>(`/api/parks/${parkId}/schedule`, {}, false);
 export const fetchHistoryToday = (parkId: string, entityId: string) =>
   request<HistoryResponse>(`/api/parks/${parkId}/history/${entityId}?since=today`, {}, false);
+/** Zelfde weekdag in de voorgaande weken (stippellijn in de grafiek). */
+export const fetchWeekRef = (parkId: string, entityId: string) =>
+  request<WeekRefResponse>(`/api/parks/${parkId}/history/${entityId}?ref=weeks`, {}, false);
 
 export const fetchHealth = () => request<{ ok: boolean; version?: string }>('/api/health', {}, false);
 export const fetchShowDay = (parkId: string, date: string) => request<ShowDayResponse>(`/api/parks/${parkId}/shows?date=${date}`, {}, false);

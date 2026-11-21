@@ -1,4 +1,4 @@
-// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue|game]
+// Screenshot van de app met nepdata (geen netwerk nodig). Gebruik: [PP_LANG=en-US] bash tools/screenshot.sh [dark|light] [settings|history|main|lang|queue|game|tour|help]
 // Opent nu het instellingenscherm; pas de stappen onderaan aan voor andere schermen.
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs'), path = require('path');
@@ -27,6 +27,13 @@ const api = {
     { at: new Date(now - 4 * 3600e3).toISOString(), wait: 15, status: 'open' }, { at: new Date(now - 3 * 3600e3).toISOString(), wait: 30, status: 'open' },
     { at: new Date(now - 2 * 3600e3).toISOString(), wait: 50, status: 'open' }, { at: new Date(now - 3600e3).toISOString(), wait: 40, status: 'open' },
     { at: new Date(now - 20 * 60e3).toISOString(), wait: 35, status: 'open' } ] },
+  // Stippellijn: zelfde weekdag in de vorige weken (tijden al op vandaag gezet).
+  '/api/parks/dlp-studios/history/A1?ref': { entityId: 'A1', date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()), dates: ['x', 'y', 'z'], rows: [
+    { at: new Date(now - 5 * 3600e3).toISOString(), wait: null }, { at: new Date(now - 4 * 3600e3).toISOString(), wait: 25 },
+    { at: new Date(now - 170 * 60e3).toISOString(), wait: 45 }, { at: new Date(now - 100 * 60e3).toISOString(), wait: 60 },
+    { at: new Date(now - 40 * 60e3).toISOString(), wait: 40 }, { at: new Date(now + 3600e3).toISOString(), wait: 30 } ] },
+  '/api/profile/recovery-code': { code: 'K7QX-M4TR-2HWN' },
+  '/api/profile/redeem': { deviceId: '00000000-0000-0000-0000-000000000000', token: 'b'.repeat(64), favoriteCount: 2 },
 };
 (async () => {
   const theme = process.argv[2] || 'dark';
@@ -40,7 +47,7 @@ const api = {
     const u = new URL(route.request().url());
     if (u.pathname.startsWith('/api/')) {
       if (offlineHistory && u.pathname.includes('/history/')) return route.abort('internetdisconnected');
-      const body = api[u.pathname];
+      const body = api[u.pathname + (u.searchParams.get('ref') ? '?ref' : '')];
       return route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', body: JSON.stringify(body ?? { error: 'nf' }) });
     }
     const f = path.join(ROOT, u.pathname === '/' ? 'index.html' : u.pathname);
@@ -48,6 +55,10 @@ const api = {
     return route.fulfill({ status: 404, body: '' });
   });
   page.on('pageerror', (e) => console.log('pageerror', e.message));
+  // Alle scenario's behalve de rondleiding: rondleiding al gezien, anders staat hij over alles heen.
+  if (scenario !== 'tour') await page.addInitScript(() => { try { localStorage.setItem('pp.tour', 'done'); } catch {} });
+  // Tandwiel = menu; eerste knop is Instellingen.
+  const openSettingsUi = async () => { await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(250); await page.click('.asheet-btn.primary'); await page.waitForTimeout(300); };
   await page.goto('http://pp.test/');
   await page.waitForTimeout(1200);
   if (scenario === 'history') {
@@ -66,12 +77,12 @@ const api = {
   }
   if (scenario === 'lang') {
     // Taalschakelaar: kies EN in instellingen, herlaad (keuze onthouden), zet terug op Auto.
-    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
+    await openSettingsUi();
     await page.click('.set-sec:nth-of-type(1) .set-item:nth-of-type(3) .segments button:nth-of-type(3)'); await page.waitForTimeout(300);
     await page.screenshot({ path: `${OUT}/lang-${locale}-picked-en.png` });
     await page.reload(); await page.waitForTimeout(1200);
     console.log('na herladen:', await page.evaluate(() => document.documentElement.lang + ' / ' + document.querySelector('.segments button').textContent));
-    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
+    await openSettingsUi();
     await page.click('.set-sec:nth-of-type(1) .set-item:nth-of-type(3) .segments button:nth-of-type(1)'); await page.waitForTimeout(300);
     console.log('na Auto:', await page.evaluate(() => document.documentElement.lang + ' / ' + localStorage.getItem('pp.lang')));
     await browser.close();
@@ -119,6 +130,45 @@ const api = {
     await browser.close();
     return;
   }
+  if (scenario === 'tour') {
+    // Nieuwe gebruiker: alle stappen; bij de koppelcode elke keuze; afsluiten en herladen (moet wegblijven).
+    const n = await page.locator('.tour-dots span').count();
+    console.log('rondleiding zichtbaar:', await page.locator('.tour').count() === 1, 'stappen:', n);
+    for (let i = 1; i <= n; i++) {
+      await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-${i}.png` });
+      if (await page.locator('.tour-choice').count()) {
+        for (const [k, label] of [[1, 'have'], [2, 'strong'], [3, 'own'], [4, 'later']]) {
+          await page.click(`.tour-choice:nth-of-type(${k})`); await page.waitForTimeout(300);
+          if (label === 'have') { await page.fill('.tour-code-panel .input', 'abcd1234'); await page.click('.tour-code-panel .btn'); await page.waitForTimeout(400); }
+          if (label === 'own') { await page.fill('.tour-code-panel .input', 'ab'); await page.click('.tour-code-panel .btn'); await page.waitForTimeout(200); }
+          await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-${i}-${label}.png` });
+        }
+      }
+      if (i < n) { await page.click('.tour-nav .btn:last-child'); await page.waitForTimeout(250); }
+    }
+    await page.click('.tour-nav .btn:last-child'); await page.waitForTimeout(300);
+    await page.reload(); await page.waitForTimeout(1200);
+    console.log('na herladen nog rondleiding:', await page.locator('.tour').count(), 'pp.tour =', await page.evaluate(() => localStorage.getItem('pp.tour')));
+    await browser.close();
+    return;
+  }
+  if (scenario === 'help') {
+    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-1-menu.png` });
+    await page.click('.asheet-btn.primary:nth-of-type(2)'); await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-2-help.png` });
+    await page.click('.help-topic:nth-of-type(3) summary'); await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-3-topic.png` });
+    await page.click('.help-topic:last-of-type summary'); await page.waitForTimeout(200);
+    await page.click('.help-topic:last-of-type .btn'); await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-4-code.png` });
+    await page.mouse.click(30, 30).catch(() => {});
+    await page.evaluate(() => document.querySelector('.sheet')?.remove());
+    await page.click('.vswitch button:nth-of-type(2)'); await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-5-plan-head.png` });
+    await browser.close();
+    return;
+  }
   if (scenario === 'main') {
     await page.screenshot({ path: `${OUT}/main-${theme}-${locale}.png` });
     await page.click('.ring-btn'); await page.waitForTimeout(500);
@@ -131,8 +181,7 @@ const api = {
     await browser.close();
     return;
   }
-  await page.click('.top-actions .icon-btn:last-child');
-  await page.waitForTimeout(300);
+  await openSettingsUi();
   await page.screenshot({ path: `${OUT}/settings-${theme}-${locale}.png` });
   await page.click('.set-sec:nth-of-type(3) .info-btn');
   await page.click('.set-sec:nth-of-type(4) summary').catch(()=>{});

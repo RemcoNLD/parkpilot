@@ -8,6 +8,32 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.0',
+    date: '2026-11-21',
+    changes: [
+      'Rondleiding voor nieuwe gebruikers: de belangrijkste functies in een paar stappen, en uitleg over de koppelcode met de vraag wat je wilt (al een code, een sterke code laten maken, zelf kiezen of nu niet).',
+      'Help: het tandwiel rechtsboven is nu een menu met Instellingen, Help en Rondleiding.',
+      'Grafiek: een stippellijn toont de wachttijd van dezelfde weekdag in de vorige weken (gemiddeld, tot vier weken). Het verloop wordt daarvoor 29 dagen bewaard in plaats van 7, dus de lijn vult zich de komende weken.',
+    ],
+    en: [
+      'A tour for new users: the main features in a few steps, plus an explanation of the link code and the question what you want (already have a code, make a strong code, choose your own, or not now).',
+      'Help: the gear at the top right is now a menu with Settings, Help and Tour.',
+      'Chart: a dotted line shows the wait on the same weekday in previous weeks (average, up to four weeks). History is now kept for 29 days instead of 7, so the line fills in over the coming weeks.',
+    ],
+    pt: [
+      'Visita guiada para novos utilizadores: as principais funções em poucos passos, e uma explicação do código de ligação com a pergunta sobre o que pretende (já tem um código, criar um código forte, escolher o seu, ou agora não).',
+      'Ajuda: a roda dentada no canto superior direito é agora um menu com Definições, Ajuda e Visita guiada.',
+      'Gráfico: uma linha pontilhada mostra a espera no mesmo dia da semana nas semanas anteriores (média, até quatro semanas). O histórico é agora guardado 29 dias em vez de 7, por isso a linha vai-se completando nas próximas semanas.',
+    ],
+  },
+  {
+    version: '0.17.3',
+    date: '2026-11-21',
+    changes: ['De knop Volgen in het detailvenster reageert nu over de hele breedte, en het hartje wisselt meteen.'],
+    en: ['The Follow button in the details panel now responds across its full width, and the heart changes straight away.'],
+    pt: ['O botão Seguir no painel de detalhes responde agora em toda a largura, e o coração muda logo.'],
+  },
+  {
     version: '0.17.2',
     date: '2026-11-21',
     changes: ['Na "Eruit" kun je de attractie meteen afstrepen als gezien, vanuit dezelfde melding met je wachttijd.'],

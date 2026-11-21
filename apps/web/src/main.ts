@@ -3,6 +3,7 @@ import {
   DEFAULT_PREFERENCES,
   type EntityInfo,
   type HistoryResponse,
+  type WeekRefResponse,
   type LatLng,
   type LiveInfo,
   type ParkInfo,
@@ -16,7 +17,7 @@ import {
 import { APP_VERSION } from '../../../packages/shared/src/version';
 import { CHANGELOG, changelogDate, changesFor } from './changelog';
 import {
-  ApiError, createRecoveryCode, deleteFavorite, deleteShowLocation, ensureProfile, putShowLocation, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday,
+  ApiError, createRecoveryCode, deleteFavorite, deleteShowLocation, ensureProfile, putShowLocation, fetchEntities, fetchFavorites, fetchHealth, fetchHistoryToday, fetchWeekRef,
   fetchLive, fetchParks, fetchPreferences, fetchSchedule, fetchShowDay, fetchTracking, saveTracking, putFavorite, redeemRecoveryCode, savePreferences, setCreds,
 } from './api';
 import { parkArt, parkIcon } from './art';
@@ -27,6 +28,7 @@ import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMet
 import { icon, iconForKind } from './icons';
 import { blurbFor } from './info';
 import { kindArt } from './kindart';
+import { openHelp, openTour, tourWanted } from './onboarding';
 import { gameAskOn, openGame, setGameAsk } from './game';
 import { simulateHistory, simulateLive, simulateSchedule } from './sim';
 import { distanceOf, nextStartMs, sortEntities } from './logic';
@@ -452,6 +454,7 @@ const histCurrent = (e: HistEntry | undefined): boolean => !!e && e.ok && Date.n
 
 function loadHistory(entityId: string): Promise<void> {
   if (sim.on) return Promise.resolve();
+  void loadRef(entityId);
   const running = histLoads.get(entityId);
   if (running) return running;
   const cur = histEntry(entityId);
@@ -477,6 +480,45 @@ function loadHistory(entityId: string): Promise<void> {
   return p;
 }
 
+// ---- Vorige weken (stippellijn): zelfde weekdag, één keer per dag per attractie opgehaald -------------
+// Verandert niet tijdens de dag, dus op het toestel bewaard (pp.ref.<park>, alleen vandaag).
+
+const refKey = (): string => `pp.ref.${state.parkId}`;
+const refMem = new Map<string, WeekRefResponse>();
+const refLoads = new Set<string>();
+
+function storedRefs(): Record<string, WeekRefResponse> {
+  try {
+    const v = JSON.parse(store.get(refKey()) ?? 'null') as { date: string; items: Record<string, WeekRefResponse> } | null;
+    return v && v.date === todayStr() ? v.items : {};
+  } catch { return {}; }
+}
+
+function refEntry(id: string): WeekRefResponse | undefined {
+  const cur = refMem.get(id);
+  if (cur && cur.date === todayStr()) return cur;
+  const saved = storedRefs()[id];
+  if (saved) refMem.set(id, saved);
+  return saved;
+}
+
+async function loadRef(entityId: string): Promise<void> {
+  if (sim.on || refLoads.has(entityId) || refEntry(entityId)) return;
+  const parkId = state.parkId;
+  refLoads.add(entityId);
+  try {
+    const data = await fetchWeekRef(parkId, entityId);
+    if (parkId !== state.parkId || data.date !== todayStr()) return;
+    refMem.set(entityId, data);
+    const items = storedRefs();
+    items[entityId] = data;
+    store.set(refKey(), JSON.stringify({ date: todayStr(), items }));
+    render();
+  } catch { /* geen bereik: later opnieuw, de grafiek werkt ook zonder */ } finally {
+    refLoads.delete(entityId);
+  }
+}
+
 /** Grafiek van het verloop, of een melding. Niet actueel = grijze achtergrond met het tijdstip van de gegevens. */
 function historyNode(entity: EntityInfo): Node {
   if (sim.on) return sparkline(simulateHistory(entity.id), Date.now());
@@ -484,7 +526,7 @@ function historyNode(entity: EntityInfo): Node {
   if (!e?.data) {
     return h('div', { class: 'chart-note' }, histLoads.has(entity.id) || !e ? T.histLoading : T.histUnavailable);
   }
-  const chart = sparkline(withLiveTail(e.data, state.live.get(entity.id)), Date.now());
+  const chart = sparkline(withLiveTail(e.data, state.live.get(entity.id)), Date.now(), refEntry(entity.id));
   if (histCurrent(e)) return chart;
   const note = histLoads.has(entity.id) ? T.histUpdating(clock(e.at, tz())) : T.histStale(clock(e.at, tz()));
   return h('div', { class: 'chart-stale' }, h('div', { class: 'stale-note' }, note), chart);
@@ -745,7 +787,7 @@ function planHeader(): HTMLElement {
       viewSwitch(),
       h('div', { class: 'spacer' }),
       refreshButton(),
-      h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 20))),
+      menuButton(20)),
     h('div', { class: 'parkline' },
       h('div', { class: 'park-chip' }, parkIcon(state.parkId), h('b', {}, currentPark()?.shortName ?? ''), near ? h('span', { class: 'near' }, T.near(near)) : null)));
 }
@@ -1309,7 +1351,7 @@ function render(): void {
           refreshButton(),
           h('button', { class: 'icon-btn aa', 'aria-label': state.density === 'compact' ? T.biggerText : T.compactText, onclick: () => setDensity(state.density === 'compact' ? 'comfortable' : 'compact') }, 'Aa'),
           h('button', { class: 'icon-btn', 'aria-label': dark ? T.toLight : T.toDark, onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', 22)),
-          h('button', { class: 'icon-btn', 'aria-label': T.settings, onclick: openSettings }, icon('gear', 22)))),
+          menuButton(22))),
       state.parks.length > 1
         ? h('div', { class: 'parks', role: 'group', 'aria-label': T.park },
             ...state.parks.map((p) => h('button', { class: 'park-pill', 'aria-pressed': p.id === state.parkId, onclick: () => switchPark(p.id) }, parkIcon(p.id, 16), p.shortName)))
@@ -1429,12 +1471,19 @@ function withLiveTail(data: HistoryResponse, live: LiveInfo | undefined): Histor
   return { ...data, rows: [...data.rows, { at: new Date(Math.min(at, Date.now())).toISOString(), wait: live.waitMinutes, status: live.status }] };
 }
 
-function sparkline(data: HistoryResponse, now: number): Node {
+function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): Node {
   const W = 300, H = 88, PAD = 6;
   const rows = data.rows.map((r) => ({ t: Math.max(Date.parse(data.from), Date.parse(r.at)), down: r.status === 'down', open: r.status === 'open' && r.wait !== null, y: r.status === 'open' && r.wait !== null ? r.wait : 0 }));
   if (rows.length < 2) return h('div', { class: 'chart-note' }, T.histBuilding);
   const from = rows[0].t;
-  const max = Math.max(60, ...rows.map((p) => p.y));
+  // Vorige weken: trede-lijn binnen het bereik van de grafiek (begin tot nu), onderbroken waar geen waarde is.
+  const refRows = (ref?.dates.length ? ref.rows : []).map((r) => ({ t: Date.parse(r.at), v: r.wait }));
+  const refSeg: { t0: number; t1: number; v: number }[] = [];
+  refRows.forEach((r, i) => {
+    const t0 = Math.max(r.t, from), t1 = Math.min(i + 1 < refRows.length ? refRows[i + 1].t : now, now);
+    if (r.v !== null && t1 > t0) refSeg.push({ t0, t1, v: r.v });
+  });
+  const max = Math.max(60, ...rows.map((p) => p.y), ...refSeg.map((s) => s.v));
   const x = (t: number): number => PAD + ((t - from) / Math.max(1, now - from)) * (W - 2 * PAD);
   const y = (v: number): number => H - PAD - (v / max) * (H - 2 * PAD);
   const shapes: SVGElement[] = [];
@@ -1462,6 +1511,14 @@ function sparkline(data: HistoryResponse, now: number): Node {
     const x0 = x(o.from), x1 = Math.max(x(o.to), x0 + 2);
     shapes.push(svg('path', { d: `M${x0.toFixed(1)} ${y(0).toFixed(1)}H${x1.toFixed(1)}`, stroke: 'var(--high)', 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-dasharray': '1 6', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
   }
+  if (refSeg.length) {
+    let d = '';
+    refSeg.forEach((sg, i) => {
+      const joined = i > 0 && refSeg[i - 1].t1 === sg.t0;
+      d += `${joined ? 'V' : `M${x(sg.t0).toFixed(1)} `}${y(sg.v).toFixed(1)}H${x(sg.t1).toFixed(1)}`;
+    });
+    shapes.push(svg('path', { class: 'ref-line', d, stroke: 'var(--text)', 'stroke-opacity': 0.55, 'stroke-width': 1.6, 'stroke-dasharray': '2 3', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+  }
   const downMin = Math.round(outages.reduce((sum, o) => sum + (o.to - o.from), 0) / 60000);
   const open = rows.filter((r) => r.open).map((r) => r.y);
   const ticks = [0, 20, 45, max].filter((v, i, arr) => v <= max && arr.indexOf(v) === i && (v !== 45 || max - 45 >= 8) && (v !== 20 || max >= 28));
@@ -1471,6 +1528,8 @@ function sparkline(data: HistoryResponse, now: number): Node {
       h('div', { class: 'yaxis', 'aria-hidden': 'true' }, ...ticks.map((v) => h('span', { style: `top:${((y(v) / H) * 100).toFixed(1)}%` }, String(v))))),
     h('div', { class: 'chart-axis' }, h('span', {}, clock(from, tz())), h('span', {}, T.now)),
     outages.length ? h('div', { class: 'chart-note outage' }, T.outage(outages.length, dur(downMin))) : null,
+    refSeg.length && ref ? h('div', { class: 'chart-note ref-note' }, h('span', { class: 'ref-swatch', 'aria-hidden': 'true' }),
+      T.refWeeks(ref.dates.length, new Intl.DateTimeFormat(T.locale, { weekday: 'long', timeZone: tz() }).format(new Date(now)))) : null,
     h('div', { class: 'chart-note' }, open.length
       ? T.range(Math.min(...open), Math.max(...open))
       : T.noWaitSeen));
@@ -1482,10 +1541,15 @@ function openDetail(entity: EntityInfo): void {
   const kind = kindOf(entity);
   const close = (): void => { scrim.remove(); drawer.remove(); };
   const scrim = h('div', { class: 'scrim', onclick: close });
-  const favBtn = h('button', { class: 'btn secondary' });
-  const setFav = (): void => { favBtn.textContent = state.favorites.has(entity.id) ? T.followingBtn : T.followBtn; };
+  // Hele knop reageert (volle breedte, geen tekstselectie op iOS) en het label wisselt meteen; mislukt opslaan, dan terug.
+  const favBtn = h('button', { class: 'btn secondary fav-btn', type: 'button' });
+  const setFav = (): void => {
+    const on = state.favorites.has(entity.id);
+    favBtn.textContent = on ? T.followingBtn : T.followBtn;
+    favBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  };
   setFav();
-  favBtn.addEventListener('click', async () => { await toggleFavorite(entity); setFav(); });
+  favBtn.addEventListener('click', () => { const p = toggleFavorite(entity); setFav(); void p.then(setFav); });
 
   const facts = h('dl', { class: 'facts' });
   const addFact = (k: string, v: string | null): void => { if (v) facts.append(h('dt', {}, k), h('dd', {}, v)); };
@@ -1724,7 +1788,7 @@ async function checkForUpdate(btn: HTMLButtonElement, say: (t: string, kind?: 'g
 
 // ---- Instellingen en koppelcode --------------------------------------------------------------
 
-function openSettings(): void {
+function openSettings(focus?: 'code'): void {
   const mkMsg = (): { el: HTMLElement; say: (t: string, kind?: 'good' | 'err' | '') => void } => {
     const el = h('div', { class: 'msg', role: 'status' });
     return { el, say: (t, kind = '') => { el.className = `msg ${kind}`.trim(); el.textContent = t; } };
@@ -1913,7 +1977,7 @@ function openSettings(): void {
       row(T.simulation, simBox, T.simInfo),
       simRow),
     group(T.gDevices,
-      h('details', { class: 'set-more' },
+      h('details', { class: 'set-more set-code', open: focus === 'code' },
         h('summary', {}, T.linkCode),
         row(T.ownCode, null, T.codeInfo),
         h('div', { class: 'code-line' }, customInput, saveCustom),
@@ -1932,7 +1996,31 @@ function openSettings(): void {
           h('div', { class: 'cl-head' }, h('b', {}, c.version === 'Eerder' ? T.earlier : T.version(c.version)), c.date ? h('span', {}, changelogDate(c.date)) : null),
           h('ul', {}, ...changesFor(c).map((x) => h('li', {}, x))))))));
   document.body.append(sheet);
+  if (focus === 'code') setTimeout(() => sheet.querySelector('.set-code')?.scrollIntoView({ block: 'start' }), 0);
 }
+
+// ---- Help en rondleiding ----------------------------------------------------------------------
+
+function showTour(): void {
+  openTour({ favoriteCount: () => state.favorites.size, reload: () => loadPark() });
+}
+
+function showHelp(): void {
+  openHelp({ replayTour: showTour, openCodeSettings: () => openSettings('code') });
+}
+
+/** Tandwiel in de kop: keuzemenu met Instellingen, Help en Rondleiding (een losse helpknop past niet naast de schakelaar). */
+function openMenu(): void {
+  actionSheet(T.menu, null, [
+    { label: T.settings, kind: 'primary', run: () => openSettings() },
+    { label: T.help, kind: 'primary', run: showHelp },
+    { label: T.tour, kind: 'primary', run: showTour },
+    { label: T.cancel, kind: 'cancel' },
+  ]);
+}
+
+const menuButton = (size: number): HTMLElement =>
+  h('button', { class: 'icon-btn', 'aria-label': T.menu, 'aria-haspopup': 'dialog', onclick: openMenu }, icon('gear', size));
 
 // ---- Start -----------------------------------------------------------------------------------
 
@@ -1940,6 +2028,8 @@ async function boot(): Promise<void> {
   applyTheme();
   render();
   fetchHealth().then((r) => { state.serverVersion = r.version ?? null; render(); }).catch(() => undefined);
+  // Nieuwe gebruiker (nog geen profiel en de rondleiding nooit gezien): rondleiding tonen. Bepalen vóór ensureProfile.
+  if (tourWanted()) showTour();
   try {
     await ensureProfile();
     state.parks = await fetchParks();

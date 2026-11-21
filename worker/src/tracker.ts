@@ -1,9 +1,9 @@
-import { TRACKING_MODES, type LiveInfo, type LiveResponse, type TrackingMode } from '../../packages/shared/src/index';
+import { TRACKING_MODES, type LiveInfo, type LiveResponse, type TrackingMode, type WeekRefResponse } from '../../packages/shared/src/index';
 import type { Env } from './auth';
 import { PARKS, type ParkConfig } from './parks';
 import { hasShowHistory, recordShowtimes } from './shows';
 import { getLive, getSchedule } from './themeparks';
-import { nowSec } from './util';
+import { addDays, localDateStr, nowSec, zonedEpochMs } from './util';
 
 /**
  * ThemeParks.wiki geeft alleen de actuele stand. Hier houden we zelf bij wanneer die voor het laatst veranderde.
@@ -19,7 +19,10 @@ export interface StateRow {
   first_seen_at: number;
 }
 
-const LOG_RETENTION_SEC = 7 * 24 * 3600;
+/** 29 dagen: genoeg voor dezelfde weekdag in de vier voorgaande weken (stippellijn in de grafiek). */
+export const LOG_RETENTION_SEC = 29 * 24 * 3600;
+export const REF_WEEKS = 4;
+const REF_STEP_MIN = 5;
 const iso = (sec: number): string => new Date(sec * 1000).toISOString();
 
 export async function loadStates(env: Env, parkId: string): Promise<Map<string, StateRow>> {
@@ -119,4 +122,54 @@ export async function trackAll(env: Env): Promise<void> {
     }
   }
   await env.DB.prepare('DELETE FROM wait_log WHERE at < ?').bind(nowSec() - LOG_RETENTION_SEC).run();
+}
+
+/**
+ * Dezelfde weekdag in de voorgaande weken: per 5 minuten de wachttijd (als de attractie open was), gemiddeld over
+ * de weken met gegevens. Alleen lezen; gebruikt de bestaande wait_log (rijen alleen bij een wijziging).
+ */
+export async function buildWeekRef(env: Env, park: ParkConfig, entityId: string, nowMs = Date.now()): Promise<WeekRefResponse> {
+  const tz = park.timezone;
+  const today = localDateStr(tz, nowMs);
+  type Row = { at: number; wait: number | null; status: string };
+  const slots = (24 * 60) / REF_STEP_MIN;
+  const sums = new Array<number>(slots).fill(0);
+  const counts = new Array<number>(slots).fill(0);
+  const dates: string[] = [];
+  const weeks = Array.from({ length: REF_WEEKS }, (_, i) => addDays(today, -7 * (i + 1)));
+  const results = await Promise.all(weeks.map(async (date) => {
+    const start = Math.floor(zonedEpochMs(date, '00:00', tz) / 1000);
+    const end = Math.floor(zonedEpochMs(addDays(date, 1), '00:00', tz) / 1000);
+    const [inDay, base] = await Promise.all([
+      env.DB.prepare('SELECT at, wait, status FROM wait_log WHERE park_id = ? AND entity_id = ? AND at >= ? AND at < ? ORDER BY at')
+        .bind(park.id, entityId, start, end).all<Row>(),
+      env.DB.prepare('SELECT at, wait, status FROM wait_log WHERE park_id = ? AND entity_id = ? AND at < ? AND at >= ? ORDER BY at DESC LIMIT 1')
+        .bind(park.id, entityId, start, start - 24 * 3600).first<Row>(),
+    ]);
+    return { date, start, rows: [...(base ? [base] : []), ...inDay.results] };
+  }));
+  for (const { date, start, rows } of results) {
+    if (!rows.length) continue;
+    let used = false;
+    let j = 0;
+    let cur: Row | null = null;
+    for (let i = 0; i < slots; i++) {
+      // Slot i = kloktijd i*5 min op die dag (bij zomer-/wintertijd schuift één uur; verwaarloosbaar).
+      const t = start + i * REF_STEP_MIN * 60;
+      while (j < rows.length && rows[j].at <= t) cur = rows[j++];
+      if (cur && cur.status === 'open' && cur.wait !== null) { sums[i] += cur.wait; counts[i]++; used = true; }
+    }
+    if (used) dates.push(date);
+  }
+  const rows: WeekRefResponse['rows'] = [];
+  let last: number | null | undefined;
+  for (let i = 0; i < slots; i++) {
+    const v = counts[i] ? Math.round(sums[i] / counts[i]) : null;
+    if (v === last) continue;
+    last = v;
+    const mins = i * REF_STEP_MIN;
+    const hhmm = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+    rows.push({ at: new Date(zonedEpochMs(today, hhmm, tz)).toISOString(), wait: v });
+  }
+  return { entityId, date: today, dates, rows: dates.length ? rows : [] };
 }
