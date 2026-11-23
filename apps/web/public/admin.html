@@ -73,8 +73,11 @@
   .chip.warn { border-color: var(--warn); color: var(--warn); }
   .chip.bad { border-color: var(--bad); color: var(--bad); }
   .map { display: block; width: 100%; height: auto; margin: 10px 0 4px; border-radius: 10px; background: rgba(127,127,127,.1); touch-action: manipulation; }
-  .map .lbl { font: 600 11px system-ui, -apple-system, sans-serif; fill: var(--muted); }
-  .map .scale { stroke: var(--muted); stroke-width: 2; }
+  .map { aspect-ratio: 340 / 220; background: #e8e4dc; }
+  .map .lbl { font: 700 11px system-ui, -apple-system, sans-serif; fill: #1b2328; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+  .map .att { font: 600 10px system-ui, -apple-system, sans-serif; fill: #1b2328; }
+  @media (prefers-color-scheme: dark) { .map .tiles { filter: brightness(.82) contrast(1.05); } }
+  .ver { margin: -2px 0 8px; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .82rem; color: var(--muted); }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
   .maplinks { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 2px; font-size: .92rem; }
@@ -96,6 +99,7 @@
 <body>
 <a class="apps-back" href="/">‹ ParkPilot</a>
 <h1>Beheer</h1>
+<p class="small muted ver" id="ver">Versie …</p>
 <p class="muted">Kijkplekken controleren en meldingen voor ParkPilot.</p>
 
 <form id="login">
@@ -188,64 +192,89 @@ function setBadge(n) {
 }
 
 // ---- Kaartje: eigen SVG, zonder kaartbibliotheek. Noorden boven, schaal in meters. -------------------
-const COL = { new: "#f0a43a", cur: "#43b96d", prev: "#93a0a8", near: "#93a0a8" };
+const COL = { new: "#f08a1a", cur: "#23914b", prev: "#6b7780" };
+// Kaart: tegels van OpenStreetMap (tile.openstreetmap.org) in een SVG, zonder kaartbibliotheek. Web-Mercator,
+// noorden boven. Bij zoom < 19 tegels van één niveau dieper op halve grootte, zodat het scherp is op een iPhone.
+// Gebruiksregels OSM: naamsvermelding verplicht, licht gebruik (hier: alleen de beheerder), niets vooraf ophalen.
+const TILE = 256, MAXZ = 19;
+const wx = (lng, z) => (lng + 180) / 360 * TILE * 2 ** z;
+const wy = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * TILE * 2 ** z; };
 function miniMap(it) {
-  const W = 340, H = 220, PX = 24, TOP = 22, BOT = 36; // onderin ruimte voor de schaal en het noorden
+  const W = 340, H = 220, PAD = 26;
   const target = it.lat != null ? { lat: it.lat, lng: it.lng, accuracy: it.accuracy } : null;
   const same = (a, b) => a && b && a.lat === b.lat && a.lng === b.lng;
   // Bij "nieuw" is de plek in gebruik meestal deze inzending zelf: dan één punt.
   const cur = it.current && !same(it.current, target) ? it.current : null;
   const prev = it.prev && !same(it.prev, it.current) && !same(it.prev, target) ? it.prev : null;
   const main = [target, cur, prev].filter(Boolean);
-  const anchor = main[0];
-  if (!anchor) return "";
+  if (!main.length && it.current) main.push(it.current);
+  if (!main.length) return "";
   // Attracties en shows uit de bron ter oriëntatie: de dichtstbijzijnde, en altijd minstens twee.
   const near = it.nearby.filter((n, i) => i < 2 || n.d < 250).slice(0, 5);
-  const k = Math.cos(anchor.lat * Math.PI / 180);
-  const xy = (p) => [(p.lng - anchor.lng) * 111320 * k, (p.lat - anchor.lat) * 110540];
-  const all = [...main, ...near].map(xy);
-  for (const p of main) if (p.accuracy) { const [x, y] = xy(p); all.push([x - p.accuracy, y - p.accuracy], [x + p.accuracy, y + p.accuracy]); } // cirkels passen erin
-  const minX = Math.min(...all.map((p) => p[0])), maxX = Math.max(...all.map((p) => p[0]));
-  const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
-  const aw = W - 2 * PX, ah = H - TOP - BOT;
-  const s = Math.min(aw / Math.max(maxX - minX, 60), ah / Math.max(maxY - minY, 60)); // pixels per meter
-  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-  const P = (p) => { const [x, y] = xy(p); return [W / 2 + (x - cx) * s, TOP + ah / 2 - (y - cy) * s]; };
+  const mPerPx19 = (lat) => 156543.03392 * Math.cos(lat * Math.PI / 180) / 2 ** MAXZ;
+  // Omvang in wereldpixels op zoom 19, met de nauwkeurigheidscirkels erbij.
+  const pts = [];
+  for (const p of [...main, ...near]) {
+    const x = wx(p.lng, MAXZ), y = wy(p.lat, MAXZ), r = (p.accuracy || 0) / mPerPx19(p.lat);
+    pts.push([x - r, y - r], [x + r, y + r]);
+  }
+  const minX = Math.min(...pts.map((p) => p[0])), maxX = Math.max(...pts.map((p) => p[0]));
+  const minY = Math.min(...pts.map((p) => p[1])), maxY = Math.max(...pts.map((p) => p[1]));
+  const fit = Math.max((maxX - minX) / (W - 2 * PAD), (maxY - minY) / (H - 2 * PAD - 14), 1); // onderin ruimte voor schaal en naamsvermelding
+  // Zoom mag tussen twee niveaus vallen: tegels van niveau z, iets vergroot (sc), zodat alles de kaart vult.
+  const zf = Math.max(12, Math.min(MAXZ, MAXZ - Math.log2(fit)));
+  const z = Math.floor(zf), sc = 2 ** (zf - z);
+  const k = 2 ** (MAXZ - z) / sc; // wereldpixels op 19 per schermpixel
+  const cx = (minX + maxX) / 2 / k, cy = (minY + maxY) / 2 / k; // midden in schermpixels
+  const ox = cx - W / 2, oy = cy - H / 2 + 8;
+  const P = (p) => [wx(p.lng, z) * sc - ox, wy(p.lat, z) * sc - oy];
+  // Tegels: één niveau dieper als dat kan (scherp op retina).
+  const tz = Math.min(MAXZ, z + 1), ts = TILE / 2 ** (tz - z) * sc;
+  let tiles = "";
+  const n = 2 ** tz;
+  for (let tx = Math.floor(ox / ts); tx * ts < ox + W; tx++) {
+    for (let ty = Math.floor(oy / ts); ty * ts < oy + H; ty++) {
+      if (ty < 0 || ty >= n) continue;
+      tiles += `<image href="https://tile.openstreetmap.org/${tz}/${((tx % n) + n) % n}/${ty}.png" x="${(tx * ts - ox).toFixed(1)}" y="${(ty * ts - oy).toFixed(1)}" width="${ts + 0.5}" height="${ts + 0.5}"/>`;
+    }
+  }
   const pins = main.map(P);
   let g = "";
-  for (const n of near) {
-    const [x, y] = P(n);
-    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${COL.near}" opacity=".8"/>`;
+  for (const nb of near) {
+    const [x, y] = P(nb);
+    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="#5c6970" stroke="#fff" stroke-width="1.5"/>`;
     const right = x < W / 2;
-    // Niet over een hoofdpunt heen: dan het label eronder.
     const hit = pins.some(([px, py]) => Math.abs(py - y) < 13 && (right ? px > x && px - x < 140 : px < x && x - px < 140));
     const ly = hit ? y + 16 : y + 4;
-    const name = n.name.length > 20 ? n.name.slice(0, 19) + "…" : n.name;
-    g += `<text class="lbl" x="${(right ? x + 7 : x - 7).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${right ? "start" : "end"}">${esc(name)}</text>`;
+    const name = nb.name.length > 20 ? nb.name.slice(0, 19) + "…" : nb.name;
+    g += `<text class="lbl" x="${(right ? x + 8 : x - 8).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${right ? "start" : "end"}">${esc(name)}</text>`;
   }
   const dot = (p, col) => {
     const [x, y] = P(p);
-    const r = Math.max(6, (p.accuracy ?? 0) * s);
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-opacity=".6"/>`
-      + `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="${col}" stroke="#fff" stroke-width="2"/>`;
+    const r = Math.max(7, (p.accuracy ?? 0) / (mPerPx19(p.lat) * k));
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="1.5"/>`
+      + `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${col}" stroke="#fff" stroke-width="2.5"/>`;
   };
   if (prev) g += dot(prev, COL.prev);
   if (cur) g += dot(cur, COL.cur);
-  if (target && cur) { const [a, b] = P(cur), [c, d] = P(target); g += `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}" stroke="${COL.new}" stroke-dasharray="4 4" stroke-width="2"/>`; }
+  if (target && cur) { const [a, b] = P(cur), [c, d] = P(target); g += `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}" stroke="${COL.new}" stroke-dasharray="5 4" stroke-width="2.5"/>`; }
   if (target) g += dot(target, COL.new);
   if (!target && it.current) g += dot(it.current, COL.cur); // verwijderverzoek: de plek die weg zou gaan
   // Schaalstreep: een rond getal van ongeveer een kwart van de breedte.
-  const want = (W / 4) / s;
-  const nice = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000].find((v) => v >= want * .6) || 1000;
-  const len = nice * s;
-  g += `<line class="scale" x1="12" y1="${H - 12}" x2="${(12 + len).toFixed(1)}" y2="${H - 12}"/><text class="lbl" x="${(17 + len).toFixed(1)}" y="${H - 8}">${nice} m</text>`;
-  g += `<text class="lbl" x="${W - 12}" y="${H - 8}" text-anchor="end">noorden ↑</text>`;
+  const mpp = mPerPx19(main[0].lat) * k;
+  const nice = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000].find((v) => v / mpp >= W / 7) || 1000;
+  const len = nice / mpp;
+  g += `<rect x="6" y="${H - 24}" width="${(len + 52).toFixed(1)}" height="18" rx="4" fill="#fff" fill-opacity=".8"/>`
+    + `<line x1="12" y1="${H - 12}" x2="${(12 + len).toFixed(1)}" y2="${H - 12}" stroke="#1b2328" stroke-width="2"/>`
+    + `<text class="att" x="${(17 + len).toFixed(1)}" y="${H - 11}">${nice} m</text>`;
+  g += `<a href="https://www.openstreetmap.org/copyright" target="_blank"><rect x="${W - 126}" y="${H - 16}" width="126" height="16" fill="#fff" fill-opacity=".8"/>`
+    + `<text class="att" x="${W - 4}" y="${H - 4.5}" text-anchor="end">© OpenStreetMap-bijdragers</text></a>`;
   const curInUse = it.current && same(it.current, target);
   const leg = [target ? `<span><i style="background:${COL.new}"></i>${it.kind === "new" ? (curInUse ? "nieuwe plek, al in gebruik" : "nieuwe plek") : "voorstel"}</span>` : "",
     cur || (!target && it.current) ? `<span><i style="background:${COL.cur}"></i>nu in gebruik${it.current.confirmed ? " (bevestigd)" : " (onbevestigd)"}</span>` : "",
     prev ? `<span><i style="background:${COL.prev}"></i>stond er bij inzenden</span>` : "",
-    near.length ? `<span><i style="background:${COL.near};opacity:.8"></i>uit de bron</span>` : ""].join("");
-  return `<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaartje van de plek">${g}</svg><div class="legend">${leg}<span>cirkel = gps-nauwkeurigheid</span></div>`;
+    near.length ? `<span><i style="background:#5c6970"></i>uit de bron</span>` : ""].join("");
+  return `<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaart van de plek"><g class="tiles">${tiles}</g>${g}</svg><div class="legend">${leg}<span>cirkel = gps-nauwkeurigheid</span></div>`;
 }
 
 const KIND = { new: "Nieuw", replace: "Vervangen", delete: "Verwijderen" };
@@ -300,6 +329,7 @@ function render() {
   }
   $("out").innerHTML = html;
   $("foot").textContent = `ParkPilot ${d.version}`;
+  $("ver").textContent = `Versie ${d.version}`;
   $("out").querySelectorAll("[data-note]").forEach((b) => b.onclick = () => {
     const el = $(b.dataset.note); el.hidden = !el.hidden; b.setAttribute("aria-expanded", String(!el.hidden));
   });
@@ -418,6 +448,10 @@ if ("serviceWorker" in navigator) {
   });
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && token) load(); });
+
+// Versienummer altijd zichtbaar, ook zonder in te loggen (framework: zichtbaar versienummer).
+fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => { $("ver").textContent = `Versie ${h.version}`; })
+  .catch(() => { $("ver").textContent = "Versie onbekend (geen verbinding)"; });
 
 // Start: onthouden wachtwoord gebruiken.
 try { token = localStorage.getItem(KEY) || sessionStorage.getItem(KEY) || ""; } catch (_) { token = ""; }

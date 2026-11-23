@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.1',
+    date: '2026-11-23',
+    changes: ['Beheer: kaart van OpenStreetMap bij elke kijkplek die gecontroleerd moet worden, en het versienummer altijd in beeld.'],
+    en: ['Admin: an OpenStreetMap map with every viewing spot to check, and the version number always visible.'],
+    pt: ['Administração: mapa do OpenStreetMap em cada ponto de observação a verificar, e o número da versão sempre visível.'],
+  },
+  {
     version: '0.23.0',
     date: '2026-11-23',
     changes: [
