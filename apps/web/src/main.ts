@@ -25,7 +25,7 @@ import {
 } from './api';
 import { parkArt, parkIcon } from './art';
 import { h, svg } from './dom';
-import { agoLabel, clock, dec1, dur, minutesSince, waitLevel } from './format';
+import { agoLabel, clock, dec1, dur, durShort, minutesSince, waitLevel } from './format';
 import { applyLang, getLangPref, kindName, lang, LANG_NAMES, LANGS, setLangPref, t as T, type LangPref } from './i18n';
 import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMeters, hasGeoPermission, walkMinutes } from './geo';
 import { icon, iconForKind } from './icons';
@@ -437,11 +437,23 @@ function openIssues(): void {
   }
 }
 
-function changedText(live: LiveInfo | undefined): string {
-  if (!live?.changedAt) return '';
-  if (live.changeObserved) return T.changed(agoLabel(live.changedAt));
-  const min = minutesSince(live.changedAt);
-  return min < 1 ? '' : T.unchangedFor(dur(min));
+/** Wanneer de wachttijd/status voor het laatst veranderde. Onze cron ziet een wijziging pas een paar minuten
+ *  nadat de bron hem doorgaf; is de bron-update ouder dan ons tijdstip, dan gebeurde de wijziging uiterlijk
+ *  toen. Zo is "veranderd" nooit recenter dan "bevestigd". Zelfde regel voor "al gelijk sinds". */
+function changedAtMs(live: LiveInfo | undefined): number | null {
+  if (!live?.changedAt) return null;
+  const c = Date.parse(live.changedAt);
+  const u = live.updatedAt ? Date.parse(live.updatedAt) : NaN;
+  return Number.isFinite(u) ? Math.min(c, u) : c;
+}
+
+/** Korte tekst voor de rij: "21 min" of (niet zelf zien veranderen) "≥ 3 u 10". */
+function changedShort(live: LiveInfo | undefined): string {
+  const c = changedAtMs(live);
+  if (c === null) return '';
+  const min = Math.max(0, Math.floor((Date.now() - c) / 60000));
+  if (live!.changeObserved) return durShort(min);
+  return min < 1 ? '' : T.geq(durShort(min));
 }
 
 /** Pijl met het verschil sinds de vorige waarneming. Hoger is slechter (rood), lager is beter (groen). */
@@ -465,16 +477,27 @@ function freshness(iso: string | null): 'fresh' | 'aging' | 'old' | 'unknown' {
   return min <= 10 ? 'fresh' : min <= 30 ? 'aging' : 'old';
 }
 
+/** Eén regel onder de naam: ▼ −5 · [trapje] 21 min · [vinkje] 5 min. Trapje = wachttijd veranderd, vinkje = bron
+ *  bevestigd (kleur = versheid). Woorden alleen voor schermlezers en bij lang drukken (title). */
 function metaLine(live: LiveInfo | undefined): HTMLElement | null {
   if (!live) return null;
   const parts: (Node | string)[] = [];
   const trend = trendNode(live);
-  if (trend) parts.push(trend, ' · ');
-  const changed = changedText(live);
-  if (changed) parts.push(changed, ' · ');
-  if (live.updatedAt) parts.push(h('span', { class: `src ${freshness(live.updatedAt)}` }, T.confirmed(agoLabel(live.updatedAt))));
-  else if (parts.length) parts.pop();
-  return parts.length ? h('div', { class: 'row-meta' }, ...parts) : null;
+  if (trend) parts.push(trend);
+  const changed = changedShort(live);
+  if (changed) {
+    const c = changedAtMs(live)!;
+    const full = live.changeObserved ? T.changed(agoLabel(new Date(c).toISOString())) : T.unchangedFor(dur(Math.floor((Date.now() - c) / 60000)));
+    parts.push(h('span', { class: 'mi', title: full, 'aria-label': full }, icon('changed', 13), changed));
+  }
+  if (live.updatedAt) {
+    const full = T.confirmed(agoLabel(live.updatedAt));
+    parts.push(h('span', { class: `mi src ${freshness(live.updatedAt)}`, title: full, 'aria-label': full }, icon('confirmed', 13), durShort(minutesSince(live.updatedAt))));
+  }
+  if (!parts.length) return null;
+  const line: (Node | string)[] = [];
+  parts.forEach((p, i) => { if (i) line.push(' · '); line.push(p); });
+  return h('div', { class: 'row-meta one' }, ...line);
 }
 
 function upcomingStarts(live: LiveInfo | undefined): number[] {
@@ -1733,10 +1756,12 @@ function openDetail(entity: EntityInfo, day?: { date: string; slots: ShowDayResp
       const t = { open: T.stOpenNoWait, down: T.stDown, closed: T.stClosed, refurbishment: T.stRefurb, unknown: T.stUnknown }[live.status];
       bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, t)));
     }
-    if (live.changedAt) {
-      const unchanged = minutesSince(live.changedAt);
+    const cAt = changedAtMs(live);
+    if (cAt !== null) {
+      const cIso = new Date(cAt).toISOString();
+      const unchanged = Math.floor((Date.now() - cAt) / 60000);
       addFact(T.fWaitChanged, live.changeObserved
-        ? (live.prevWaitMinutes !== null ? T.wasPrev(agoLabel(live.changedAt), live.prevWaitMinutes) : agoLabel(live.changedAt))
+        ? (live.prevWaitMinutes !== null ? T.wasPrev(agoLabel(cIso), live.prevWaitMinutes) : agoLabel(cIso))
         : unchanged >= 1 ? T.unchangedFor(dur(unchanged)) : null);
     }
     addFact(T.fSrcUpdated, live.updatedAt ? agoLabel(live.updatedAt) : null);

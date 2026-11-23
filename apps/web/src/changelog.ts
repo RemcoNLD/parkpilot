@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.3',
+    date: '2026-11-23',
+    changes: ['Regel onder de naam op één regel met twee icoontjes: trapje = veranderd, vinkje = bevestigd. "Veranderd" is nooit meer recenter dan "bevestigd"; lange tijden in dagen.'],
+    en: ['Line under the name now fits on one line with two icons: steps = changed, tick = confirmed. "Changed" is never more recent than "confirmed" any more; long spans in days.'],
+    pt: ['Linha sob o nome numa só linha com dois ícones: degraus = alterado, visto = confirmado. "Alterado" já nunca é mais recente do que "confirmado"; períodos longos em dias.'],
+  },
+  {
     version: '0.22.2',
     date: '2026-11-23',
     changes: ['De grafiek "Verloop vandaag" verspringt niet meer als hij na het openen wordt bijgewerkt.'],
