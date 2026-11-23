@@ -9,12 +9,9 @@ export function dur(min: number): string {
   return t.hours(Math.floor(min / 60), min % 60);
 }
 
-/** Korte duur voor de regel onder de naam: "5 min", "4 u 34", "17 d". */
-export function durShort(min: number): string {
-  if (min < 1) return t.justNow;
-  if (min < 60) return t.min(min);
-  if (min < 48 * 60) return t.hoursShort(Math.floor(min / 60), min % 60);
-  return t.daysShort(Math.floor(min / 1440));
+/** Duur in gewone taal; vanaf 48 uur in dagen ("17 dagen"). */
+export function durHuman(min: number): string {
+  return min < 48 * 60 ? dur(min) : t.days(Math.floor(min / 1440));
 }
 
 export function agoLabel(iso: string | null, now = Date.now()): string {

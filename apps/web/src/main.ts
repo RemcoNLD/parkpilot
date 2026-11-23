@@ -25,7 +25,7 @@ import {
 } from './api';
 import { parkArt, parkIcon } from './art';
 import { h, svg } from './dom';
-import { agoLabel, clock, dec1, dur, durShort, minutesSince, waitLevel } from './format';
+import { agoLabel, clock, dec1, dur, durHuman, minutesSince, waitLevel } from './format';
 import { applyLang, getLangPref, kindName, lang, LANG_NAMES, LANGS, setLangPref, t as T, type LangPref } from './i18n';
 import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMeters, hasGeoPermission, walkMinutes } from './geo';
 import { icon, iconForKind } from './icons';
@@ -447,13 +447,13 @@ function changedAtMs(live: LiveInfo | undefined): number | null {
   return Number.isFinite(u) ? Math.min(c, u) : c;
 }
 
-/** Korte tekst voor de rij: "21 min" of (niet zelf zien veranderen) "≥ 3 u 10". */
-function changedShort(live: LiveInfo | undefined): string {
+/** Tekst voor de rij: "@24 min geleden", of (niet zelf zien veranderen) "@meer dan 3 u 10 min geleden". */
+function changedText(live: LiveInfo | undefined): string {
   const c = changedAtMs(live);
   if (c === null) return '';
   const min = Math.max(0, Math.floor((Date.now() - c) / 60000));
-  if (live!.changeObserved) return durShort(min);
-  return min < 1 ? '' : T.geq(durShort(min));
+  if (live!.changeObserved) return T.atAgo(min < 1 ? T.justNow : T.ago(durHuman(min)));
+  return min < 1 ? '' : T.atMoreThan(durHuman(min));
 }
 
 /** Pijl met het verschil sinds de vorige waarneming. Hoger is slechter (rood), lager is beter (groen). */
@@ -477,27 +477,15 @@ function freshness(iso: string | null): 'fresh' | 'aging' | 'old' | 'unknown' {
   return min <= 10 ? 'fresh' : min <= 30 ? 'aging' : 'old';
 }
 
-/** Eén regel onder de naam: ▼ −5 · [trapje] 21 min · [vinkje] 5 min. Trapje = wachttijd veranderd, vinkje = bron
- *  bevestigd (kleur = versheid). Woorden alleen voor schermlezers en bij lang drukken (title). */
+/** Regel onder de naam: ▼ −5 · @24 min geleden. Versheid van de bron staat bovenaan de lijst en in het detailvenster. */
 function metaLine(live: LiveInfo | undefined): HTMLElement | null {
   if (!live) return null;
   const parts: (Node | string)[] = [];
   const trend = trendNode(live);
   if (trend) parts.push(trend);
-  const changed = changedShort(live);
-  if (changed) {
-    const c = changedAtMs(live)!;
-    const full = live.changeObserved ? T.changed(agoLabel(new Date(c).toISOString())) : T.unchangedFor(dur(Math.floor((Date.now() - c) / 60000)));
-    parts.push(h('span', { class: 'mi', title: full, 'aria-label': full }, icon('changed', 13), changed));
-  }
-  if (live.updatedAt) {
-    const full = T.confirmed(agoLabel(live.updatedAt));
-    parts.push(h('span', { class: `mi src ${freshness(live.updatedAt)}`, title: full, 'aria-label': full }, icon('confirmed', 13), durShort(minutesSince(live.updatedAt))));
-  }
-  if (!parts.length) return null;
-  const line: (Node | string)[] = [];
-  parts.forEach((p, i) => { if (i) line.push(' · '); line.push(p); });
-  return h('div', { class: 'row-meta one' }, ...line);
+  const changed = changedText(live);
+  if (changed) parts.push(parts.length ? ' · ' : '', changed);
+  return parts.length ? h('div', { class: 'row-meta one' }, ...parts) : null;
 }
 
 function upcomingStarts(live: LiveInfo | undefined): number[] {

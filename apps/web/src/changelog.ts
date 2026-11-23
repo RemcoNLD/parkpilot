@@ -10,9 +10,9 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.22.3',
     date: '2026-11-23',
-    changes: ['Regel onder de naam op één regel met twee icoontjes: trapje = veranderd, vinkje = bevestigd. "Veranderd" is nooit meer recenter dan "bevestigd"; lange tijden in dagen.'],
-    en: ['Line under the name now fits on one line with two icons: steps = changed, tick = confirmed. "Changed" is never more recent than "confirmed" any more; long spans in days.'],
-    pt: ['Linha sob o nome numa só linha com dois ícones: degraus = alterado, visto = confirmado. "Alterado" já nunca é mais recente do que "confirmado"; períodos longos em dias.'],
+    changes: ['Regel onder de naam korter: "@24 min geleden" = wanneer de wachttijd veranderde. Kan niet meer recenter zijn dan de bron; lange tijden in dagen.'],
+    en: ['Shorter line under the name: "@24 min ago" = when the wait time changed. Can no longer be more recent than the source; long spans in days.'],
+    pt: ['Linha sob o nome mais curta: "@há 24 min" = quando o tempo de espera mudou. Já não pode ser mais recente do que a fonte; períodos longos em dias.'],
   },
   {
     version: '0.22.2',
