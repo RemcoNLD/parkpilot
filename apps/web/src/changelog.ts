@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.2',
+    date: '2026-11-23',
+    changes: ['De grafiek "Verloop vandaag" verspringt niet meer als hij na het openen wordt bijgewerkt.'],
+    en: ['The "Today so far" chart no longer jumps when it updates after opening.'],
+    pt: ['O gráfico "Hoje até agora" já não salta quando é atualizado depois de abrir.'],
+  },
+  {
     version: '0.22.1',
     date: '2026-11-23',
     changes: [

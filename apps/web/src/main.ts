@@ -670,17 +670,20 @@ async function loadRef(entityId: string): Promise<void> {
   }
 }
 
-/** Grafiek van het verloop, of een melding. Niet actueel = grijze achtergrond met het tijdstip van de gegevens. */
-function historyNode(entity: EntityInfo): Node {
-  if (sim.on) return sparkline(simulateHistory(entity.id), Date.now());
+/** Kop "Verloop vandaag" + grafiek, of een melding. Niet actueel = grijze achtergrond, tijdstip rechts in de kop.
+ *  Kop en kader zijn in beide standen even groot, zodat de grafiek niet verspringt als het bijwerken klaar is. */
+function historyNode(entity: EntityInfo, titleCls = 'section-title'): Node {
+  const head = (note: string | null): HTMLElement =>
+    h('div', { class: `${titleCls} chart-head` }, h('span', {}, T.histToday), note ? h('span', { class: 'stale-note' }, note) : null);
+  if (sim.on) return h('div', {}, head(null), h('div', { class: 'chart-wrap' }, sparkline(simulateHistory(entity.id), Date.now())));
   const e = histEntry(entity.id);
   if (!e?.data) {
-    return h('div', { class: 'chart-note' }, histLoads.has(entity.id) || !e ? T.histLoading : T.histUnavailable);
+    return h('div', {}, head(null), h('div', { class: 'chart-note' }, histLoads.has(entity.id) || !e ? T.histLoading : T.histUnavailable));
   }
   const chart = sparkline(withLiveTail(e.data, state.live.get(entity.id)), Date.now(), refEntry(entity.id));
-  if (histCurrent(e)) return chart;
+  if (histCurrent(e)) return h('div', {}, head(null), h('div', { class: 'chart-wrap' }, chart));
   const note = histLoads.has(entity.id) ? T.histUpdating(clock(e.at, tz())) : T.histStale(clock(e.at, tz()));
-  return h('div', { class: 'chart-stale' }, h('div', { class: 'stale-note' }, note), chart);
+  return h('div', {}, head(note), h('div', { class: 'chart-wrap chart-stale' }, chart));
 }
 
 /** Het paneel dat onder een rij uitklapt: verloop van de wachttijd, of de showtijden van vandaag. */
@@ -690,8 +693,7 @@ function expandPanel(entity: EntityInfo): HTMLElement | null {
     const strip = showStrip(state.live.get(entity.id));
     return h('div', { class: 'expand' }, h('div', { class: 'section-title tight' }, T.today), strip ?? h('p', { class: 'caveat' }, T.noTimesToday));
   }
-  const inner = historyNode(entity);
-  return h('div', { class: 'expand' }, singleRiderLine(state.live.get(entity.id)), h('div', { class: 'section-title tight' }, T.histToday), inner);
+  return h('div', { class: 'expand' }, singleRiderLine(state.live.get(entity.id)), historyNode(entity, 'section-title tight'));
 }
 
 /** Wachttijd voor single riders in het uitklappen, alleen als de attractie een single-rider-rij heeft en open is. */
@@ -1786,7 +1788,6 @@ function openDetail(entity: EntityInfo, day?: { date: string; slots: ShowDayResp
     kind ? kindArt(kind) : null,
     ...bigNodes,
     facts.childNodes.length ? facts : null,
-    entity.type === 'attraction' ? h('div', { class: 'section-title' }, T.histToday) : null,
     entity.type === 'attraction' ? chartBox : null,
     times ? h('div', { class: 'section-title' }, day ? dayLabel(day.date) : T.today) : null,
     times,
