@@ -96,6 +96,10 @@ if (RICH) {
     const u = new URL(route.request().url());
     if (u.pathname.startsWith('/api/')) {
       if (offlineHistory && u.pathname.includes('/history/')) return route.abort('internetdisconnected');
+      // Eigen code "1234" is al van een ander profiel (test de vraag "lijstje openen?").
+      if (u.pathname === '/api/profile/recovery-code' && /"code":"1234"/.test(route.request().postData() || '')) {
+        return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'code_taken' }) });
+      }
       const body = api[u.pathname + (u.searchParams.get('ref') ? '?ref' : '')];
       return route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', body: JSON.stringify(body ?? { error: 'nf' }) });
     }
@@ -231,24 +235,37 @@ if (RICH) {
     return;
   }
   if (scenario === 'tour') {
-    // Nieuwe gebruiker: alle stappen; bij de koppelcode elke keuze; afsluiten en herladen (moet wegblijven).
+    // Nieuwe gebruiker: welkom + koppelcode (elke keuze, ook een bezette eigen code), dan Rondleiding en alle stappen;
+    // afsluiten en herladen (moet wegblijven). Daarna Meteen beginnen apart getest met een schone opslag.
+    console.log('rondleiding zichtbaar:', await page.locator('.tour').count() === 1, 'welkom met keuzes:', await page.locator('.tour-choice').count());
+    await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-0.png` });
+    for (const [k, label] of [[1, 'have'], [2, 'strong'], [3, 'own'], [3, 'taken'], [4, 'later']]) {
+      await page.click(`.tour-choice:nth-of-type(${k})`); await page.waitForTimeout(300);
+      if (label === 'have') { await page.fill('.tour-code-panel .input', 'abcd1234'); await page.click('.tour-code-panel .btn'); await page.waitForTimeout(400); }
+      if (label === 'own') { await page.fill('.tour-code-panel .input', 'ab'); await page.click('.tour-code-panel .btn'); await page.waitForTimeout(200); }
+      if (label === 'taken') { await page.fill('.tour-code-panel .input', '1234'); await page.click('.tour-code-panel .code-line .btn'); await page.waitForTimeout(400); }
+      await page.evaluate(() => { const t = document.querySelector('.tour'); if (t) t.scrollTop = 1e5; }); await page.waitForTimeout(100);
+      await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-0-${label}.png` });
+      if (label === 'taken') {
+        await page.click('.code-taken .btn:not(.secondary)'); await page.waitForTimeout(500);
+        console.log('na openen:', await page.locator('.tour-code-panel .msg').first().textContent());
+        await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-0-opened.png` });
+      }
+    }
+    await page.click('.tour-nav .btn:last-child'); await page.waitForTimeout(250);
     const n = await page.locator('.tour-dots span').count();
-    console.log('rondleiding zichtbaar:', await page.locator('.tour').count() === 1, 'stappen:', n);
+    console.log('uitlegstappen:', n);
     for (let i = 1; i <= n; i++) {
       await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-${i}.png` });
-      if (await page.locator('.tour-choice').count()) {
-        for (const [k, label] of [[1, 'have'], [2, 'strong'], [3, 'own'], [4, 'later']]) {
-          await page.click(`.tour-choice:nth-of-type(${k})`); await page.waitForTimeout(300);
-          if (label === 'have') { await page.fill('.tour-code-panel .input', 'abcd1234'); await page.click('.tour-code-panel .btn'); await page.waitForTimeout(400); }
-          if (label === 'own') { await page.fill('.tour-code-panel .input', 'ab'); await page.click('.tour-code-panel .btn'); await page.waitForTimeout(200); }
-          await page.screenshot({ path: `${OUT}/tour-${theme}-${locale}-${i}-${label}.png` });
-        }
-      }
-      if (i < n) { await page.click('.tour-nav .btn:last-child'); await page.waitForTimeout(250); }
+      await page.click('.tour-nav .btn:last-child'); await page.waitForTimeout(250);
     }
-    await page.click('.tour-nav .btn:last-child'); await page.waitForTimeout(300);
     await page.reload(); await page.waitForTimeout(1200);
     console.log('na herladen nog rondleiding:', await page.locator('.tour').count(), 'pp.tour =', await page.evaluate(() => localStorage.getItem('pp.tour')));
+    await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(1200);
+    await page.click('.tour-nav .btn:first-child'); await page.waitForTimeout(300);
+    console.log('Meteen beginnen sluit:', await page.locator('.tour').count() === 0);
+    await page.click('.menu-btn'); await page.waitForTimeout(250); await page.click('.menu button:nth-child(3)'); await page.waitForTimeout(300);
+    console.log('via menu begint bij stap 1:', await page.locator('.tour-dots span.on').count() === 1 && (await page.locator('.tour-choice').count()) === 0);
     await browser.close();
     return;
   }
@@ -287,12 +304,23 @@ if (RICH) {
     return;
   }
   if (scenario === 'main') {
+    if (RICH) { await page.click('.vswitch button:nth-of-type(1)'); await page.waitForTimeout(500); }
     await page.screenshot({ path: `${OUT}/main-${theme}-${locale}.png` });
     await page.click('.ring-btn'); await page.waitForTimeout(500);
     await page.screenshot({ path: `${OUT}/main-${theme}-${locale}-open.png` });
     await page.click('.row-open'); await page.waitForTimeout(600);
     await page.screenshot({ path: `${OUT}/detail-${theme}-${locale}.png` });
     await page.mouse.click(195, 40); await page.waitForTimeout(300);
+    if (RICH) {
+      // Detailvenster van een attractie met stille bron en storing, hele lengte; daarna "Over deze cijfers" open.
+      await page.setViewportSize({ width: 390, height: 1900 });
+      await page.locator('.rowwrap:has-text("Cars ROAD TRIP") .row-open').first().click(); await page.waitForTimeout(900);
+      await page.screenshot({ path: `${OUT}/detail-cars-${theme}-${locale}.png` });
+      await page.click('.tech-more summary'); await page.waitForTimeout(200);
+      await page.screenshot({ path: `${OUT}/detail-cars-${theme}-${locale}-tech.png` });
+      await page.mouse.click(195, 20); await page.waitForTimeout(300);
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
     await page.click('.vswitch button:nth-of-type(2)'); await page.waitForTimeout(500);
     await page.screenshot({ path: `${OUT}/plan-${theme}-${locale}.png` });
     await browser.close();

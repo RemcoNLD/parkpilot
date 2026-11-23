@@ -607,3 +607,18 @@ html.game-open, html.game-open body { overflow: hidden; }
 .sheet p.inc-stale { font-size: 13px; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .inc-dot { animation: incpulse 1.6s ease-out infinite; } }
 @keyframes incpulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--high) 60%, transparent); } 100% { box-shadow: 0 0 0 6px transparent; } }
+
+/* Detailvenster: brongegevens en uitleg bij de grafiek ingeklapt ("Over deze cijfers") */
+.tech-more { margin: 14px 0 4px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line); }
+.tech-more > summary { font-size: 14px; color: var(--muted); font-weight: 600; }
+.tech-more .facts { margin-top: 2px; }
+.tech-more .chart-note { margin-top: 8px; }
+.tech-more .caveat { margin: 8px 0 0; }
+
+/* Rondleiding: welkom + koppelcode, met Meteen beginnen / Rondleiding */
+.tour-body.intro { justify-content: flex-start; padding-top: 28px; }
+.tour-body.intro p { font-size: 16px; }
+.tour-body.intro .tour-icon { margin-bottom: 18px; }
+.tour-nav.two .btn { flex: 1; min-width: 0; }
+.code-taken .inline-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.code-taken .msg { margin-top: 8px; }

@@ -8,6 +8,25 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.0',
+    date: '2026-11-23',
+    changes: [
+      'Rondleiding begint met welkom en de koppelcode. Daarna kies je: meteen beginnen of de rondleiding volgen.',
+      'Kies je een eigen code die al bestaat, dan vraagt de app of je dat lijstje wilt openen. Wat op dit toestel stond, wordt dan vervangen door het lijstje op de server.',
+      'Detailvenster rustiger: afstand en omschrijving hoger, brongegevens en uitleg bij de grafiek ingeklapt onder "Over deze cijfers".',
+    ],
+    en: [
+      'The tour starts with a welcome and the link code. Then you choose: start right away or take the tour.',
+      'If you choose your own code and it already exists, the app asks whether to open that list. What was on this device is then replaced by the list on the server.',
+      'Calmer detail view: distance and description higher up, source details and chart notes folded under "About these numbers".',
+    ],
+    pt: [
+      'A visita guiada começa com as boas-vindas e o código de ligação. Depois escolhe: começar já ou fazer a visita.',
+      'Se escolher um código seu que já existe, a app pergunta se quer abrir essa lista. O que estava neste aparelho é então substituído pela lista do servidor.',
+      'Detalhe mais calmo: distância e descrição mais acima, dados da fonte e notas do gráfico recolhidos em "Sobre estes números".',
+    ],
+  },
+  {
     version: '0.21.2',
     date: '2026-11-23',
     changes: ['Het menu (☰) staat nu linksboven en klapt direct onder de knop open, met Instellingen, Help en Rondleiding. Tik ernaast om te sluiten.'],

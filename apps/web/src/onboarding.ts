@@ -38,6 +38,30 @@ const mkMsg = (): { el: HTMLElement; say: (t: string, kind?: 'good' | 'err' | ''
   return { el, say: (t, kind = '') => { el.className = `msg ${kind}`.trim(); el.textContent = t; } };
 };
 
+/**
+ * Zelfgekozen code is al van een ander profiel: vragen of je dat lijstje wilt openen. De server is leidend:
+ * dit toestel stapt over naar dat profiel, wat er nu op staat verdwijnt. Gebruikt in de rondleiding én in Instellingen.
+ */
+export function codeTakenOffer(code: string, done: (favoriteCount: number) => void | Promise<void>, other: () => void): HTMLElement {
+  const err = h('p', { class: 'msg err' });
+  err.hidden = true;
+  const open = h('button', { class: 'btn sm', type: 'button' }, T.codeTakenOpen);
+  const no = h('button', { class: 'btn secondary sm', type: 'button', onclick: other }, T.codeTakenOther);
+  open.addEventListener('click', async () => {
+    open.setAttribute('disabled', '');
+    try {
+      const r = await redeemRecoveryCode(code);
+      setCreds({ deviceId: r.deviceId, token: r.token });
+      await done(r.favoriteCount);
+    } catch (e) {
+      err.hidden = false;
+      err.textContent = e instanceof ApiError && e.status === 429 ? T.tooMany : T.restoreFail;
+      open.removeAttribute('disabled');
+    }
+  });
+  return h('div', { class: 'code-taken' }, h('p', { class: 'code-warn' }, T.codeTakenAsk), h('div', { class: 'inline-actions' }, open, no), err);
+}
+
 /** De keuzes bij de koppelcode-stap. Zelfde API en meldingen als in Instellingen. */
 function codeChooser(hooks: TourHooks, made: { code: string | null }): HTMLElement {
   const box = h('div', { class: 'tour-code' });
@@ -77,8 +101,10 @@ function codeChooser(hooks: TourHooks, made: { code: string | null }): HTMLEleme
         const { code } = await createRecoveryCode(value);
         msg.say(T.codeSaved(code), 'good');
       } catch (err) {
-        if (err instanceof ApiError && err.code === 'code_taken') msg.say(T.codeTaken, 'err');
-        else if (err instanceof ApiError && err.code === 'invalid_code') msg.say(T.codeMin, 'err');
+        if (err instanceof ApiError && err.code === 'code_taken') {
+          msg.el.className = 'msg';
+          msg.el.replaceChildren(codeTakenOffer(value, (n) => { input.value = ''; msg.say(T.restored(n), 'good'); void hooks.reload(); }, () => { msg.say(''); input.focus(); }));
+        } else if (err instanceof ApiError && err.code === 'invalid_code') msg.say(T.codeMin, 'err');
         else msg.say(T.errSave, 'err');
       }
       save.removeAttribute('disabled');
@@ -153,34 +179,44 @@ function shotNode(stepIcon: string): HTMLElement | null {
   return frame;
 }
 
-/** Rondleiding op volledig scherm: stippen, Overslaan, Terug/Volgende. Sluiten (ook Overslaan) zet de vlag. */
-export function openTour(hooks: TourHooks): void {
+/**
+ * Rondleiding op volledig scherm. Stap 0 = welkom + koppelcode, met de keuze Meteen beginnen of Rondleiding.
+ * Daarna de uitlegstappen met stippen, Overslaan, Terug/Volgende. Sluiten (ook Overslaan) zet de vlag.
+ * `start` = 1 slaat het welkom over (rondleiding opnieuw bekijken via menu of Help).
+ */
+export function openTour(hooks: TourHooks, start = 0): void {
   const steps = T.tourSteps;
   const made = { code: null as string | null };
-  let i = 0;
+  let i = Math.min(Math.max(start, 0), steps.length - 1);
   let codeBox: HTMLElement | null = null;
   const root = h('div', { class: 'tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': T.tour });
   const close = (): void => { setFlag(); root.remove(); };
+  const n = steps.length - 1; // aantal uitlegstappen (zonder welkom)
 
   const paint = (): void => {
     const s = steps[i];
+    const intro = i === 0;
     const last = i === steps.length - 1;
-    const isCode = s.icon === 'link';
-    if (isCode && !codeBox) codeBox = codeChooser(hooks, made);
-    root.replaceChildren(
-      h('div', { class: 'tour-top' },
-        h('div', { class: 'tour-dots', role: 'img', 'aria-label': T.tourStepAria(i + 1, steps.length) },
-          ...steps.map((_, k) => h('span', { class: k === i ? 'on' : k < i ? 'seen' : '' }))),
+    if (intro && !codeBox) codeBox = codeChooser(hooks, made);
+    const parts: (HTMLElement | null)[] = [
+      intro ? null : h('div', { class: 'tour-top' },
+        h('div', { class: 'tour-dots', role: 'img', 'aria-label': T.tourStepAria(i, n) },
+          ...steps.slice(1).map((_, k) => h('span', { class: k + 1 === i ? 'on' : k + 1 < i ? 'seen' : '' }))),
         last ? null : h('button', { class: 'tour-skip', type: 'button', onclick: close }, T.tourSkip)),
-      h('div', { class: 'tour-body' },
-        shotNode(s.icon) ?? h('div', { class: 'tour-icon' }, icon(s.icon, 44)),
+      h('div', { class: `tour-body${intro ? ' intro' : ''}` },
+        intro ? h('div', { class: 'tour-icon' }, icon(s.icon, 44)) : shotNode(s.icon) ?? h('div', { class: 'tour-icon' }, icon(s.icon, 44)),
         h('h2', {}, s.title),
         ...s.body.map((p) => h('p', {}, p)),
-        i === 0 && isIosSafari() ? h('p', { class: 'tour-tip' }, T.tourIosTip) : null,
-        isCode ? codeBox : null),
-      h('div', { class: 'tour-nav' },
-        i > 0 ? h('button', { class: 'btn secondary', type: 'button', onclick: () => { i--; paint(); } }, T.tourBack) : h('span', {}),
-        h('button', { class: 'btn', type: 'button', onclick: () => { if (last) close(); else { i++; paint(); } } }, last ? T.tourStart : T.tourNext)));
+        intro && isIosSafari() ? h('p', { class: 'tour-tip' }, T.tourIosTip) : null,
+        intro ? codeBox : null),
+      intro
+        ? h('div', { class: 'tour-nav two' },
+            h('button', { class: 'btn secondary', type: 'button', onclick: close }, T.tourGoNow),
+            h('button', { class: 'btn', type: 'button', onclick: () => { i = 1; paint(); } }, T.tourTake))
+        : h('div', { class: 'tour-nav' },
+            i > (start > 0 ? 1 : 0) ? h('button', { class: 'btn secondary', type: 'button', onclick: () => { i--; paint(); } }, T.tourBack) : h('span', {}),
+            h('button', { class: 'btn', type: 'button', onclick: () => { if (last) close(); else { i++; paint(); } } }, last ? T.tourStart : T.tourNext))];
+    root.replaceChildren(...parts.filter((x): x is HTMLElement => x !== null));
     root.scrollTop = 0;
   };
   paint();

@@ -31,7 +31,7 @@ import { GeoError, formatDistance, getPosition, getPrecisePosition, haversineMet
 import { icon, iconForKind } from './icons';
 import { blurbFor } from './info';
 import { kindArt } from './kindart';
-import { openHelp, openTour, tourWanted } from './onboarding';
+import { codeTakenOffer, openHelp, openTour, tourWanted } from './onboarding';
 import { gameAskOn, openGame, setGameAsk } from './game';
 import { simulateHistory, simulateIncidents, simulateLive, simulateSchedule } from './sim';
 import { distanceOf, nextStartMs, sortEntities } from './logic';
@@ -1715,12 +1715,12 @@ function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): N
       showNow ? h('span', { class: 'now-lbl', style: `left:${nowPct.toFixed(1)}%` }, T.now) : null,
       h('span', {}, hours ? clock(to, tz()) : T.now)),
     outages.length ? h('div', { class: 'chart-note outage' }, T.outage(outages.length, dur(downMin))) : null,
-    rows.some((r) => r.stale) ? h('div', { class: 'chart-note stale-src' }, T.staleChart) : null,
+    rows.some((r) => r.stale) ? h('div', { class: 'chart-note stale-src chart-tech' }, T.staleChart) : null,
     refSeg.length && ref ? h('div', { class: 'chart-note ref-note' }, h('span', { class: 'ref-swatch', 'aria-hidden': 'true' }),
       T.refWeeks(ref.dates.length, new Intl.DateTimeFormat(T.locale, { weekday: 'long', timeZone: tz() }).format(new Date(now)))) : null,
-    h('div', { class: 'chart-note' }, open.length
-      ? T.range(Math.min(...open), Math.max(...open))
-      : T.noWaitSeen));
+    open.length
+      ? h('div', { class: 'chart-note chart-tech' }, T.range(Math.min(...open), Math.max(...open)))
+      : h('div', { class: 'chart-note' }, T.noWaitSeen));
 }
 
 function openDetail(entity: EntityInfo): void {
@@ -1739,8 +1739,12 @@ function openDetail(entity: EntityInfo): void {
   setFav();
   favBtn.addEventListener('click', () => { const p = toggleFavorite(entity); setFav(); void p.then(setFav); });
 
+  // Praktische feiten in beeld; brongegevens (wanneer gewijzigd, bronleeftijd) en uitleg bij de grafiek achter "Over deze cijfers".
   const facts = h('dl', { class: 'facts' });
   const addFact = (k: string, v: string | null): void => { if (v) facts.append(h('dt', {}, k), h('dd', {}, v)); };
+  const techFacts = h('dl', { class: 'facts' });
+  const addTech = (k: string, v: string | null): void => { if (v) techFacts.append(h('dt', {}, k), h('dd', {}, v)); };
+  const techChart = h('div', {});
   const bigNodes: Node[] = [];
 
   if (entity.type === 'attraction' && live) {
@@ -1750,9 +1754,9 @@ function openDetail(entity: EntityInfo): void {
       const t = { open: T.stOpenNoWait, down: T.stDown, closed: T.stClosed, refurbishment: T.stRefurb, unknown: T.stUnknown }[live.status];
       bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, t)));
     }
-    addFact(T.fWaitChanged, live.changeObserved ? agoLabel(live.changedAt) : null);
-    if (live.changeObserved && live.prevWaitMinutes !== null) addFact(T.fBefore, String(live.prevWaitMinutes));
-    addFact(T.fSrcUpdated, live.updatedAt ? `${agoLabel(live.updatedAt)}${{ fresh: T.fresh, aging: T.aging, old: T.old, unknown: '' }[freshness(live.updatedAt)]}` : null);
+    addTech(T.fWaitChanged, live.changeObserved ? agoLabel(live.changedAt) : null);
+    if (live.changeObserved && live.prevWaitMinutes !== null) addTech(T.fBefore, String(live.prevWaitMinutes));
+    addTech(T.fSrcUpdated, live.updatedAt ? `${agoLabel(live.updatedAt)}${{ fresh: T.fresh, aging: T.aging, old: T.old, unknown: '' }[freshness(live.updatedAt)]}` : null);
     if (live.singleRider) addFact(T.singleRider, typeof live.singleRiderWait === 'number' ? String(live.singleRiderWait) : T.srAvailNone);
   }
   if (entity.type === 'show' && live) {
@@ -1773,11 +1777,20 @@ function openDetail(entity: EntityInfo): void {
     ? h('p', { class: 'caveat' }, T.caveat(agoLabel(live.changedAt)))
     : null;
 
+  const techMore = h('details', { class: 'set-more tech-more' },
+    h('summary', {}, T.aboutNumbers), techFacts, caveat, techChart);
+  techMore.hidden = !techFacts.hasChildNodes() && !caveat;
+
   const myRides = entity.type === 'attraction' ? queueLog().filter((r) => r.id === entity.id && r.parkId === state.parkId) : [];
   const chartBox = h('div', {});
   if (entity.type === 'attraction') {
     // Meteen het bewaarde verloop (grijs als niet actueel), daarna bijwerken zodra het ophalen klaar is.
-    const paint = (): void => { if (chartBox.isConnected || !chartBox.hasChildNodes()) chartBox.replaceChildren(historyNode(entity)); };
+    const paint = (): void => {
+      if (!chartBox.isConnected && chartBox.hasChildNodes()) return;
+      chartBox.replaceChildren(historyNode(entity));
+      techChart.replaceChildren(...chartBox.querySelectorAll('.chart-tech'));
+      techMore.hidden = !techFacts.hasChildNodes() && !caveat && !techChart.hasChildNodes();
+    };
     const p = loadHistory(entity.id);
     paint();
     void p.then(paint);
@@ -1801,23 +1814,23 @@ function openDetail(entity: EntityInfo): void {
       h('button', { class: 'icon-btn', 'aria-label': T.close, onclick: close }, '✕')),
     kind ? kindArt(kind) : null,
     ...bigNodes,
+    facts.childNodes.length ? facts : null,
     entity.type === 'attraction' ? h('div', { class: 'section-title' }, T.histToday) : null,
     entity.type === 'attraction' ? chartBox : null,
-    facts.childNodes.length ? facts : null,
+    times ? h('div', { class: 'section-title' }, T.today) : null,
+    times,
     myRides.length ? h('div', { class: 'section-title' }, T.qYouToday) : null,
     myRides.length ? h('div', { class: 'qlog' }, ...myRides.map((r) => h('div', { class: 'qlog-row' },
       h('b', {}, clock(r.start, tz())),
       h('span', {}, `${lineName(r.line)}: ${dur(minutesOf((r.turnAt ?? r.outAt) - r.start))}`),
       h('span', { class: 'qlog-exp' }, r.expected === null ? T.qExpUnknownShort : T.qExpShort(r.expected))))) : null,
-    caveat,
     blurb ? h('div', { class: 'about' },
       h('p', {}, blurb.text),
       blurb.area || blurb.opened ? h('div', { class: 'tip' }, h('b', {}, T.area), [blurb.area, blurb.opened ? T.openedIn(blurb.opened) : null].filter(Boolean).join(', ')) : null,
       blurb.height ? h('div', { class: 'tip' }, h('b', {}, T.minHeight), blurb.height) : null,
       blurb.tip ? h('div', { class: 'tip' }, h('b', {}, T.tip), blurb.tip) : null,
       h('div', { class: 'tip' }, T.blurbNote)) : null,
-    times ? h('div', { class: 'section-title' }, T.today) : null,
-    times,
+    techMore,
     favBtn);
   document.body.append(scrim, drawer);
 }
@@ -2077,8 +2090,10 @@ function openSettings(focus?: 'code'): void {
       const { code } = await createRecoveryCode(value);
       custom.say(T.codeSaved(code), 'good');
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'code_taken') custom.say(T.codeTaken, 'err');
-      else if (err instanceof ApiError && err.code === 'invalid_code') custom.say(T.codeMin, 'err');
+      if (err instanceof ApiError && err.code === 'code_taken') {
+        custom.el.className = 'msg';
+        custom.el.replaceChildren(codeTakenOffer(value, async (n) => { customInput.value = ''; await loadPark(); custom.say(T.restored(n), 'good'); }, () => { custom.say(''); customInput.focus(); }));
+      } else if (err instanceof ApiError && err.code === 'invalid_code') custom.say(T.codeMin, 'err');
       else custom.say(T.errSave, 'err');
     }
     saveCustom.removeAttribute('disabled');
@@ -2191,12 +2206,13 @@ function openSettings(focus?: 'code'): void {
 
 // ---- Help en rondleiding ----------------------------------------------------------------------
 
-function showTour(): void {
-  openTour({ favoriteCount: () => state.favorites.size, reload: () => loadPark() });
+/** Eerste start: begint bij welkom + koppelcode. Uit het menu of Help: meteen bij de eerste uitlegstap. */
+function showTour(fromStart = false): void {
+  openTour({ favoriteCount: () => state.favorites.size, reload: () => loadPark() }, fromStart ? 0 : 1);
 }
 
 function showHelp(): void {
-  openHelp({ replayTour: showTour, openCodeSettings: () => openSettings('code') });
+  openHelp({ replayTour: () => showTour(), openCodeSettings: () => openSettings('code') });
 }
 
 /** Menu (☰) linksboven in de kop, op de EVailability-manier: ronde knop, het menu klapt direct eronder open
@@ -2222,7 +2238,7 @@ function menuButton(): HTMLElement {
       ? h('div', { class: 'menu', role: 'menu' },
           menuItem(T.settings, () => openSettings()),
           menuItem(T.help, showHelp),
-          menuItem(T.tour, showTour))
+          menuItem(T.tour, () => showTour()))
       : null);
 }
 document.addEventListener('click', (e) => {
@@ -2238,7 +2254,7 @@ async function boot(): Promise<void> {
   render();
   fetchHealth().then((r) => { state.serverVersion = r.version ?? null; render(); }).catch(() => undefined);
   // Nieuwe gebruiker (nog geen profiel en de rondleiding nooit gezien): rondleiding tonen. Bepalen vóór ensureProfile.
-  if (tourWanted()) showTour();
+  if (tourWanted()) showTour(true);
   try {
     await ensureProfile();
     state.parks = await fetchParks();
