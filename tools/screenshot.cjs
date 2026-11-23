@@ -113,8 +113,8 @@ if (RICH) {
     await page.addInitScript((t) => { try { localStorage.setItem('pp.gameAsk', 'never'); localStorage.setItem('pp.pos', JSON.stringify({ lat: 48.8674, lng: 2.7792, at: t })); } catch {} }, now);
     await page.clock.install({ time: now });
   }
-  // Tandwiel = menu; eerste knop is Instellingen.
-  const openSettingsUi = async () => { await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(250); await page.click('.asheet-btn.primary'); await page.waitForTimeout(300); };
+  // Menu (☰) linksboven klapt eronder open; eerste regel is Instellingen.
+  const openSettingsUi = async () => { await page.click('.menu-btn'); await page.waitForTimeout(250); await page.click('.menu button:nth-child(1)'); await page.waitForTimeout(300); };
   await page.goto('http://pp.test/');
   await page.waitForTimeout(1200);
   if (scenario === 'tourshots') {
@@ -156,8 +156,8 @@ if (RICH) {
     await page.evaluate(() => localStorage.removeItem('pp.queue'));
     await fresh(false);
     await shot('tiles', await box('.stats', 10));
-    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(400);
-    { const s = await page.locator('.asheet').first().boundingBox(); await shot('menu', { y: s.y - 20, height: 844 - s.y + 20 }); }
+    await page.click('.menu-btn'); await page.waitForTimeout(400);
+    { const s = await page.locator('.menu').first().boundingBox(); await shot('menu', { y: 0, height: s.y + s.height + 120 }); }
     await browser.close();
     return;
   }
@@ -253,9 +253,9 @@ if (RICH) {
     return;
   }
   if (scenario === 'help') {
-    await page.click('.top-actions .icon-btn:last-child'); await page.waitForTimeout(300);
+    await page.click('.menu-btn'); await page.waitForTimeout(300);
     await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-1-menu.png` });
-    await page.click('.asheet-btn.primary:nth-of-type(2)'); await page.waitForTimeout(300);
+    await page.click('.menu button:nth-child(2)'); await page.waitForTimeout(300);
     await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-2-help.png` });
     await page.click('.help-topic:nth-of-type(3) summary'); await page.waitForTimeout(200);
     await page.screenshot({ path: `${OUT}/help-${theme}-${locale}-3-topic.png` });

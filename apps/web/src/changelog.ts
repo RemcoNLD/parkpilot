@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.2',
+    date: '2026-11-23',
+    changes: ['Het menu (☰) staat nu linksboven en klapt direct onder de knop open, met Instellingen, Help en Rondleiding. Tik ernaast om te sluiten.'],
+    en: ['The menu (☰) is now at the top left and opens right below the button, with Settings, Help and Tour. Tap outside it to close.'],
+    pt: ['O menu (☰) está agora no canto superior esquerdo e abre logo abaixo do botão, com Definições, Ajuda e Visita guiada. Toque fora dele para fechar.'],
+  },
+  {
     version: '0.21.1',
     date: '2026-11-21',
     changes: ['Storingstabel sorteren: tik op Tijd, Duur of Attractie. Nog eens tikken draait de volgorde om. De keuze wordt onthouden.'],

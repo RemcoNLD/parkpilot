@@ -937,10 +937,10 @@ function planHeader(): HTMLElement {
   // Rij 1: schakelaar + knoppen (zelfde plek als in Alles). Rij 2: het park met icoontje in de parkkleur, even hoog als de schakelaar.
   return h('header', {},
     h('div', { class: 'phead' },
+      menuButton(),
       viewSwitch(),
       h('div', { class: 'spacer' }),
-      refreshButton(),
-      menuButton(20)),
+      refreshButton()),
     h('div', { class: 'parkline' },
       h('div', { class: 'park-chip' }, parkIcon(state.parkId), h('b', {}, currentPark()?.shortName ?? ''), near ? h('span', { class: 'near' }, T.near(near)) : null)));
 }
@@ -1499,12 +1499,13 @@ function render(): void {
     sim.on ? h('div', { class: 'simbar' }, T.simBar, h('button', { onclick: () => void setSim(false) }, T.stop)) : null,
     plan ? planHeader() : h('header', { class: 'hero' },
       h('div', { class: 'hero-top' },
+        menuButton(),
         viewSwitch(),
+        h('div', { class: 'spacer' }),
         h('div', { class: 'top-actions' },
           refreshButton(),
           h('button', { class: 'icon-btn aa', 'aria-label': state.density === 'compact' ? T.biggerText : T.compactText, onclick: () => setDensity(state.density === 'compact' ? 'comfortable' : 'compact') }, 'Aa'),
-          h('button', { class: 'icon-btn', 'aria-label': dark ? T.toLight : T.toDark, onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', 22)),
-          menuButton(22))),
+          h('button', { class: 'icon-btn', 'aria-label': dark ? T.toLight : T.toDark, onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', 22)))),
       state.parks.length > 1
         ? h('div', { class: 'parks', role: 'group', 'aria-label': T.park },
             ...state.parks.map((p) => h('button', { class: 'park-pill', 'aria-pressed': p.id === state.parkId, onclick: () => switchPark(p.id) }, parkIcon(p.id, 16), p.shortName)))
@@ -2198,18 +2199,37 @@ function showHelp(): void {
   openHelp({ replayTour: showTour, openCodeSettings: () => openSettings('code') });
 }
 
-/** Menuknop (☰) in de kop: keuzemenu met Instellingen, Help en Rondleiding (een losse helpknop past niet naast de schakelaar). */
-function openMenu(): void {
-  actionSheet(T.menu, null, [
-    { label: T.settings, kind: 'primary', run: () => openSettings() },
-    { label: T.help, kind: 'primary', run: showHelp },
-    { label: T.tour, kind: 'primary', run: showTour },
-    { label: T.cancel, kind: 'cancel' },
-  ]);
+/** Menu (☰) linksboven in de kop, op de EVailability-manier: ronde knop, het menu klapt direct eronder open
+ *  (kaart met afgeronde hoeken, grote regels met een scheidingslijn, geen titel en geen Annuleren).
+ *  Tik ernaast, Escape of scrollen sluit het. De open-stand staat in een variabele, zodat een automatische
+ *  verversing (render) het menu niet dichtgooit. */
+let menuOpen = false;
+function setMenu(open: boolean): void {
+  if (menuOpen === open) return;
+  menuOpen = open;
+  render();
 }
-
-const menuButton = (size: number): HTMLElement =>
-  h('button', { class: 'icon-btn', 'aria-label': T.menu, 'aria-haspopup': 'dialog', onclick: openMenu }, icon('menu', size));
+function menuItem(label: string, run: () => void): HTMLElement {
+  return h('button', { type: 'button', role: 'menuitem', onclick: () => { setMenu(false); run(); } }, label);
+}
+function menuButton(): HTMLElement {
+  return h('div', { class: 'menu-wrap' },
+    h('button', {
+      type: 'button', class: 'menu-btn', 'aria-label': T.menu, 'aria-haspopup': 'menu', 'aria-expanded': menuOpen,
+      onclick: (e: Event) => { e.stopPropagation(); setMenu(!menuOpen); },
+    }, icon('menu', 20)),
+    menuOpen
+      ? h('div', { class: 'menu', role: 'menu' },
+          menuItem(T.settings, () => openSettings()),
+          menuItem(T.help, showHelp),
+          menuItem(T.tour, showTour))
+      : null);
+}
+document.addEventListener('click', (e) => {
+  if (menuOpen && !(e.target as Element | null)?.closest?.('.menu-wrap')) setMenu(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+window.addEventListener('scroll', () => setMenu(false), { passive: true });
 
 // ---- Start -----------------------------------------------------------------------------------
 
