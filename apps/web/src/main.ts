@@ -401,7 +401,6 @@ function incidentsNode(close: () => void): HTMLElement {
   paintTable();
   box.append(table);
   if (stale) box.append(h('p', { class: 'inc-stale' }, T.histStale(clock(entry.at, tz()))));
-  box.append(h('p', { class: 'hint' }, T.incHint));
   return box;
 }
 
@@ -426,8 +425,7 @@ function openIssues(): void {
     h('h3', { class: 'issue-title inc-title' }, T.incTitle),
     inc,
     ...section(T.secRefurb, 'mid', lists.refurb, T.noRefurb),
-    ...(parkClosed ? [] : section(T.secClosed, 'muted', lists.closedNow, T.noClosed)),
-    h('p', { class: 'hint' }, T.issuesHint));
+    ...(parkClosed ? [] : section(T.secClosed, 'muted', lists.closedNow, T.noClosed)));
   document.body.append(sheet);
   if (!sim.on) {
     void loadIncidents().then(() => {
@@ -474,7 +472,7 @@ function metaLine(live: LiveInfo | undefined): HTMLElement | null {
   if (trend) parts.push(trend, ' · ');
   const changed = changedText(live);
   if (changed) parts.push(changed, ' · ');
-  if (live.updatedAt) parts.push(h('span', { class: `src ${freshness(live.updatedAt)}` }, T.srcAgo(agoLabel(live.updatedAt))));
+  if (live.updatedAt) parts.push(h('span', { class: `src ${freshness(live.updatedAt)}` }, T.confirmed(agoLabel(live.updatedAt))));
   else if (parts.length) parts.pop();
   return parts.length ? h('div', { class: 'row-meta' }, ...parts) : null;
 }
@@ -797,13 +795,6 @@ async function loadShowDay(date: string): Promise<void> {
   render();
 }
 
-/** Waarop de verwachte showtijden gebaseerd zijn, in de huidige taal. */
-function basisText(data: ShowDayResponse): string {
-  const b = data.basis;
-  if (!b) return data.expectedBasis ?? T.basisMixed;
-  return b.kind === 'lastWeek' ? T.basisLastWeek(b.date ?? '') : b.kind === 'lastSeen' ? T.basisLastSeen(b.date ?? '') : T.basisMixed;
-}
-
 function programmeNodes(date: string): Node[] {
   const data = state.dayData.get(`${state.parkId}:${date}`);
   if (!data || data === 'loading') return [h('div', { class: 'empty' }, T.progLoading)];
@@ -813,10 +804,7 @@ function programmeNodes(date: string): Node[] {
     .sort((a, b) => Date.parse(a.slot.start) - Date.parse(b.slot.start) || a.entity.name.localeCompare(b.entity.name, lang));
   const out: Node[] = [];
   const open = data.opening.filter((o) => o.type === 'OPERATING')[0] ?? data.opening[0];
-  const guessed = slots.some((x) => x.slot.source === 'verwacht');
-  out.push(h('div', { class: 'prog-note' },
-    `${dayLabel(date)}${open ? T.progOpen(clock(open.opens, tz()), clock(open.closes, tz())) : ''}.`,
-    guessed ? T.progGuessed(basisText(data)) : ''));
+  out.push(h('div', { class: 'prog-note' }, `${dayLabel(date)}${open ? T.progOpen(clock(open.opens, tz()), clock(open.closes, tz())) : ''}`));
   if (!slots.length) {
     out.push(h('div', { class: 'empty' }, T.progEmpty));
     return out;
@@ -824,7 +812,7 @@ function programmeNodes(date: string): Node[] {
   for (const { entity, slot } of slots) {
     const t = Date.parse(slot.start);
     out.push(h('div', { class: `slot${state.favorites.has(entity.id) ? ' fav' : ''}${slot.source === 'verwacht' ? ' guess' : ''}` },
-      h('button', { class: 'slot-open', 'aria-label': T.details(entity.name), onclick: () => openDetail(entity) },
+      h('button', { class: 'slot-open', 'aria-label': T.details(entity.name), onclick: () => openDetail(entity, { date, slots: slots.filter((x) => x.entity.id === entity.id).map((x) => x.slot) }) },
         h('div', { class: 'slot-time' }, clock(t, tz())),
         h('div', { class: 'row-main' }, h('div', { class: 'row-name' }, entity.name), kindLine(entity, slot.source === 'verwacht' ? [T.expected] : []))),
       heartButton(entity)));
@@ -1454,9 +1442,6 @@ function locationNotice(): HTMLElement | null {
         h('div', {}, h('button', { class: 'btn', onclick: () => void ensurePosition() }, T.useMyLoc)));
     }
   }
-  if (state.view !== 'plan' && state.pos && park && haversineMeters(state.pos, park.center) > 3000) {
-    return h('div', { class: 'notice' }, T.notInPark);
-  }
   return null;
 }
 
@@ -1493,8 +1478,6 @@ function render(): void {
   const dark = effectiveTheme() === 'dark';
   document.documentElement.dataset.density = state.density;
   const scrollTop = window.scrollY;
-  const closedNote = !plan && status.open === false && state.tab !== 'shows' && state.entities.length
-    ? h('div', { class: 'closed-note' }, T.closedNote) : null;
   const items: (Node | null)[] = [
     sim.on ? h('div', { class: 'simbar' }, T.simBar, h('button', { onclick: () => void setSim(false) }, T.stop)) : null,
     plan ? planHeader() : h('header', { class: 'hero' },
@@ -1549,7 +1532,6 @@ function render(): void {
           : null),
       h('div', { class: `fresh${offline || state.error || state.fromCache || srcStale ? ' stale' : ''}`, 'aria-live': 'polite' }, freshText)),
     ...[locationNotice(), !plan && state.tab === 'shows' && state.entities.length ? dayBar() : null].filter((n): n is HTMLElement => n !== null),
-    closedNote,
     h('main', {}, body),
     queueBar(),
     h('footer', { class: `foot${queue ? ' qspace' : ''}` },
@@ -1715,15 +1697,13 @@ function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): N
       showNow ? h('span', { class: 'now-lbl', style: `left:${nowPct.toFixed(1)}%` }, T.now) : null,
       h('span', {}, hours ? clock(to, tz()) : T.now)),
     outages.length ? h('div', { class: 'chart-note outage' }, T.outage(outages.length, dur(downMin))) : null,
-    rows.some((r) => r.stale) ? h('div', { class: 'chart-note stale-src chart-tech' }, T.staleChart) : null,
     refSeg.length && ref ? h('div', { class: 'chart-note ref-note' }, h('span', { class: 'ref-swatch', 'aria-hidden': 'true' }),
       T.refWeeks(ref.dates.length, new Intl.DateTimeFormat(T.locale, { weekday: 'long', timeZone: tz() }).format(new Date(now)))) : null,
-    open.length
-      ? h('div', { class: 'chart-note chart-tech' }, T.range(Math.min(...open), Math.max(...open)))
-      : h('div', { class: 'chart-note' }, T.noWaitSeen));
+    open.length ? null : h('div', { class: 'chart-note' }, T.noWaitSeen));
 }
 
-function openDetail(entity: EntityInfo): void {
+/** `day`: geopend vanuit het programma van een andere dag; dan de tijden van die dag (niets afgestreept). */
+function openDetail(entity: EntityInfo, day?: { date: string; slots: ShowDayResponse['shows'][number]['slots'] }): void {
   const live = state.live.get(entity.id);
   const blurb = blurbFor(entity.name);
   const kind = kindOf(entity);
@@ -1739,12 +1719,9 @@ function openDetail(entity: EntityInfo): void {
   setFav();
   favBtn.addEventListener('click', () => { const p = toggleFavorite(entity); setFav(); void p.then(setFav); });
 
-  // Praktische feiten in beeld; brongegevens (wanneer gewijzigd, bronleeftijd) en uitleg bij de grafiek achter "Over deze cijfers".
+  // Korte feiten onder het grote getal. Uitleg (wat veranderd/bevestigd betekent, grafiek) staat in Help.
   const facts = h('dl', { class: 'facts' });
   const addFact = (k: string, v: string | null): void => { if (v) facts.append(h('dt', {}, k), h('dd', {}, v)); };
-  const techFacts = h('dl', { class: 'facts' });
-  const addTech = (k: string, v: string | null): void => { if (v) techFacts.append(h('dt', {}, k), h('dd', {}, v)); };
-  const techChart = h('div', {});
   const bigNodes: Node[] = [];
 
   if (entity.type === 'attraction' && live) {
@@ -1754,12 +1731,16 @@ function openDetail(entity: EntityInfo): void {
       const t = { open: T.stOpenNoWait, down: T.stDown, closed: T.stClosed, refurbishment: T.stRefurb, unknown: T.stUnknown }[live.status];
       bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, t)));
     }
-    addTech(T.fWaitChanged, live.changeObserved ? agoLabel(live.changedAt) : null);
-    if (live.changeObserved && live.prevWaitMinutes !== null) addTech(T.fBefore, String(live.prevWaitMinutes));
-    addTech(T.fSrcUpdated, live.updatedAt ? `${agoLabel(live.updatedAt)}${{ fresh: T.fresh, aging: T.aging, old: T.old, unknown: '' }[freshness(live.updatedAt)]}` : null);
+    if (live.changedAt) {
+      const unchanged = minutesSince(live.changedAt);
+      addFact(T.fWaitChanged, live.changeObserved
+        ? (live.prevWaitMinutes !== null ? T.wasPrev(agoLabel(live.changedAt), live.prevWaitMinutes) : agoLabel(live.changedAt))
+        : unchanged >= 1 ? T.unchangedFor(dur(unchanged)) : null);
+    }
+    addFact(T.fSrcUpdated, live.updatedAt ? agoLabel(live.updatedAt) : null);
     if (live.singleRider) addFact(T.singleRider, typeof live.singleRiderWait === 'number' ? String(live.singleRiderWait) : T.srAvailNone);
   }
-  if (entity.type === 'show' && live) {
+  if (entity.type === 'show' && live && !day) {
     const next = nextStartMs(live);
     if (next !== null) {
       bigNodes.push(h('div', { class: 'big' }, statusRing(entity, live), h('div', { class: 'label' }, T.nextShow(untilLabel(next)))));
@@ -1773,31 +1754,21 @@ function openDetail(entity: EntityInfo): void {
   const d = distanceOf(entity, state.pos);
   if (d !== null) addFact(T.fDistance, `${formatDistance(d)}, ${T.walkMin(walkMinutes(d, state.prefs.walkingSpeedKmh))}`);
 
-  const caveat = entity.type === 'attraction' && live && !live.changeObserved
-    ? h('p', { class: 'caveat' }, T.caveat(agoLabel(live.changedAt)))
-    : null;
-
-  const techMore = h('details', { class: 'set-more tech-more' },
-    h('summary', {}, T.aboutNumbers), techFacts, caveat, techChart);
-  techMore.hidden = !techFacts.hasChildNodes() && !caveat;
-
   const myRides = entity.type === 'attraction' ? queueLog().filter((r) => r.id === entity.id && r.parkId === state.parkId) : [];
   const chartBox = h('div', {});
   if (entity.type === 'attraction') {
     // Meteen het bewaarde verloop (grijs als niet actueel), daarna bijwerken zodra het ophalen klaar is.
-    const paint = (): void => {
-      if (!chartBox.isConnected && chartBox.hasChildNodes()) return;
-      chartBox.replaceChildren(historyNode(entity));
-      techChart.replaceChildren(...chartBox.querySelectorAll('.chart-tech'));
-      techMore.hidden = !techFacts.hasChildNodes() && !caveat && !techChart.hasChildNodes();
-    };
+    const paint = (): void => { if (chartBox.isConnected || !chartBox.hasChildNodes()) chartBox.replaceChildren(historyNode(entity)); };
     const p = loadHistory(entity.id);
     paint();
     void p.then(paint);
   }
 
   let times: Node | null = null;
-  if (entity.type === 'show' && live) {
+  if (entity.type === 'show' && day) {
+    // Andere dag: alle tijden van die dag, niets afgestreept; verwachte tijden met streepjesrand.
+    times = h('div', { class: 'times' }, ...day.slots.map((sl) => h('span', { class: `time${sl.source === 'verwacht' ? ' guess' : ''}` }, clock(sl.start, tz()))));
+  } else if (entity.type === 'show' && live) {
     const next = nextStartMs(live);
     times = live.showtimes.length
       ? h('div', { class: 'times' }, ...live.showtimes.map((s) => {
@@ -1817,7 +1788,7 @@ function openDetail(entity: EntityInfo): void {
     facts.childNodes.length ? facts : null,
     entity.type === 'attraction' ? h('div', { class: 'section-title' }, T.histToday) : null,
     entity.type === 'attraction' ? chartBox : null,
-    times ? h('div', { class: 'section-title' }, T.today) : null,
+    times ? h('div', { class: 'section-title' }, day ? dayLabel(day.date) : T.today) : null,
     times,
     myRides.length ? h('div', { class: 'section-title' }, T.qYouToday) : null,
     myRides.length ? h('div', { class: 'qlog' }, ...myRides.map((r) => h('div', { class: 'qlog-row' },
@@ -1828,9 +1799,7 @@ function openDetail(entity: EntityInfo): void {
       h('p', {}, blurb.text),
       blurb.area || blurb.opened ? h('div', { class: 'tip' }, h('b', {}, T.area), [blurb.area, blurb.opened ? T.openedIn(blurb.opened) : null].filter(Boolean).join(', ')) : null,
       blurb.height ? h('div', { class: 'tip' }, h('b', {}, T.minHeight), blurb.height) : null,
-      blurb.tip ? h('div', { class: 'tip' }, h('b', {}, T.tip), blurb.tip) : null,
-      h('div', { class: 'tip' }, T.blurbNote)) : null,
-    techMore,
+      blurb.tip ? h('div', { class: 'tip' }, h('b', {}, T.tip), blurb.tip) : null) : null,
     favBtn);
   document.body.append(scrim, drawer);
 }

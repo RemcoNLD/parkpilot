@@ -82,6 +82,11 @@ if (RICH) {
     inc('Z9', '12:30', '12:40'), inc('A8', '13:30', null), inc('A5', '13:41', '13:52') ] };
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(now));
   api['/api/parks/dlp-studios/history/A1?ref'].date = today; api['/api/parks/dlp-studios/history/A7?ref'].date = today;
+  // Programma van een andere dag (scenario days): alleen verwachte tijden, gevolgde show S2.
+  const tm = (hm) => new Date(Date.parse(t(hm)) + 86400e3).toISOString();
+  api['/api/parks/dlp-studios/shows'] = { parkId: 'dlp-studios', date: '', generatedAt: new Date(now).toISOString(),
+    opening: [{ type: 'OPERATING', opens: tm('09:30'), closes: tm('21:00') }], basis: { kind: 'lastSeen', date: today },
+    shows: [{ entityId: 'S2', slots: ['11:00', '14:00', '17:30'].map((x) => ({ start: tm(x), source: 'verwacht' })) }] };
 }
 (async () => {
   const theme = process.argv[2] || 'dark';
@@ -303,6 +308,18 @@ if (RICH) {
     await browser.close();
     return;
   }
+  if (scenario === 'days') {
+    // Shows › Morgen: korte regel, verwachte tijden; detailvenster toont de tijden van morgen zonder afstrepen.
+    await page.click('.vswitch button:nth-of-type(1)'); await page.waitForTimeout(400);
+    await page.locator('button', { hasText: /^(Shows|Espetáculos)$/ }).first().click(); await page.waitForTimeout(400);
+    await page.click('.daybar .day:nth-of-type(2)'); await page.waitForTimeout(800);
+    await page.screenshot({ path: `${OUT}/days-${theme}-${locale}.png` });
+    await page.click('.slot-open'); await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT}/days-${theme}-${locale}-detail.png` });
+    console.log('afgestreept in detail:', await page.locator('.drawer .time.past').count(), 'verwacht:', await page.locator('.drawer .time.guess').count());
+    await browser.close();
+    return;
+  }
   if (scenario === 'main') {
     if (RICH) { await page.click('.vswitch button:nth-of-type(1)'); await page.waitForTimeout(500); }
     await page.screenshot({ path: `${OUT}/main-${theme}-${locale}.png` });
@@ -316,8 +333,6 @@ if (RICH) {
       await page.setViewportSize({ width: 390, height: 1900 });
       await page.locator('.rowwrap:has-text("Cars ROAD TRIP") .row-open').first().click(); await page.waitForTimeout(900);
       await page.screenshot({ path: `${OUT}/detail-cars-${theme}-${locale}.png` });
-      await page.click('.tech-more summary'); await page.waitForTimeout(200);
-      await page.screenshot({ path: `${OUT}/detail-cars-${theme}-${locale}-tech.png` });
       await page.mouse.click(195, 20); await page.waitForTimeout(300);
       await page.setViewportSize({ width: 390, height: 844 });
     }

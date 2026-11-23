@@ -8,6 +8,28 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.1',
+    date: '2026-11-23',
+    changes: [
+      'Minder uitlegtekst in beeld: de uitleg over de grafiek, verwachte showtijden en de storingspagina staat nu in Help.',
+      'Duidelijker: "veranderd 21 min geleden" (wanneer de wachttijd veranderde) en "bevestigd 5 min geleden" (wanneer de bron hem voor het laatst doorgaf).',
+      'Show openen vanuit een andere dag toont de tijden van die dag, zonder afgestreepte tijden.',
+      'Verwachte tijd van een gevolgde show was onleesbaar in het programma van andere dagen.',
+    ],
+    en: [
+      'Less explanatory text on screen: notes about the chart, expected show times and the breakdown page are now in Help.',
+      'Clearer: "changed 21 min ago" (when the wait time changed) and "confirmed 5 min ago" (when the source last reported it).',
+      'Opening a show from another day shows that day\'s times, none crossed out.',
+      'The expected time of a followed show was unreadable in other days\' programme.',
+    ],
+    pt: [
+      'Menos texto explicativo no ecrã: as notas sobre o gráfico, os horários previstos e a página de avarias estão agora na Ajuda.',
+      'Mais claro: "alterado há 21 min" (quando o tempo mudou) e "confirmado há 5 min" (quando a fonte o comunicou pela última vez).',
+      'Abrir um espetáculo a partir de outro dia mostra os horários desse dia, sem horários riscados.',
+      'O horário previsto de um espetáculo seguido estava ilegível no programa de outros dias.',
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-11-23',
     changes: [
