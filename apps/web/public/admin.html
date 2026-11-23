@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Beheer · ParkPilot</title>
+<!-- Beheer-app van ParkPilot (sinds 0.23.0). Opzet en ontwerp overgenomen van de beheerpagina van EVailability
+     (repo RemcoNLD/apps, admin.html): eigen manifest en service worker (admin-sw.js, scope /admin), zodat dit een
+     eigen beginscherm-app is met pushberichten. Raakt de gewone app niet. Alleen Nederlands: alleen voor de beheerder. -->
+<link rel="manifest" href="admin.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PP Beheer">
+<meta name="theme-color" content="#1d2429">
+<link rel="apple-touch-icon" href="admin-touch-icon.png">
+<link rel="icon" href="admin-icon-192.png">
+<style>
+  :root {
+    --bg: #1d2429; --card: #263038; --text: #f3f1ea; --muted: #93a0a8; --line: #3a464f;
+    --ok: #43b96d; --warn: #f0a43a; --bad: #e0574f; --blue: #2f63b8; color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #eef1f3; --card: #fff; --text: #1b2328; --muted: #5c6970; --line: #dde3e7;
+      --ok: #23914b; --warn: #c47a12; --bad: #c43d35; --blue: #1f55ad; color-scheme: light; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--bg); }
+  body {
+    margin: 0 auto; max-width: 720px; color: var(--text); background: var(--bg);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  }
+  .apps-back { display: inline-block; margin: 0 0 10px; font-weight: 700; text-decoration: none; color: inherit; opacity: .65; }
+  .apps-back:active { opacity: 1; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 26px 0 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: .9rem; }
+  .error { color: var(--bad); }
+  .login { display: flex; gap: 8px; margin: 14px 0; }
+  input {
+    flex: 1; min-width: 0; padding: 12px; font: inherit; color: var(--text);
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  }
+  button {
+    padding: 12px 16px; font: inherit; font-weight: 700; color: #fff;
+    background: var(--blue); border: 0; border-radius: 10px; cursor: pointer; touch-action: manipulation;
+  }
+  button:disabled { opacity: .5; }
+  .remember { display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; color: var(--muted); }
+  .remember input { width: 20px; height: 20px; flex: none; }
+  .session { display: flex; gap: 18px; margin: 12px 0 4px; }
+  .link { padding: 0; background: none; color: var(--blue); font-weight: 600; text-decoration: underline; }
+  .card { background: var(--card); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .name { font-weight: 700; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .reqbadge { display: inline-block; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 10px;
+    background: var(--bad); color: #fff; font-size: .78rem; font-weight: 800; line-height: 20px; text-align: center; vertical-align: 2px; }
+  .gtitle { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+  .gtitle .info { display: inline-flex; align-items: center; justify-content: center; width: 1.15em; height: 1.15em; margin-left: 7px;
+    border: 1.5px solid currentColor; border-radius: 50%; font-size: .8em; font-style: italic; font-family: Georgia, serif; vertical-align: 1px; color: var(--muted); }
+  .gtitle[aria-expanded="true"] .info { background: var(--muted); color: var(--card); border-color: var(--muted); }
+  /* Te controleren */
+  .rv-kind { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 9px; font-size: .78rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .03em; vertical-align: 2px; background: var(--line); }
+  .rv-kind.new { background: rgba(67,185,109,.22); color: var(--ok); }
+  .rv-kind.replace { background: rgba(240,164,58,.22); color: var(--warn); }
+  .rv-kind.delete { background: rgba(224,87,79,.2); color: var(--bad); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .chip { padding: 2px 9px; border-radius: 9px; font-size: .82rem; font-weight: 600; border: 1px solid var(--line); }
+  .chip.warn { border-color: var(--warn); color: var(--warn); }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .map { display: block; width: 100%; height: auto; margin: 10px 0 4px; border-radius: 10px; background: rgba(127,127,127,.1); touch-action: manipulation; }
+  .map .lbl { font: 600 11px system-ui, -apple-system, sans-serif; fill: var(--muted); }
+  .map .scale { stroke: var(--muted); stroke-width: 2; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .82rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+  .maplinks { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 2px; font-size: .92rem; }
+  .maplinks a { color: var(--blue); font-weight: 600; }
+  .rv-btns { display: flex; gap: 8px; margin-top: 12px; }
+  .rv-btns button { flex: 1; }
+  .rv-btns button.sec { background: none; color: var(--bad); border: 1px solid var(--line); }
+  .rv-done { padding: 9px 0; border-top: 1px solid var(--line); }
+  .rv-done:first-child { border-top: 0; }
+  .ok { color: var(--ok); font-weight: 700; } .no { color: var(--bad); font-weight: 700; }
+  /* Meldingen */
+  .push-dev { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; padding: 4px 0; }
+  .push-dev + .push-dev { border-top: 1px solid var(--line); }
+  .push-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .push-actions button.sec { background: none; color: var(--blue); border: 1px solid var(--line); }
+  .foot { margin-top: 28px; text-align: center; }
+</style>
+</head>
+<body>
+<a class="apps-back" href="/">‹ ParkPilot</a>
+<h1>Beheer</h1>
+<p class="muted">Kijkplekken controleren en meldingen voor ParkPilot.</p>
+
+<form id="login">
+  <div class="login">
+    <input id="pw" type="password" placeholder="Beheerderswachtwoord" autocomplete="current-password" aria-label="Beheerderswachtwoord" autocapitalize="off">
+    <button type="submit">Open</button>
+  </div>
+  <label class="remember"><input id="remember" type="checkbox" checked> Onthoud me op dit toestel</label>
+</form>
+<div class="session" id="session" hidden>
+  <button type="button" class="link" id="refresh">Vernieuwen</button>
+  <button type="button" class="link" id="logout">Uitloggen</button>
+</div>
+<p id="msg" class="error" hidden></p>
+<div id="out"></div>
+<div id="pushBox" hidden><h2 id="notifications">Meldingen</h2><div class="card small" id="pushInfo">Laden…</div></div>
+<p class="foot small muted" id="foot"></p>
+
+<script>
+const KEY = "pp.admin";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let token = "";
+let data = null;
+
+function ago(iso) {
+  if (!iso) return "";
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return "zojuist";
+  if (m < 60) return `${m} min geleden`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h} u geleden`;
+  return `${Math.round(h / 24)} dagen geleden`;
+}
+const when = (iso) => new Date(iso).toLocaleString("nl-NL", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+
+async function api(path, body) {
+  const res = await fetch(`/api/admin/${path}`, body
+    ? { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    : { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(res.status === 401 ? "Wachtwoord klopt niet." : res.status === 429 ? "Te veel verkeerde pogingen. Probeer het over een uur opnieuw."
+      : d.error === "already_decided" ? "Daar is al over beslist." : `Fout ${res.status}${d.error ? ` (${d.error})` : ""}`);
+    e.status = res.status;
+    throw e;
+  }
+  return d;
+}
+
+// ---- Inloggen (zoals EVailability: wachtwoord als token, optioneel onthouden) --------------------
+function showMsg(t) { $("msg").textContent = t; $("msg").hidden = !t; }
+function setSession(on) {
+  $("login").hidden = on; $("session").hidden = !on; $("pushBox").hidden = !on;
+  if (!on) { $("out").innerHTML = ""; $("foot").textContent = ""; }
+}
+$("login").onsubmit = async (e) => {
+  e.preventDefault();
+  token = $("pw").value.trim().toLowerCase();
+  if (!token) return;
+  if (await load()) {
+    try { ($("remember").checked ? localStorage : sessionStorage).setItem(KEY, token); } catch (_) {}
+    $("pw").value = "";
+  }
+};
+$("logout").onclick = () => {
+  try { localStorage.removeItem(KEY); sessionStorage.removeItem(KEY); } catch (_) {}
+  token = ""; setSession(false); setBadge(0);
+};
+$("refresh").onclick = () => load();
+
+async function load() {
+  showMsg("");
+  try {
+    data = await api("review");
+  } catch (e) {
+    showMsg(e.message);
+    if (e.status === 401) { try { localStorage.removeItem(KEY); sessionStorage.removeItem(KEY); } catch (_) {} setSession(false); }
+    return false;
+  }
+  setSession(true);
+  render();
+  loadPush();
+  if (location.hash === "#review") setTimeout(() => $("review")?.scrollIntoView(), 200);
+  return true;
+}
+
+function setBadge(n) {
+  try { if (n > 0) navigator.setAppBadge?.(n); else navigator.clearAppBadge?.(); } catch (_) {}
+}
+
+// ---- Kaartje: eigen SVG, zonder kaartbibliotheek. Noorden boven, schaal in meters. -------------------
+const COL = { new: "#f0a43a", cur: "#43b96d", prev: "#93a0a8", near: "#93a0a8" };
+function miniMap(it) {
+  const W = 340, H = 220, PX = 24, TOP = 22, BOT = 36; // onderin ruimte voor de schaal en het noorden
+  const target = it.lat != null ? { lat: it.lat, lng: it.lng, accuracy: it.accuracy } : null;
+  const same = (a, b) => a && b && a.lat === b.lat && a.lng === b.lng;
+  // Bij "nieuw" is de plek in gebruik meestal deze inzending zelf: dan één punt.
+  const cur = it.current && !same(it.current, target) ? it.current : null;
+  const prev = it.prev && !same(it.prev, it.current) && !same(it.prev, target) ? it.prev : null;
+  const main = [target, cur, prev].filter(Boolean);
+  const anchor = main[0];
+  if (!anchor) return "";
+  // Attracties en shows uit de bron ter oriëntatie: de dichtstbijzijnde, en altijd minstens twee.
+  const near = it.nearby.filter((n, i) => i < 2 || n.d < 250).slice(0, 5);
+  const k = Math.cos(anchor.lat * Math.PI / 180);
+  const xy = (p) => [(p.lng - anchor.lng) * 111320 * k, (p.lat - anchor.lat) * 110540];
+  const all = [...main, ...near].map(xy);
+  for (const p of main) if (p.accuracy) { const [x, y] = xy(p); all.push([x - p.accuracy, y - p.accuracy], [x + p.accuracy, y + p.accuracy]); } // cirkels passen erin
+  const minX = Math.min(...all.map((p) => p[0])), maxX = Math.max(...all.map((p) => p[0]));
+  const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
+  const aw = W - 2 * PX, ah = H - TOP - BOT;
+  const s = Math.min(aw / Math.max(maxX - minX, 60), ah / Math.max(maxY - minY, 60)); // pixels per meter
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  const P = (p) => { const [x, y] = xy(p); return [W / 2 + (x - cx) * s, TOP + ah / 2 - (y - cy) * s]; };
+  const pins = main.map(P);
+  let g = "";
+  for (const n of near) {
+    const [x, y] = P(n);
+    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${COL.near}" opacity=".8"/>`;
+    const right = x < W / 2;
+    // Niet over een hoofdpunt heen: dan het label eronder.
+    const hit = pins.some(([px, py]) => Math.abs(py - y) < 13 && (right ? px > x && px - x < 140 : px < x && x - px < 140));
+    const ly = hit ? y + 16 : y + 4;
+    const name = n.name.length > 20 ? n.name.slice(0, 19) + "…" : n.name;
+    g += `<text class="lbl" x="${(right ? x + 7 : x - 7).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${right ? "start" : "end"}">${esc(name)}</text>`;
+  }
+  const dot = (p, col) => {
+    const [x, y] = P(p);
+    const r = Math.max(6, (p.accuracy ?? 0) * s);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-opacity=".6"/>`
+      + `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="${col}" stroke="#fff" stroke-width="2"/>`;
+  };
+  if (prev) g += dot(prev, COL.prev);
+  if (cur) g += dot(cur, COL.cur);
+  if (target && cur) { const [a, b] = P(cur), [c, d] = P(target); g += `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c.toFixed(1)}" y2="${d.toFixed(1)}" stroke="${COL.new}" stroke-dasharray="4 4" stroke-width="2"/>`; }
+  if (target) g += dot(target, COL.new);
+  if (!target && it.current) g += dot(it.current, COL.cur); // verwijderverzoek: de plek die weg zou gaan
+  // Schaalstreep: een rond getal van ongeveer een kwart van de breedte.
+  const want = (W / 4) / s;
+  const nice = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000].find((v) => v >= want * .6) || 1000;
+  const len = nice * s;
+  g += `<line class="scale" x1="12" y1="${H - 12}" x2="${(12 + len).toFixed(1)}" y2="${H - 12}"/><text class="lbl" x="${(17 + len).toFixed(1)}" y="${H - 8}">${nice} m</text>`;
+  g += `<text class="lbl" x="${W - 12}" y="${H - 8}" text-anchor="end">noorden ↑</text>`;
+  const curInUse = it.current && same(it.current, target);
+  const leg = [target ? `<span><i style="background:${COL.new}"></i>${it.kind === "new" ? (curInUse ? "nieuwe plek, al in gebruik" : "nieuwe plek") : "voorstel"}</span>` : "",
+    cur || (!target && it.current) ? `<span><i style="background:${COL.cur}"></i>nu in gebruik${it.current.confirmed ? " (bevestigd)" : " (onbevestigd)"}</span>` : "",
+    prev ? `<span><i style="background:${COL.prev}"></i>stond er bij inzenden</span>` : "",
+    near.length ? `<span><i style="background:${COL.near};opacity:.8"></i>uit de bron</span>` : ""].join("");
+  return `<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaartje van de plek">${g}</svg><div class="legend">${leg}<span>cirkel = gps-nauwkeurigheid</span></div>`;
+}
+
+const KIND = { new: "Nieuw", replace: "Vervangen", delete: "Verwijderen" };
+const ACTION_NOTE = {
+  new: "Staat al in de app als onbevestigd. Akkoord = bevestigd, Afwijzen = de plek gaat weer weg.",
+  replace: "De huidige plek blijft tot je beslist. Akkoord = deze plek wordt de bevestigde plek, Afwijzen = er verandert niets.",
+  delete: "Akkoord = de kijkplek gaat weg, Afwijzen = hij blijft.",
+};
+function whoText(w) {
+  return [`profiel ${esc(w.tag)}`, w.name ? `speelt als ${esc(w.name)}` : "",
+    `${w.submissions} ${w.submissions === 1 ? "inzending" : "inzendingen"}${w.approved ? `, ${w.approved} goedgekeurd` : ""}`].filter(Boolean).join(" · ");
+}
+function chips(it) {
+  const out = [];
+  if (it.accuracy != null) out.push(`<span class="chip${it.flags.includes("weak") ? " warn" : ""}">±${it.accuracy} m</span>`);
+  if (it.dist != null) out.push(`<span class="chip${it.flags.includes("far") ? " bad" : ""}">${it.dist} m van de vorige</span>`);
+  if (it.flags.includes("edge")) out.push(`<span class="chip warn">aan de rand van het park</span>`);
+  if (it.flags.includes("weak")) out.push(`<span class="chip warn">onnauwkeurig</span>`);
+  return out.length ? `<div class="chips">${out.join("")}</div>` : "";
+}
+function mapLinks(it) {
+  const p = it.lat != null ? it : it.current || it.prev;
+  if (!p) return "";
+  const ll = `${p.lat},${p.lng}`;
+  return `<div class="maplinks"><a href="https://maps.apple.com/?ll=${ll}&q=${encodeURIComponent(it.name)}&t=k&z=19" target="_blank" rel="noopener">Apple Kaarten (satelliet)</a>
+    <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Google Maps</a></div>`;
+}
+
+function render() {
+  const d = data;
+  const n = d.pending.length;
+  setBadge(n);
+  let html = `<h2 id="review">Te controleren${n ? `<span class="reqbadge">${n}</span>` : ""}</h2>`;
+  if (!n) html += `<div class="card small muted">Niets te controleren. ${d.locationCount} ${d.locationCount === 1 ? "kijkplek" : "kijkplekken"}, waarvan ${d.confirmedCount} bevestigd.</div>`;
+  for (const it of d.pending) {
+    html += `<div class="card" data-id="${it.id}">
+      <div class="name"><span class="rv-kind ${it.kind}">${KIND[it.kind]}</span>${esc(it.name)}</div>
+      <div class="small muted">${esc(it.park)} · ${esc(ago(it.at))} · ${whoText(it.who)}</div>
+      ${chips(it)}
+      ${miniMap(it)}
+      ${mapLinks(it)}
+      <button type="button" class="gtitle small muted" data-note="n${it.id}" aria-expanded="false" style="margin-top:6px">Wat gebeurt er?<span class="info" aria-hidden="true">i</span></button>
+      <div class="small muted" id="n${it.id}" hidden>${ACTION_NOTE[it.kind]}</div>
+      <div class="rv-btns"><button type="button" data-act="approve">Akkoord</button><button type="button" class="sec" data-act="reject">Afwijzen</button></div>
+    </div>`;
+  }
+  if (d.recent.length) {
+    html += `<h2>Laatst beslist</h2><div class="card small">${d.recent.map((it) => `<div class="rv-done">
+      <div class="row"><span><span class="rv-kind ${it.kind}">${KIND[it.kind]}</span><b>${esc(it.name)}</b></span>
+      <span class="${it.status === "approved" ? "ok" : "no"}">${it.status === "approved" ? "akkoord" : "afgewezen"}</span></div>
+      <div class="muted">${esc(it.park)} · ingezonden ${esc(when(it.at))} · beslist ${esc(ago(it.decidedAt))}</div></div>`).join("")}</div>`;
+  }
+  $("out").innerHTML = html;
+  $("foot").textContent = `ParkPilot ${d.version}`;
+  $("out").querySelectorAll("[data-note]").forEach((b) => b.onclick = () => {
+    const el = $(b.dataset.note); el.hidden = !el.hidden; b.setAttribute("aria-expanded", String(!el.hidden));
+  });
+  $("out").querySelectorAll("[data-act]").forEach((b) => b.onclick = () => decide(b));
+}
+
+async function decide(btn) {
+  const card = btn.closest("[data-id]");
+  card.querySelectorAll("button[data-act]").forEach((b) => { b.disabled = true; });
+  btn.textContent = "Bezig…";
+  try {
+    await api(`review/${card.dataset.id}`, { action: btn.dataset.act });
+  } catch (e) {
+    showMsg(e.message);
+  }
+  await load();
+}
+
+// ---- Pushberichten (Web Push), zoals EVailability. iPhone: alleen in de beginscherm-app (iOS 16.4+). ----
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+function deviceLabel() {
+  const ua = navigator.userAgent;
+  const kind = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) || isIOS ? "iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Toestel";
+  const app = standalone ? "beginscherm-app" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : "Safari";
+  return `${kind} · ${app}`;
+}
+let pushReg = null;
+async function pushRegistration() {
+  if (pushReg) return pushReg;
+  pushReg = await navigator.serviceWorker.register("/admin-sw.js", { scope: "/admin" });
+  return pushReg;
+}
+const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+async function loadPush(msg = "", isError = false) {
+  const box = $("pushInfo");
+  try {
+    const d = await api("push");
+    let mine = null;
+    if (pushSupported) { try { mine = await (await pushRegistration()).pushManager.getSubscription(); } catch (_) {} }
+    const here = mine && d.subs.some((x) => x.endpoint === mine.endpoint);
+    const list = d.subs.length ? d.subs.map((x) => `<div class="push-dev"><span>${esc(x.label)}${mine && x.endpoint === mine.endpoint ? " <b>(dit toestel)</b>" : ""}
+        <span class="muted">· sinds ${esc(new Date(x.added).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }))}</span></span>
+        <button type="button" class="link" data-unsub="${esc(x.endpoint)}">Verwijder</button></div>`).join("")
+      : `<div class="muted">Nog geen toestel krijgt meldingen.</div>`;
+    let actions;
+    if (!pushSupported) {
+      actions = isIOS && !standalone
+        ? `<div class="muted">Op de iPhone: tik op Deel › <b>Zet op beginscherm</b>, open <b>PP Beheer</b> vanaf je beginscherm, log daar in en zet meldingen aan.</div>`
+        : `<div class="muted">Deze browser kan geen pushberichten ontvangen.</div>`;
+    } else if (here) {
+      actions = `<div class="push-actions"><button type="button" id="pushTest">Stuur test</button><button type="button" class="sec" id="pushOff">Uit op dit toestel</button></div>`;
+    } else {
+      actions = `<div class="push-actions"><button type="button" id="pushOn">Aan op dit toestel</button></div>
+        ${isIOS && !standalone ? `<div class="muted">Op de iPhone werkt dit alleen in de beginscherm-app (Deel › Zet op beginscherm).</div>` : ""}`;
+    }
+    box.innerHTML = `<div class="muted" style="margin-bottom:6px">Een melding bij elke nieuwe, vervangen of verwijderde kijkplek, en als er een nieuwe versie van ParkPilot live staat.</div>
+      ${list}${actions}${msg ? `<div class="${isError ? "error" : "muted"}" style="margin-top:8px">${esc(msg)}</div>` : ""}`;
+    box.querySelectorAll("[data-unsub]").forEach((b) => b.onclick = () => pushOff(b.dataset.unsub));
+    if ($("pushOn")) $("pushOn").onclick = () => pushOn(d.publicKey);
+    if ($("pushOff")) $("pushOff").onclick = () => pushOff(mine.endpoint, true);
+    if ($("pushTest")) $("pushTest").onclick = () => pushTest(mine.endpoint);
+  } catch (e) {
+    box.innerHTML = `<span class="error">${esc(e.message)}</span>`;
+  }
+}
+async function pushOn(publicKey) {
+  $("pushInfo").querySelector(".push-actions").innerHTML = "Vragen…";
+  try {
+    const perm = await Notification.requestPermission(); // direct vanuit de tik (iOS wil een gebaar)
+    if (perm !== "granted") throw new Error(perm === "denied"
+      ? "Meldingen zijn geblokkeerd voor deze app. Zet ze aan in Instellingen › Berichtgeving › PP Beheer."
+      : "Meldingen zijn niet toegestaan.");
+    const reg = await pushRegistration();
+    await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    // Een abonnement met een andere serversleutel werkt niet: opnieuw beginnen.
+    if (sub && sub.options?.applicationServerKey) {
+      const k = new Uint8Array(sub.options.applicationServerKey);
+      if (k.join() !== b64ToBytes(publicKey).join()) { await sub.unsubscribe(); sub = null; }
+    }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+    await api("push", { action: "subscribe", label: deviceLabel(), sub: sub.toJSON() });
+    await loadPush("Meldingen staan aan op dit toestel. Tik op Stuur test om het te controleren.");
+  } catch (e) {
+    await loadPush(e.message, true);
+  }
+}
+async function pushOff(endpoint, own = false) {
+  try {
+    if (own || (pushSupported && (await (await pushRegistration()).pushManager.getSubscription())?.endpoint === endpoint)) {
+      const sub = await (await pushRegistration()).pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    }
+    await api("push", { action: "unsubscribe", endpoint });
+    await loadPush("Verwijderd.");
+  } catch (e) {
+    await loadPush(e.message, true);
+  }
+}
+async function pushTest(endpoint) {
+  try {
+    const d = await api("push", { action: "test", endpoint });
+    const r = d.results?.[0];
+    await loadPush(!r ? "Dit toestel is niet meer aangemeld." : r.ok ? "Test verstuurd. Hij komt binnen een paar seconden."
+      : r.gone ? "De pushdienst kent dit abonnement niet meer; zet meldingen opnieuw aan." : `De pushdienst antwoordde ${r.status}: ${r.text || "geen details"}`, !r?.ok);
+  } catch (e) {
+    await loadPush(e.message, true);
+  }
+}
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.type === "push" && token) load();
+    if (e.data?.type === "open") { if (token) load().then(() => $("review")?.scrollIntoView()); }
+  });
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && token) load(); });
+
+// Start: onthouden wachtwoord gebruiken.
+try { token = localStorage.getItem(KEY) || sessionStorage.getItem(KEY) || ""; } catch (_) { token = ""; }
+if (token) load(); else setSession(false);
+</script>
+</body>
+</html>

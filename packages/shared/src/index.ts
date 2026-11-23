@@ -28,6 +28,8 @@ export interface EntityInfo {
   /** Alleen bij een kijkplek van een gebruiker: gps-nauwkeurigheid in meters en wanneer opgeslagen. */
   locationAccuracy?: number | null;
   locationUpdatedAt?: string | null;
+  /** Alleen bij een kijkplek van een gebruiker (sinds 0.23.0): door de beheerder bevestigd. Onbevestigd = wel al in gebruik. */
+  locationConfirmed?: boolean;
 }
 
 export interface EntitiesResponse {

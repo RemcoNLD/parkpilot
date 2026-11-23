@@ -35,6 +35,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  // /admin… is de beheer-app met een eigen service worker (admin-sw.js); niet bewaren, anders zou hij de app-schil ('/') overschrijven.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin')) return;
   event.respondWith(request.mode === 'navigate' ? networkFirst(request) : staleWhileRevalidate(request));
 });

@@ -1113,7 +1113,8 @@ async function showSpotMenu(entity: EntityInfo): Promise<void> {
   const closeWait = actionSheet(T.spotTitle(entity.name), T.locating, [{ label: T.cancel, kind: 'cancel', run: () => { cancelled = true; } }]);
   const waitSheet = [...document.querySelectorAll('.asheet-bg')].pop() ?? null;
   let pos: { lat: number; lng: number; accuracy: number | null };
-  try { pos = await getPrecisePosition(); }
+  const subEl = waitSheet?.querySelector('.asheet-title span') ?? null;
+  try { pos = await getPrecisePosition((acc) => { if (subEl) subEl.textContent = T.spotMeasuring(accText(acc)); }); }
   catch (err) {
     if (waitSheet && !waitSheet.isConnected) cancelled = true;
     closeWait();
@@ -1126,6 +1127,14 @@ async function showSpotMenu(entity: EntityInfo): Promise<void> {
   closeWait();
   if (cancelled) return;
   state.pos = { lat: pos.lat, lng: pos.lng }; state.loc = 'ok'; storePos();
+  // De server weigert boven ±50 m; meteen zeggen, met de keuze om opnieuw te meten.
+  if (pos.accuracy === null || pos.accuracy > SPOT_ACCURACY_MAX_M) {
+    actionSheet(T.spotTooWeakTitle, T.spotTooWeakBody(accText(pos.accuracy), SPOT_ACCURACY_MAX_M), [
+      { label: T.spotRetry, kind: 'primary', run: () => void showSpotMenu(entity) },
+      { label: T.cancel, kind: 'cancel' },
+    ]);
+    return;
+  }
   confirmSpot(entity, pos);
 }
 
@@ -1137,7 +1146,7 @@ function confirmSpot(entity: EntityInfo, pos: { lat: number; lng: number; accura
     const apart = Math.round(haversineMeters(cur.location, pos));
     const when = cur.locationUpdatedAt ? T.spotRecorded(agoLabel(cur.locationUpdatedAt)) : '';
     actionSheet(T.spotReplaceTitle(cur.name),
-      T.spotReplaceBody(accText(cur.locationAccuracy), when, accText(pos.accuracy), apart, weak), [
+      T.spotReplaceBody(accText(cur.locationAccuracy), when, accText(pos.accuracy), apart, weak) + T.spotReviewNote, [
         { label: T.spotReplaceBtn, kind: 'primary', run: () => void saveSpot(cur, pos, true) },
         { label: T.spotRemoveBtn, kind: 'danger', run: () => void removeSpot(cur) },
         { label: T.cancel, kind: 'cancel' },
@@ -1151,18 +1160,25 @@ function confirmSpot(entity: EntityInfo, pos: { lat: number; lng: number; accura
     ]);
 }
 
-function setEntityLocation(id: string, patch: Pick<EntityInfo, 'location' | 'locationSource' | 'locationAccuracy' | 'locationUpdatedAt'>): void {
+function setEntityLocation(id: string, patch: Pick<EntityInfo, 'location' | 'locationSource' | 'locationAccuracy' | 'locationUpdatedAt'> & { locationConfirmed?: boolean }): void {
   state.entities = state.entities.map((e) => (e.id === id ? { ...e, ...patch } : e));
   saveCache();
   render();
 }
 
-const SPOT_ACCURACY_WARN_M = 40;
+const SPOT_ACCURACY_WARN_M = 25;
+/** Zelfde grens als de server (LOC_MAX_ACCURACY_M in worker/src/locations.ts). */
+const SPOT_ACCURACY_MAX_M = 50;
 
 async function saveSpot(entity: EntityInfo, pos: { lat: number; lng: number; accuracy: number | null }, replace: boolean): Promise<void> {
   try {
-    await putShowLocation(state.parkId, entity.id, pos.lat, pos.lng, pos.accuracy, replace);
-    setEntityLocation(entity.id, { location: { lat: pos.lat, lng: pos.lng }, locationSource: 'user', locationAccuracy: pos.accuracy === null ? null : Math.round(pos.accuracy), locationUpdatedAt: new Date().toISOString() });
+    const res = await putShowLocation(state.parkId, entity.id, pos.lat, pos.lng, pos.accuracy, replace);
+    if (res.pending) {
+      // Vervangen van een bestaande plek: eerst de beheerder. De huidige plek blijft staan.
+      actionSheet(T.spotSent, T.spotSentBody(entity.name), [{ label: T.ok, kind: 'cancel' }]);
+      return;
+    }
+    setEntityLocation(entity.id, { location: { lat: pos.lat, lng: pos.lng }, locationSource: 'user', locationAccuracy: pos.accuracy === null ? null : Math.round(pos.accuracy), locationUpdatedAt: new Date().toISOString(), locationConfirmed: false });
     actionSheet(T.spotSaved, T.spotSavedBody(entity.name, accText(pos.accuracy)), [{ label: T.ok, kind: 'cancel' }]);
   } catch (err) {
     const code = err instanceof ApiError ? err.code : '';
@@ -1170,12 +1186,14 @@ async function saveSpot(entity: EntityInfo, pos: { lat: number; lng: number; acc
       // Iemand anders legde intussen een plek vast: die tonen en opnieuw om bevestiging vragen.
       const c = err.data?.current as Partial<EntityInfo> | undefined;
       if (c?.location) {
-        setEntityLocation(entity.id, { location: c.location, locationSource: 'user', locationAccuracy: c.locationAccuracy ?? null, locationUpdatedAt: c.locationUpdatedAt ?? null });
+        setEntityLocation(entity.id, { location: c.location, locationSource: 'user', locationAccuracy: c.locationAccuracy ?? null, locationUpdatedAt: c.locationUpdatedAt ?? null, locationConfirmed: c.locationConfirmed });
         confirmSpot(entity, pos);
         return;
       }
     }
     const msg = code === 'too_far_from_park' ? T.errTooFar
+      : code === 'outside_park' ? T.errOutsidePark
+      : code === 'low_accuracy' ? T.spotTooWeakBody(accText(pos.accuracy), SPOT_ACCURACY_MAX_M)
       : code === 'has_source_location' ? T.errHasSource
       : code === 'rate_limited' ? T.errRate
       : T.errSaveConn;
@@ -1185,7 +1203,11 @@ async function saveSpot(entity: EntityInfo, pos: { lat: number; lng: number; acc
 
 async function removeSpot(entity: EntityInfo): Promise<void> {
   try {
-    await deleteShowLocation(state.parkId, entity.id);
+    const res = await deleteShowLocation(state.parkId, entity.id);
+    if (res.pending) {
+      actionSheet(T.spotSent, T.spotRemoveSentBody(entity.name), [{ label: T.ok, kind: 'cancel' }]);
+      return;
+    }
     setEntityLocation(entity.id, { location: null, locationSource: null, locationAccuracy: null, locationUpdatedAt: null });
   } catch {
     actionSheet(T.notRemoved, T.errRemoveConn, [{ label: T.ok, kind: 'cancel' }]);
@@ -1764,7 +1786,7 @@ function openDetail(entity: EntityInfo, day?: { date: string; slots: ShowDayResp
     }
   }
   if (entity.type === 'show' && canSetSpot(entity)) {
-    addFact(T.fSpot, entity.location ? T.spotKnown(accText(entity.locationAccuracy), entity.locationUpdatedAt ? `, ${agoLabel(entity.locationUpdatedAt)}` : '') : T.spotUnknown);
+    addFact(T.fSpot, entity.location ? T.spotKnown(accText(entity.locationAccuracy), (entity.locationUpdatedAt ? `, ${agoLabel(entity.locationUpdatedAt)}` : '') + (entity.locationConfirmed === false ? T.spotUnconfirmed : '')) : T.spotUnknown);
   }
   const d = distanceOf(entity, state.pos);
   if (d !== null) addFact(T.fDistance, `${formatDistance(d)}, ${T.walkMin(walkMinutes(d, state.prefs.walkingSpeedKmh))}`);

@@ -8,6 +8,22 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.0',
+    date: '2026-11-23',
+    changes: [
+      'Kijkplek vastleggen: alleen in het park en met een nauwkeurige meting (±50 m of beter). De app meet tot 10 seconden en neemt de beste meting.',
+      'Een nieuwe kijkplek is meteen te gebruiken, maar de beheerder controleert hem nog ("nog niet gecontroleerd" in de details). Een bestaande plek vervangen of verwijderen gebeurt pas na akkoord.',
+    ],
+    en: [
+      'Saving a viewing spot: only inside the park and with an accurate reading (±50 m or better). The app measures for up to 10 seconds and keeps the best reading.',
+      'A new viewing spot can be used straight away, but the administrator still checks it ("not yet checked" in the details). Replacing or removing an existing spot only happens after approval.',
+    ],
+    pt: [
+      'Guardar um ponto de observação: só dentro do parque e com uma medição precisa (±50 m ou melhor). A app mede até 10 segundos e fica com a melhor medição.',
+      'Um ponto novo pode ser usado de imediato, mas o administrador ainda o verifica ("ainda não verificado" nos detalhes). Substituir ou remover um ponto existente só acontece depois da aprovação.',
+    ],
+  },
+  {
     version: '0.22.3',
     date: '2026-11-23',
     changes: ['Regel onder de naam korter: "@24 min geleden" = wanneer de wachttijd veranderde. Kan niet meer recenter zijn dan de bron; lange tijden in dagen.'],

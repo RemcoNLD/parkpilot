@@ -1,0 +1,15 @@
+{
+  "name": "ParkPilot Beheer",
+  "short_name": "PP Beheer",
+  "description": "Kijkplekken controleren en meldingen voor ParkPilot.",
+  "id": "parkpilot-admin",
+  "start_url": "/admin.html",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#1d2429",
+  "theme_color": "#1d2429",
+  "icons": [
+    { "src": "/admin-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/admin-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

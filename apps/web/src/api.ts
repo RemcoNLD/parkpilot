@@ -106,9 +106,9 @@ export const saveTracking = (mode: TrackingMode) =>
 
 /** Kijkplek van een show opslaan of verwijderen (gedeeld met alle gebruikers). */
 export const putShowLocation = (parkId: string, entityId: string, lat: number, lng: number, accuracy: number | null, replace: boolean) =>
-  request<Partial<EntityInfo>>(`/api/locations/${parkId}/${entityId}`, { method: 'PUT', body: JSON.stringify({ lat, lng, accuracy, replace }) });
+  request<Partial<EntityInfo> & { pending?: boolean }>(`/api/locations/${parkId}/${entityId}`, { method: 'PUT', body: JSON.stringify({ lat, lng, accuracy, replace }) });
 export const deleteShowLocation = (parkId: string, entityId: string) =>
-  request(`/api/locations/${parkId}/${entityId}`, { method: 'DELETE' });
+  request<{ ok: boolean; pending?: boolean }>(`/api/locations/${parkId}/${entityId}`, { method: 'DELETE' });
 
 /** Spelletje: hiscores lezen (publiek) en een score insturen (profiel nodig). */
 export const fetchGameScores = (game: GameId) => request<GameScoresResponse>(`/api/game/${game}/scores`, { cache: 'no-store' }, false);

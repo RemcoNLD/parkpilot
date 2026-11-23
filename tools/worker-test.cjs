@@ -47,6 +47,8 @@ const iso = (ms) => new Date(ms).toISOString();
 
 const fake = {
   calls: [],
+  push: [],
+  pushGone: false,
   wait: 25,
   srcAge: 120000, // ouderdom van lastUpdated in de bron (ms)
   parkOpen: true,
@@ -57,8 +59,12 @@ function respond(body) {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json', age: '60' } });
 }
 
-globalThis.fetch = async (input) => {
+globalThis.fetch = async (input, init) => {
   const url = String(input instanceof Request ? input.url : input);
+  if (url.startsWith('https://push.test/')) {
+    fake.push.push({ url, auth: init.headers.Authorization, enc: init.headers['Content-Encoding'], size: init.body.length });
+    return new Response('', { status: fake.pushGone ? 410 : 201 });
+  }
   fake.calls.push(url);
   const p = url.replace('https://api.themeparks.wiki/v1', '');
   if (p === '/destinations') {
@@ -351,30 +357,111 @@ const tokenOf = (d) => `${d.deviceId}.${d.token}`;
     eq((await call('GET', 'parks/dlp-studios/shows?date=gisteren')).status, 400, 'onzin');
   });
 
-  await test('kijkplek: show zonder locatie opslaan, iedereen ziet hem', async () => {
-    eq((await call('PUT', 'locations/dlp-studios/S1', { body: { lat: 48.8685, lng: 2.7801 } })).status, 401, 'zonder profiel');
+  const adm = 'test-wachtwoord';
+  const subRows = () => env.DB.raw.prepare('SELECT kind, status, profile_id FROM location_submissions ORDER BY id').all().map((r) => ({ ...r }));
+  await test('kijkplek: nieuwe plek meteen in gebruik, onbevestigd, en naar de beheerder', async () => {
+    eq((await call('PUT', 'locations/dlp-studios/S1', { body: { lat: 48.8685, lng: 2.7801, accuracy: 10 } })).status, 401, 'zonder profiel');
     const r = await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 48.8685, lng: 2.7801, accuracy: 12.4 } });
-    eq(r.status, 200, 'opslaan');
+    eq([r.status, r.data.pending, r.data.locationConfirmed], [200, false, false], 'opslaan');
     const s1 = (await call('GET', 'parks/dlp-studios/entities')).data.entities.find((e) => e.id === 'S1');
-    eq([s1.location, s1.locationSource, s1.locationAccuracy], [{ lat: 48.8685, lng: 2.7801 }, 'user', 12], 'zichtbaar zonder profiel, met nauwkeurigheid');
+    eq([s1.location, s1.locationSource, s1.locationAccuracy, s1.locationConfirmed], [{ lat: 48.8685, lng: 2.7801 }, 'user', 12, false], 'zichtbaar zonder profiel, onbevestigd');
+    eq(subRows().map((x) => [x.kind, x.status]), [['new', 'pending']], 'inzending klaar voor de beheerder');
   });
-  await test('kijkplek: ander profiel mag bijwerken en verwijderen', async () => {
-    const r = await call('PUT', 'locations/dlp-studios/S1', { token: tokB, body: { lat: 48.869, lng: 2.781 } });
-    eq([r.status, r.data.error, r.data.current.locationAccuracy], [409, 'location_exists', 12], 'zonder bevestiging geweigerd');
-    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokB, body: { lat: 48.869, lng: 2.781, accuracy: 8, replace: true } })).status, 200, 'met bevestiging vervangen');
-    eq(env.DB.raw.prepare('SELECT lat, accuracy_m FROM user_locations').get(), { lat: 48.869, accuracy_m: 8 }, 'nieuwe plek');
-    eq(count('user_locations'), 1, 'één plek per show');
-    eq((await call('DELETE', 'locations/dlp-studios/S1', { token: tokB })).status, 200, 'verwijderen');
+  await test('kijkplek: eigen onbevestigde plek zelf aanpassen, die van een ander pas na akkoord', async () => {
+    let r = await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 48.8686, lng: 2.7802, accuracy: 9, replace: true } });
+    eq([r.status, r.data.pending], [200, false], 'eigen plek meteen aangepast');
+    eq(subRows().map((x) => x.status), ['superseded', 'pending'], 'oude inzending vervallen');
+    r = await call('PUT', 'locations/dlp-studios/S1', { token: tokB, body: { lat: 48.869, lng: 2.781, accuracy: 8 } });
+    eq([r.status, r.data.error, r.data.current.locationAccuracy], [409, 'location_exists', 9], 'zonder bevestiging geweigerd');
+    r = await call('PUT', 'locations/dlp-studios/S1', { token: tokB, body: { lat: 48.869, lng: 2.781, accuracy: 8, replace: true } });
+    eq([r.status, r.data.pending], [200, true], 'voorstel van een ander wacht');
+    eq(env.DB.raw.prepare('SELECT lat, accuracy_m FROM user_locations').get(), { lat: 48.8686, accuracy_m: 9 }, 'huidige plek blijft');
+    eq((await call('DELETE', 'locations/dlp-studios/S1', { token: tokB })).data.pending, true, 'verwijderen van een ander wacht ook');
+    eq(count('user_locations'), 1, 'plek staat er nog');
+    eq(subRows().map((x) => [x.kind, x.status]), [['new', 'superseded'], ['new', 'pending'], ['replace', 'superseded'], ['delete', 'pending']], 'eigen vorige voorstel vervalt');
+  });
+  await test('kijkplek: geweigerd voor attractie, bronlocatie, buiten het park, onnauwkeurig, onzin', async () => {
+    eq((await call('PUT', 'locations/dlp-studios/A1', { token: tokA, body: { lat: 48.8685, lng: 2.7801, accuracy: 5 } })).status, 409, 'attractie');
+    eq((await call('PUT', 'locations/dlp-studios/A2', { token: tokA, body: { lat: 48.8685, lng: 2.7801, accuracy: 5 } })).status, 409, 'bronlocatie');
+    eq((await call('PUT', 'locations/dlp-disneyland/S1', { token: tokA, body: { lat: 52.37, lng: 4.89, accuracy: 5 } })).data.error, 'outside_park', 'Amsterdam');
+    eq((await call('PUT', 'locations/dlp-disneyland/S1', { token: tokA, body: { lat: 48.8722, lng: 2.7758, accuracy: 51 } })).data.error, 'low_accuracy', 'te onnauwkeurig');
+    eq((await call('PUT', 'locations/dlp-disneyland/S1', { token: tokA, body: { lat: 48.8722, lng: 2.7758 } })).data.error, 'low_accuracy', 'zonder nauwkeurigheid');
+    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 'x', replace: true } })).status, 400, 'onzin');
+    eq((await call('PUT', 'locations/dlp-studios/ZZ', { token: tokA, body: { lat: 48.8685, lng: 2.7801, accuracy: 5 } })).status, 404, 'onbekend');
+    eq(count('user_locations'), 1, 'niets bij opgeslagen');
+  });
+  await test('park-omhulling: echte bronlocaties Adventure World', async () => {
+    const { outsideParkM } = require(path.join(BUILD, 'worker/src/locations.js'));
+    const { findPark } = require(path.join(BUILD, 'worker/src/parks.js'));
+    // Bronlocaties zoals de live-API ze op 23 nov 2026 gaf (een deel).
+    const pts = [[48.86872, 2.781826], [48.86742740189942, 2.7783317864486885], [48.86544789048844, 2.7794149518013], [48.867726, 2.777854],
+      [48.86651889190989, 2.775024175643921], [48.868041, 2.778142], [48.865138230945824, 2.7749919891357426], [48.864108, 2.773508],
+      [48.86530644137726, 2.7792593836784363], [48.868288, 2.778352], [48.86815769739524, 2.7791735529899597], [48.866153, 2.77663],
+      [48.86757046243673, 2.7762224525213237], [48.866903, 2.776651], [48.86611484299536, 2.779369354248047]];
+    const ents = pts.map(([lat, lng], i) => ({ id: `E${i}`, type: 'attraction', name: `E${i}`, location: { lat, lng }, locationSource: 'source' }));
+    const park = findPark('dlp-studios');
+    eq(outsideParkM(park, ents, { lat: 48.866, lng: 2.777 }), 0, 'midden in het park');
+    eq(outsideParkM(park, ents, { lat: 48.865415078285494, lng: 2.7748876438272627 }) <= 150, true, 'bestaande kijkplek Goofy');
+    eq(outsideParkM(park, ents, { lat: 48.86453818673863, lng: 2.774071739944437 }) <= 150, true, 'bestaande kijkplek Elsa en Anna');
+    eq(outsideParkM(park, ents, { lat: 48.8730, lng: 2.7763 }) > 150, true, 'kasteel Disneyland Park telt niet');
+    eq(outsideParkM(park, ents, { lat: 48.8697, lng: 2.7860 }) > 150, true, 'Disney Village telt niet');
+  });
+  await test('beheer: zonder of met verkeerd wachtwoord geweigerd, daarna begrensd', async () => {
+    eq((await call('GET', 'admin/review')).status, 401, 'zonder');
+    eq((await call('GET', 'admin/review', { token: 'fout' })).status, 401, 'fout (ingebouwde hash)');
+    for (let i = 0; i < 10; i++) await call('GET', 'admin/review', { token: 'fout', ip: '10.9.9.9' });
+    eq((await call('GET', 'admin/review', { token: 'fout', ip: '10.9.9.9' })).status, 429, 'na 10 pogingen begrensd');
+    env.ADMIN_PASSWORD = adm;
+    eq((await call('GET', 'admin/review', { token: adm, ip: '10.9.9.9' })).status, 429, 'ook met goed wachtwoord even dicht');
+    eq((await call('GET', 'admin/review', { token: adm.toUpperCase() })).status, 200, 'goed wachtwoord, hoofdletters maken niet uit');
+  });
+  await test('beheer: lijst te controleren, akkoord en afwijzen', async () => {
+    const d = (await call('GET', 'admin/review', { token: adm })).data;
+    eq(d.pending.map((x) => [x.kind, x.name]), [['delete', 'Grote Show'], ['new', 'Grote Show']], 'nieuwste eerst, met naam');
+    const nw = d.pending.find((x) => x.kind === 'new'), del = d.pending.find((x) => x.kind === 'delete');
+    eq([nw.current.confirmed, nw.who.submissions, nw.nearby[0].name], [false, 2, 'Zebra Ride'], 'met huidige plek, wie en omgeving');
+    eq((await call('POST', `admin/review/${del.id}`, { token: adm, body: { action: 'reject' } })).status, 200, 'verwijderen afgewezen');
+    eq(count('user_locations'), 1, 'plek blijft');
+    eq((await call('POST', `admin/review/${nw.id}`, { token: adm, body: { action: 'approve' } })).status, 200, 'nieuw akkoord');
+    eq(env.DB.raw.prepare('SELECT confirmed FROM user_locations').get().confirmed, 1, 'bevestigd');
+    eq((await call('POST', `admin/review/${nw.id}`, { token: adm, body: { action: 'approve' } })).status, 409, 'niet twee keer');
+    // Vervangen na akkoord, ook door de oorspronkelijke inzender (de plek is nu bevestigd).
+    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 48.8687, lng: 2.7803, accuracy: 6, replace: true } })).data.pending, true, 'bevestigde plek: ook eigen voorstel wacht');
+    const rep = (await call('GET', 'admin/review', { token: adm })).data.pending[0];
+    eq([rep.kind, rep.dist > 0, rep.prev.lat], ['replace', true, 48.8686], 'voorstel met afstand en vorige plek');
+    await call('POST', `admin/review/${rep.id}`, { token: adm, body: { action: 'approve' } });
+    eq(env.DB.raw.prepare('SELECT lat, confirmed FROM user_locations').get(), { lat: 48.8687, confirmed: 1 }, 'vervangen en bevestigd');
     const s1 = (await call('GET', 'parks/dlp-studios/entities')).data.entities.find((e) => e.id === 'S1');
-    eq([s1.location, s1.locationSource], [null, null], 'weer zonder locatie');
+    eq(s1.locationConfirmed, true, 'app ziet bevestigd');
+    // Nieuwe plek afwijzen = weer weg.
+    await call('PUT', 'locations/dlp-disneyland/S1', { token: tokB, body: { lat: 48.8722, lng: 2.7758, accuracy: 7 } });
+    const nw2 = (await call('GET', 'admin/review', { token: adm })).data.pending.find((x) => x.parkId === 'dlp-disneyland');
+    await call('POST', `admin/review/${nw2.id}`, { token: adm, body: { action: 'reject' } });
+    eq(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM user_locations WHERE park_id = 'dlp-disneyland'").get().n, 0, 'afgewezen nieuwe plek weg');
+    eq((await call('GET', 'admin/review', { token: adm })).data.recent.length, 4, 'laatst beslist');
   });
-  await test('kijkplek: geweigerd voor attractie, bronlocatie, ver weg, onzin', async () => {
-    eq((await call('PUT', 'locations/dlp-studios/A1', { token: tokA, body: { lat: 48.8685, lng: 2.7801 } })).status, 409, 'attractie');
-    eq((await call('PUT', 'locations/dlp-studios/A2', { token: tokA, body: { lat: 48.8685, lng: 2.7801 } })).status, 409, 'bronlocatie');
-    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 52.37, lng: 4.89 } })).status, 400, 'Amsterdam');
-    eq((await call('PUT', 'locations/dlp-studios/S1', { token: tokA, body: { lat: 'x' } })).status, 400, 'onzin');
-    eq((await call('PUT', 'locations/dlp-studios/ZZ', { token: tokA, body: { lat: 48.8685, lng: 2.7801 } })).status, 404, 'onbekend');
-    eq(count('user_locations'), 0, 'niets opgeslagen');
+  await test('beheer: pushberichten aanmelden, test, nieuwe inzending en nieuwe versie', async () => {
+    let d = (await call('GET', 'admin/push', { token: adm })).data;
+    eq([typeof d.publicKey, d.publicKey.length > 80, d.subs.length], ['string', true, 0], 'sleutel gemaakt, nog geen toestel');
+    // Een echt P-256-sleutelpaar voor het "toestel", zodat het versleutelen echt draait.
+    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    const raw = Buffer.from(await crypto.subtle.exportKey('raw', kp.publicKey)).toString('base64url');
+    const sub = { endpoint: 'https://push.test/abc', keys: { p256dh: raw, auth: Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url') } };
+    eq((await call('POST', 'admin/push', { token: adm, body: { action: 'subscribe', label: 'iPhone · beginscherm-app', sub } })).data.subs.length, 1, 'aangemeld');
+    fake.push = [];
+    d = (await call('POST', 'admin/push', { token: adm, body: { action: 'test' } })).data;
+    eq([d.ok, fake.push.length, /^vapid t=.+, k=/.test(fake.push[0].auth), fake.push[0].enc], [true, 1, true, 'aes128gcm'], 'test verstuurd');
+    await call('PUT', 'locations/dlp-disneyland/S1', { token: tokB, body: { lat: 48.8722, lng: 2.7758, accuracy: 7 } });
+    eq(fake.push.length, 2, 'bericht bij nieuwe inzending');
+    env.DB.raw.prepare("INSERT INTO app_settings (key, value) VALUES ('notified_version', '0.0.1') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+    await cron();
+    eq(fake.push.length, 3, 'bericht bij nieuwe versie');
+    await cron();
+    eq(fake.push.length, 3, 'maar één keer');
+    fake.pushGone = true;
+    await call('POST', 'admin/push', { token: adm, body: { action: 'test' } });
+    eq(count('admin_push_subs'), 0, 'verdwenen abonnement opgeruimd');
+    fake.pushGone = false;
   });
 
   await test('spel: score insturen, alleen de beste per naam, lijst voor iedereen', async () => {

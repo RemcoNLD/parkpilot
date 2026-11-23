@@ -45,14 +45,43 @@ export function getPosition(): Promise<LatLng> {
 }
 
 /** Verse, zo nauwkeurig mogelijke positie (geen bewaarde waarde), met nauwkeurigheid in meters. Voor het opslaan van een kijkplek. */
-export function getPrecisePosition(): Promise<LatLng & { accuracy: number | null }> {
+/**
+ * Verse, zo nauwkeurig mogelijke meting (kijkplekken). Meet tot `maxMs` lang en houdt de beste meting; stopt eerder
+ * zodra de nauwkeurigheid `goodM` of beter is. Een iPhone begint vaak op ±65 m en zakt in een paar seconden naar ±10 m.
+ * `onProgress` krijgt elke betere meting, voor een lopende "±N m" op het scherm.
+ */
+export function getPrecisePosition(onProgress?: (accuracy: number | null) => void, maxMs = 10_000, goodM = 12): Promise<LatLng & { accuracy: number | null }> {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) return reject(new GeoError('unsupported'));
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Number.isFinite(p.coords.accuracy) ? p.coords.accuracy : null }),
-      (e) => reject(new GeoError(e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable')),
+    let best: (LatLng & { accuracy: number | null }) | null = null;
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(id);
+      clearTimeout(timer);
+      if (best) resolve(best); else reject(new GeoError('timeout'));
+    };
+    const id = navigator.geolocation.watchPosition(
+      (p) => {
+        const acc = Number.isFinite(p.coords.accuracy) ? p.coords.accuracy : null;
+        if (!best || (acc !== null && (best.accuracy === null || acc < best.accuracy))) {
+          best = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: acc };
+          onProgress?.(acc);
+        }
+        if (acc !== null && acc <= goodM) finish();
+      },
+      (e) => {
+        if (best) return finish();
+        done = true;
+        navigator.geolocation.clearWatch(id);
+        clearTimeout(timer);
+        reject(new GeoError(e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable'));
+      },
       { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
     );
+    // Zonder enige meting na maxMs nog even doorwachten (tot de time-out van 20 s hierboven); met een meting stoppen.
+    const timer = setTimeout(() => { if (best) finish(); else setTimeout(finish, 10_000); }, maxMs);
   });
 }
 

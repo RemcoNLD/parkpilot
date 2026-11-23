@@ -3,6 +3,8 @@ import { nowSec, randomHex, sha256Hex, timingSafeEqual } from './util';
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  /** Optioneel Worker-geheim: vervangt het ingebouwde beheerderswachtwoord (zie admin.ts). */
+  ADMIN_PASSWORD?: string;
 }
 
 export interface AuthContext {
