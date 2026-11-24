@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.2',
+    date: '2026-11-24',
+    changes: ['Help en rondleiding: grijze lijn in de grafiek blijft op de laatst bekende wachttijd; grijs onderin op 0 = dicht of onderhoud.'],
+    en: ['Help and tour: a grey line in the chart stays at the last known wait time; grey at the bottom (0) = closed or maintenance.'],
+    pt: ['Ajuda e visita guiada: a linha cinzenta no gráfico fica no último tempo de espera conhecido; cinzento em baixo (0) = fechada ou em manutenção.'],
+  },
+  {
     version: '0.23.1',
     date: '2026-11-23',
     changes: ['Beheer: kaart van OpenStreetMap bij elke kijkplek die gecontroleerd moet worden, en het versienummer altijd in beeld.'],
