@@ -8,6 +8,13 @@ export interface ChangelogEntry { version: string; date?: string; changes: strin
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.3',
+    date: '2026-11-25',
+    changes: ['Grafiek: heel dunne verticale lijntjes op 9, 12, 15, 18 en 21 uur.'],
+    en: ['Chart: very thin vertical lines at 9, 12, 15, 18 and 21 h.'],
+    pt: ['Gráfico: linhas verticais muito finas às 9, 12, 15, 18 e 21 h.'],
+  },
+  {
     version: '0.23.2',
     date: '2026-11-24',
     changes: ['Help en rondleiding: grijze lijn in de grafiek blijft op de laatst bekende wachttijd; grijs onderin op 0 = dicht of onderhoud.'],

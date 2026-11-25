@@ -1656,6 +1656,18 @@ function todayHours(): { from: number; to: number } | null {
   return { from: Math.min(...list.map((w) => w.from)), to: Math.max(...list.map((w) => w.to)) };
 }
 
+const HOUR_MARKS = [9, 12, 15, 18, 21];
+/** Tijdstippen (ms) van de hele uren 9, 12, 15, 18 en 21 in de parktijdzone, strikt tussen `from` en `to`. */
+function hourMarks(from: number, to: number): number[] {
+  const fmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: tz() });
+  const out: number[] = [];
+  // Tijdzones van de parken wijken een heel aantal uren af van UTC, dus hele UTC-uren zijn ook hele lokale uren.
+  for (let t = Math.ceil(from / 3600000) * 3600000; t < to && out.length < 48; t += 3600000) {
+    if (t > from && HOUR_MARKS.includes(Number(fmt.format(t)))) out.push(t);
+  }
+  return out;
+}
+
 /**
  * Dagverloop van opening tot sluiting. De stippellijn (zelfde weekdag vorige weken) loopt door de hele grafiek;
  * het verloop van vandaag vult zich van links tot nu. Geen hulplijnen. Schaal op de stippellijn, hoger als vandaag
@@ -1687,6 +1699,11 @@ function sparkline(data: HistoryResponse, now: number, ref?: WeekRefResponse): N
   const x = (t: number): number => PAD + ((t - from) / Math.max(1, to - from)) * (W - 2 * PAD);
   const y = (v: number): number => H - PAD - (v / max) * (H - 2 * PAD);
   const shapes: SVGElement[] = [];
+  // Heel dunne verticale lijntjes op 9, 12, 15, 18 en 21 uur (parktijd), achter al het andere (sinds 0.23.3).
+  for (const t of hourMarks(from, to)) {
+    const xm = x(t).toFixed(1);
+    shapes.push(svg('path', { class: 'hour-mark', d: `M${xm} 0V${H}`, stroke: 'var(--muted)', 'stroke-opacity': 0.3, 'stroke-width': 0.75, 'vector-effect': 'non-scaling-stroke', fill: 'none' }));
+  }
   // Storingen: lichtrode zone over de hele hoogte en een gestippelde rode lijn onderin voor de duur.
   const outages: { from: number; to: number }[] = [];
   rows.forEach((r, i) => {
